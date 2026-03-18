@@ -112,8 +112,8 @@
 }
 
 .summary-icon {
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 56px;
   border-radius: 14px;
   display: flex;
   align-items: center;
@@ -121,6 +121,13 @@
   flex-shrink: 0;
   box-shadow: 0 8px 16px -4px rgba(0,0,0,0.1);
   overflow: hidden;
+}
+
+.summary-icon svg {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
 }
 
 .activity-icon {
