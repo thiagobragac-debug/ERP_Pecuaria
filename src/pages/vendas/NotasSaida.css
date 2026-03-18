@@ -13,14 +13,7 @@
   gap: var(--space-sm);
 }
 
-.icon-badge {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+/* Global .icon-badge from index.css will be used */
 
 .icon-badge.indigo { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; }
 

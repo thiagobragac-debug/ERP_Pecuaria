@@ -107,7 +107,7 @@ export const TeamManagement = () => {
     <div className="team-container">
       <header className="page-header">
         <div className="header-title">
-          <div className="header-icon">
+          <div className="icon-badge indigo">
             <Users size={32} strokeWidth={3} />
           </div>
           <div>
@@ -129,7 +129,7 @@ export const TeamManagement = () => {
       <div className="members-stats">
         <div className="stat-card total">
           <div className="stat-icon">
-            <Users size={28} strokeWidth={3} />
+            <Users size={32} strokeWidth={3} />
           </div>
           <div className="stat-info">
             <span className="stat-label">Membros Ativos</span>
@@ -139,7 +139,7 @@ export const TeamManagement = () => {
         
         <div className="stat-card admins">
           <div className="stat-icon">
-            <ShieldCheck size={28} strokeWidth={3} />
+            <ShieldCheck size={32} strokeWidth={3} />
           </div>
           <div className="stat-info">
             <span className="stat-label">Gestores / Admin</span>
@@ -151,7 +151,7 @@ export const TeamManagement = () => {
 
         <div className="stat-card pending">
           <div className="stat-icon">
-            <Clock size={28} strokeWidth={3} />
+            <Clock size={32} strokeWidth={3} />
           </div>
           <div className="stat-info">
             <span className="stat-label">Convites Pendentes</span>

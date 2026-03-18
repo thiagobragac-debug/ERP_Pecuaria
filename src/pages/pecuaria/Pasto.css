@@ -21,19 +21,11 @@
   gap: var(--space-md);
 }
 
-.icon-badge {
-  width: 64px;
-  height: 64px;
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: var(--shadow-md);
-}
+/* Global .icon-badge from index.css will be used */
 
-.icon-badge.emerald-theme { 
-  background: linear-gradient(135deg, var(--success), #059669); 
-  color: white; 
+.icon-badge.emerald-theme {
+  background: linear-gradient(135deg, var(--success), #059669);
+  color: white;
 }
 
 .title-section h1 {

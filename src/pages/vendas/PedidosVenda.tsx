@@ -154,7 +154,7 @@ export const PedidosVenda: React.FC = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">
-            <TrendingUp size={40} strokeWidth={3} />
+            <TrendingUp size={32} strokeWidth={3} />
           </div>
           <div>
             <h1>Pedidos de Venda</h1>

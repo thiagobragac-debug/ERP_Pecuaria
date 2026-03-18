@@ -26,7 +26,7 @@ export const Compra = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge secondary">
-            <ShoppingCart size={24} />
+            <ShoppingCart size={32} strokeWidth={3} />
           </div>
           <div>
             <h1>Compra & Cotação</h1>
@@ -43,7 +43,7 @@ export const Compra = () => {
             <span className="summary-subtext">Aguardando aprovação</span>
           </div>
           <div className="summary-icon blue">
-            <ShoppingCart size={24} />
+            <ShoppingCart size={32} strokeWidth={3} />
           </div>
         </div>
         <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
@@ -53,7 +53,7 @@ export const Compra = () => {
             <span className="summary-subtext">Em negociação</span>
           </div>
           <div className="summary-icon primary">
-            <TrendingUp size={24} />
+            <TrendingUp size={32} strokeWidth={3} />
           </div>
         </div>
         <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
@@ -63,7 +63,7 @@ export const Compra = () => {
             <span className="summary-subtext">Volume de suprimentos</span>
           </div>
           <div className="summary-icon orange">
-            <CreditCard size={24} />
+            <CreditCard size={32} strokeWidth={3} />
           </div>
         </div>
       </div>
@@ -71,7 +71,7 @@ export const Compra = () => {
       <div className="submodule-menu-grid">
         <Link to="/compras/fornecedores" className="submodule-card card glass hover-effect animate-slide-up" style={{ animationDelay: '0.4s' }}>
           <div className="submodule-icon blue">
-            <Truck size={28} />
+            <Truck size={32} strokeWidth={3} />
           </div>
           <div className="submodule-info">
             <h3>Fornecedores</h3>
@@ -82,7 +82,7 @@ export const Compra = () => {
 
         <Link to="/compras/solicitacoes" className="submodule-card card glass hover-effect animate-slide-up" style={{ animationDelay: '0.5s' }}>
           <div className="submodule-icon purple">
-            <FileText size={28} />
+            <FileText size={32} strokeWidth={3} />
           </div>
           <div className="submodule-info">
             <h3>Solicitação</h3>
@@ -93,7 +93,7 @@ export const Compra = () => {
 
         <Link to="/compras/cotacoes" className="submodule-card card glass hover-effect animate-slide-up" style={{ animationDelay: '0.6s' }}>
           <div className="submodule-icon orange">
-            <TrendingUp size={28} />
+            <TrendingUp size={32} strokeWidth={3} />
           </div>
           <div className="submodule-info">
             <h3>Mapa de Cotação</h3>
@@ -104,7 +104,7 @@ export const Compra = () => {
 
         <Link to="/compras/pedidos" className="submodule-card card glass hover-effect animate-slide-up" style={{ animationDelay: '0.7s' }}>
           <div className="submodule-icon purple">
-            <Package size={28} />
+            <Package size={32} strokeWidth={3} />
           </div>
           <div className="submodule-info">
             <h3>Pedidos de Compra</h3>
@@ -115,7 +115,7 @@ export const Compra = () => {
 
         <Link to="/compras/notas-entrada" className="submodule-card card glass hover-effect animate-slide-up" style={{ animationDelay: '0.8s' }}>
           <div className="submodule-icon blue">
-            <FileText size={28} />
+            <FileText size={32} strokeWidth={3} />
           </div>
           <div className="submodule-info">
             <h3>Notas de Entrada</h3>

@@ -40,7 +40,7 @@ export const Estoque = () => {
                 <span className="summary-subtext">Inventário atualizado</span>
               </div>
               <div className="summary-icon blue">
-                <Package size={24} strokeWidth={3} />
+                <Package size={32} strokeWidth={3} />
               </div>
             </div>
             <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
@@ -52,7 +52,7 @@ export const Estoque = () => {
                 </span>
               </div>
               <div className="summary-icon red">
-                <TrendingDown size={24} strokeWidth={3} />
+                <TrendingDown size={32} strokeWidth={3} />
               </div>
             </div>
             <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
@@ -62,7 +62,7 @@ export const Estoque = () => {
                 <span className="summary-subtext">Saídas vs Entradas</span>
                 </div>
                 <div className="summary-icon blue">
-                <ArrowLeftRight size={24} />
+                <ArrowLeftRight size={32} strokeWidth={3} />
                 </div>
             </div>
           </div>

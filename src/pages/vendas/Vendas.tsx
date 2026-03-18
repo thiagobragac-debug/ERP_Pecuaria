@@ -20,7 +20,7 @@ export const Vendas = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">
-            <TrendingUp size={24} />
+            <TrendingUp size={32} strokeWidth={3} />
           </div>
           <div>
             <h1>Venda & CRM</h1>
@@ -37,7 +37,7 @@ export const Vendas = () => {
             <span className="summary-subtext">12% acima da meta</span>
           </div>
           <div className="summary-icon green">
-            <BarChart3 size={24} />
+            <BarChart3 size={32} strokeWidth={3} />
           </div>
         </div>
         <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
@@ -47,7 +47,7 @@ export const Vendas = () => {
             <span className="summary-subtext">Últimos 30 dias</span>
           </div>
           <div className="summary-icon blue">
-            <Users size={24} />
+            <Users size={32} strokeWidth={3} />
           </div>
         </div>
         <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
@@ -57,7 +57,7 @@ export const Vendas = () => {
             <span className="summary-subtext">No funil de vendas</span>
           </div>
           <div className="summary-icon orange">
-            <Target size={24} />
+            <Target size={32} strokeWidth={3} />
           </div>
         </div>
       </div>
