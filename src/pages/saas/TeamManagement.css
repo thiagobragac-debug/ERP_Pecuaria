@@ -1,0 +1,311 @@
+/* Team Management - Light Ultra-Premium Emerald Identity */
+
+.team-container {
+  display: flex;
+  flex-direction: column;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.team-container .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-card);
+  padding: var(--space-md) var(--space-xl);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-premium);
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.header-title .header-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--bg-emerald-subtle);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.header-title h1 {
+  font-size: 1.35rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: #1e293b;
+  margin: 0;
+}
+
+.add-member-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.75rem;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
+}
+
+.add-member-btn:hover {
+  transform: translateY(-4px);
+  background: #059669;
+  box-shadow: 0 15px 30px rgba(16, 185, 129, 0.3);
+}
+
+/* Stats Cards */
+.members-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 0.75rem;
+}
+
+.stat-card {
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border-radius: 28px;
+  border: 1px solid #f1f5f9;
+  background: white;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.01);
+}
+
+.stat-card:hover {
+  transform: translateY(-8px);
+  border-color: rgba(16, 185, 129, 0.3);
+  box-shadow: 0 20px 40px rgba(16, 185, 129, 0.08);
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--bg-emerald-subtle);
+  color: var(--primary);
+  border: 1px solid var(--border-subtle);
+}
+
+.stat-card:hover .stat-icon {
+  transform: scale(1.1) rotate(5deg);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: #64748b;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.stat-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--slate-900);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* Table Section */
+.members-table-wrapper {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-premium);
+  overflow: hidden;
+}
+
+.table-controls {
+  padding: 24px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1.5px solid #f8fafc;
+  background: #fcfdfe;
+}
+
+.table-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f8fafc;
+  padding: 0.75rem 1.25rem;
+  border-radius: 14px;
+  border: 1.5px solid #f1f5f9;
+  width: 350px;
+  transition: all 0.3s;
+}
+
+.table-search:focus-within {
+  width: 400px;
+  border-color: #10b981;
+  background: white;
+}
+
+.table-search input {
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+  width: 100%;
+}
+
+.filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: white;
+  border: 1.5px solid #f1f5f9;
+  border-radius: 12px;
+  color: #64748b;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  background: #f0fdf4;
+  color: #10b981;
+  border-color: #10b981;
+}
+
+.members-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.members-table th {
+  padding: 0.6rem 1rem;
+  background: var(--slate-50);
+  color: var(--slate-500);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--slate-200);
+}
+
+.members-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--slate-100);
+  color: var(--slate-700);
+  font-weight: 500;
+}
+
+.members-table tr:hover td {
+  background: #f0fdf4;
+}
+
+.member-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.member-avatar {
+  width: 40px;
+  height: 40px;
+  background: var(--bg-emerald-subtle);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary);
+  font-weight: 700;
+  overflow: hidden;
+}
+
+.member-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.member-full-name {
+  font-weight: 850;
+  color: #1e293b;
+  font-size: 1.1rem;
+}
+
+.member-email {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.role-badge.owner { background: #fffbeb; color: #92400e; }
+.role-badge.admin { background: #eff6ff; color: #1e40af; }
+.role-badge.member { background: #f0fdf4; color: #166534; }
+.role-badge.viewer { background: #f1f5f9; color: #475569; }
+
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  background: #f0fdf4;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 850;
+  color: #166534;
+  border: 1px solid #dcfce7;
+}
+
+.action-btn-row {
+  background: white;
+  border: 1.5px solid #f1f5f9;
+  color: #64748b;
+  padding: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn-row:hover {
+  background: #f0fdf4;
+  color: #10b981;
+  border-color: #10b981;
+}
+
+.empty-state {
+  padding: 80px 32px;
+  text-align: center;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}

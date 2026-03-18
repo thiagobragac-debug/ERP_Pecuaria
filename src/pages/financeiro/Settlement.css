@@ -1,0 +1,133 @@
+/* Financial Styles: Light Ultra-Premium settlement & Batch Actions */
+
+/* Liquidation Modal specifically */
+.settlement-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.selected-items-summary {
+  background: var(--slate-50);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.selected-items-summary h4 {
+  font-size: 0.875rem;
+  font-weight: 850;
+  color: #64748b;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.mini-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8125rem;
+  padding: 4px 0;
+  border-bottom: 1px dashed #e2e8f0;
+}
+
+.mini-item .val { 
+  font-weight: 700; 
+  color: var(--slate-900); 
+  font-variant-numeric: tabular-nums;
+}
+
+.settlement-total-banner {
+  background: var(--slate-900);
+  color: white;
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-premium);
+}
+
+.settlement-total-banner .value { font-size: 1.5rem; font-weight: 700; color: white; font-variant-numeric: tabular-nums; }
+
+/* Selection Row styles */
+.data-table tr.selected td {
+  background: rgba(16, 185, 129, 0.05) !important;
+}
+
+.checkbox-cell {
+  width: 80px;
+  text-align: center;
+}
+
+.custom-checkbox {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 2px solid #e2e8f0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  background: #fff;
+}
+
+.custom-checkbox.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+/* Floating Batch Bar - Light Theme */
+.batch-action-bar {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--bg-card);
+  padding: var(--filter-padding-y) var(--filter-padding-x);
+  gap: var(--standard-gap);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-subtle);
+  z-index: 1000;
+  transition: var(--transition-smooth);
+}
+
+.batch-action-bar.visible {
+  transform: translateX(-50%) translateY(0);
+}
+
+.selection-info { font-size: 1rem; font-weight: 800; display: flex; align-items: center; gap: 1rem; }
+.selection-info .count { background: var(--primary); color: #fff; padding: 4px 12px; border-radius: 8px; }
+
+.btn-batch-liquidate {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 850;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.3);
+}
+
+.btn-batch-liquidate:hover {
+  background: #059669;
+  transform: translateY(-2px);
+}

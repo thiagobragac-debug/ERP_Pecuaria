@@ -1,0 +1,161 @@
+/* Livestock Module - Sanidade - Light Ultra-Premium Emerald Theme */
+
+
+/* Premium Light Header */
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.6);
+  padding: var(--space-md) var(--space-xl);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--shadow-premium);
+}
+
+.title-section {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.icon-badge.emerald {
+  width: 40px;
+  height: 40px;
+  background: var(--bg-emerald-subtle);
+  color: var(--primary);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-subtle);
+}
+
+.title-section h1 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--slate-900);
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-lg);
+}
+
+.summary-card {
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  transition: var(--transition-smooth);
+  box-shadow: var(--shadow-premium);
+}
+
+.summary-card:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+.summary-label {
+  font-size: 0.9rem;
+  font-weight: 850;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+}
+
+.summary-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--slate-900);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* Status & Careencia - Light Theme */
+.status-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.status-badge.concluido { background: #f0fdf4; color: #16a34a; }
+.status-badge.pendente { background: #eff6ff; color: #2563eb; }
+.status-badge.alerta { background: #fef2f2; color: #dc2626; }
+
+.careencia-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.careencia-info span {
+  font-weight: 950;
+  font-size: 1.1rem;
+  color: #1e293b;
+}
+
+.careencia-info small {
+  font-weight: 850;
+  color: #dc2626;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+}
+
+/* Table Section - Light Theme */
+.data-section {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-premium);
+  overflow: hidden;
+}
+
+.data-filters {
+  padding: var(--filter-padding-y) var(--filter-padding-x);
+  gap: var(--standard-gap);
+  display: flex;
+  align-items: center;
+  background: #fcfdfe;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.data-table th {
+  padding: 0.6rem 1rem;
+  background: var(--slate-50);
+  color: var(--slate-500);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--slate-200);
+}
+
+.data-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--slate-100);
+  color: var(--slate-700);
+  font-weight: 500;
+}
+
+.animal-cell strong {
+  font-size: 1.15rem;
+  font-weight: 950;
+  color: #1e293b;
+  display: block;
+}
+
+.animal-cell small {
+  font-weight: 850;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}

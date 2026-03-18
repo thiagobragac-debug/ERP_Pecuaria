@@ -1,0 +1,79 @@
+.table-filters-global {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--standard-gap);
+  padding: var(--filter-padding-y) var(--filter-padding-x);
+  background: var(--slate-50);
+  border-bottom: 1px solid var(--slate-100);
+}
+
+.search-input-wrapper-global {
+  position: relative;
+  flex: 1;
+  max-width: 480px;
+}
+
+.search-icon-global {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--slate-400);
+  pointer-events: none;
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+
+.search-field-global {
+  width: 100%;
+  padding: 0.75rem 1.25rem 0.75rem 2.75rem;
+  background: white;
+  border: 1.5px solid var(--slate-200);
+  border-radius: 12px;
+  color: var(--slate-800);
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.search-field-global:focus {
+  outline: none;
+  background: white;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--primary-glow);
+}
+
+.search-field-global:focus + .search-icon-global {
+  color: var(--primary);
+}
+
+.filter-actions-global {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.actions-label-global {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-right: 0.25rem;
+}
+
+/* Response for small screens */
+@media (max-width: 768px) {
+  .table-filters-global {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  
+  .search-input-wrapper-global {
+    max-width: 100%;
+  }
+  
+  .filter-actions-global {
+    justify-content: flex-end;
+  }
+}

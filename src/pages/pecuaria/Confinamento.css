@@ -1,0 +1,59 @@
+.confinamento-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  animation: fadeIn 0.4s ease-out;
+}
+
+.curral-badge {
+  background: var(--text-main);
+  color: white;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-weight: 900;
+  font-size: 0.85rem;
+  box-shadow: var(--shadow-sm);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.days-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+  font-weight: 800;
+  color: var(--primary-indigo);
+  background: rgba(79, 70, 229, 0.05);
+  padding: 4px 10px;
+  border-radius: 8px;
+  width: fit-content;
+  border: 1px solid rgba(79, 70, 229, 0.1);
+}
+
+.status-badge.warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--warning);
+}
+
+.data-table tr:hover td {
+  background: var(--bg-main);
+}
+
+.data-section {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-premium);
+  overflow: hidden;
+}
+
+.data-filters {
+  padding: var(--filter-padding-y) var(--filter-padding-x);
+  gap: var(--standard-gap);
+  background: var(--slate-50);
+  border-bottom: 1px solid var(--slate-100);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

@@ -1,0 +1,308 @@
+.notas-entrada-wrapper {
+  padding: var(--space-md);
+}
+
+.invoice-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.summary-card.fiscal {
+  border-left: 4px solid var(--primary-indigo);
+}
+
+.summary-card.tax {
+  border-left: 4px solid var(--success);
+}
+
+.summary-card.pending {
+  border-left: 4px solid var(--warning);
+}
+
+.invoice-modal {
+  width: 95vw;
+  max-width: 1200px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-body-structured {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md);
+}
+
+/* Import Section Styles */
+.import-section-trigger {
+  background: rgba(var(--accent-primary-rgb), 0.05);
+  border: 1px dashed var(--accent-primary);
+  border-radius: 12px;
+  padding: var(--space-sm);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-md);
+  transition: all 0.3s ease;
+}
+
+.import-section-trigger:hover {
+  background: rgba(var(--accent-primary-rgb), 0.1);
+  transform: translateY(-2px);
+}
+
+.import-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.import-icon {
+  width: 40px;
+  height: 40px;
+  background: var(--accent-primary);
+  color: white;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Fiscal Fields Grid */
+.fiscal-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.col-span-1 { grid-column: span 1; }
+.col-span-2 { grid-column: span 2; }
+.col-span-3 { grid-column: span 3; }
+.col-span-4 { grid-column: span 4; }
+.col-span-5 { grid-column: span 5; }
+.col-span-6 { grid-column: span 6; }
+.col-span-7 { grid-column: span 7; }
+.col-span-8 { grid-column: span 8; }
+.col-span-9 { grid-column: span 9; }
+.col-span-10 { grid-column: span 10; }
+.col-span-11 { grid-column: span 11; }
+.col-span-12 { grid-column: span 12; }
+
+.form-group-standard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+}
+
+.form-group-standard label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group-standard input,
+.form-group-standard select {
+  height: 42px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  padding: 0 var(--space-xs);
+  font-size: 14px;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.form-group-standard input:focus,
+.form-group-standard select:focus {
+  border-color: var(--primary-indigo);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  outline: none;
+}
+
+.btn-primary {
+  background: var(--primary-indigo) !important;
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark) !important;
+  box-shadow: var(--shadow-md);
+}
+
+/* Items Table Extension */
+.items-table-container {
+  margin-top: var(--space-md);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.items-table th {
+  padding: 0.6rem 1rem;
+  background: var(--slate-50);
+  color: var(--slate-500);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--slate-200);
+}
+
+.items-table td {
+  padding: var(--space-xs) var(--space-sm);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.item-input-cell {
+  width: auto;
+}
+
+.item-input-cell input {
+  width: 100%;
+  height: 36px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 14px;
+  padding: 0 var(--space-2xs);
+  border-radius: 6px;
+}
+
+.item-input-cell input:focus {
+  background: white;
+  border-color: var(--accent-primary);
+}
+
+/* Footer Totals */
+.invoice-footer-totals {
+  background: rgba(0, 0, 0, 0.02);
+  padding: var(--space-md);
+  border-radius: 12px;
+  margin-top: var(--space-md);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-xl);
+}
+
+.total-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.total-item .label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.total-item .value {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.total-item.highlight .value {
+  color: var(--primary-indigo);
+  font-size: 24px;
+}
+
+/* Order Picker Overlay */
+.order-picker-overlay {
+  position: absolute;
+  top: 80px;
+  left: var(--space-md);
+  right: var(--space-md);
+  background: white;
+  z-index: 100;
+  padding: var(--space-sm);
+  border: 1px solid var(--accent-primary);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+}
+
+.picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+}
+
+.picker-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-xs) var(--space-sm);
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.picker-item:hover {
+  background: rgba(var(--accent-primary-rgb), 0.05);
+  transform: translateX(4px);
+}
+
+.picker-item-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.picker-item-info strong {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.picker-item-info span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.picker-item-value {
+  font-weight: 700;
+  color: var(--accent-primary);
+}
+
+/* Animations */
+.btn-add-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  background: rgba(79, 70, 229, 0.05);
+  color: var(--primary-indigo);
+  border: 1px dashed var(--primary-indigo);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 1rem;
+}
+
+.btn-add-item:hover {
+  background: var(--primary-indigo);
+  color: white;
+  border-style: solid;
+}
+
+@keyframes scale {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-scale {
+  animation: scale 0.2s ease-out forwards;
+}

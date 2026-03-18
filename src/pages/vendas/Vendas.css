@@ -1,0 +1,110 @@
+.vendas-workflow-wrapper {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.vendas-hub {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.vendas-subpage {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.subpage-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.subpage-breadcrumb a {
+  color: var(--primary-indigo);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.subpage-breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.submodule-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.submodule-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.submodule-card.placeholder {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.submodule-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.submodule-icon.purple { background: rgba(79, 70, 229, 0.1); color: var(--primary-indigo); }
+.submodule-icon.blue { background: rgba(59, 130, 246, 0.1); color: var(--info); }
+.submodule-icon.orange { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
+
+.submodule-info h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-main);
+}
+
+.submodule-info p {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.submodule-card .arrow {
+  margin-left: auto;
+  color: #ccc;
+  transition: transform 0.3s ease;
+}
+
+.submodule-card:hover:not(.placeholder) {
+  transform: translateY(-4px);
+  border-color: var(--primary-indigo);
+  box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.1), 0 8px 10px -6px rgba(79, 70, 229, 0.1);
+}
+
+.submodule-card:hover .arrow {
+  transform: translateX(4px);
+  color: var(--primary-indigo);
+}
+
+.badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #f0f0f0;
+  color: #888;
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}

@@ -1,0 +1,211 @@
+/* Gestão de Usuários - Light Ultra-Premium Emerald Identity */
+
+
+
+.users-container {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-premium);
+  overflow: hidden;
+}
+
+.users-table-header {
+  display: grid;
+  grid-template-columns: 2.5fr 1.5fr 1.5fr 1fr 1.5fr 100px;
+  padding: 0.6rem 1rem;
+  background: var(--slate-50);
+  border-bottom: 1px solid var(--slate-200);
+  font-weight: 700;
+  color: var(--slate-500);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.users-list {
+  max-height: calc(100vh - 400px);
+  overflow-y: auto;
+}
+
+.user-row {
+  display: grid;
+  grid-template-columns: 2.5fr 1.5fr 1.5fr 1fr 1.5fr 100px;
+  align-items: center;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--slate-100);
+  transition: var(--transition-smooth);
+  background: white;
+}
+
+.user-row:hover {
+  background: var(--bg-emerald-subtle);
+  border-left: 3px solid var(--primary);
+}
+
+.user-info-cell {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.user-avatar-premium {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 1.2rem;
+  box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2);
+  border: 2px solid white;
+}
+
+.user-details strong {
+  font-size: 1.1rem;
+  font-weight: 850;
+  color: #1e293b;
+  display: block;
+}
+
+.user-details .sub-info {
+  font-size: 0.9rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.profile-badge-premium {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  background: #f0fdf4;
+  color: #10b981;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 850;
+  border: 1px solid #dcfce7;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.companies-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #f1f5f9;
+  color: #475569;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 750;
+  border: 1px solid #e2e8f0;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-weight: 900;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.status-badge.ativo {
+  background: #dcfce7;
+  color: #166534;
+  box-shadow: 0 4px 10px rgba(22, 101, 52, 0.05);
+}
+
+.status-badge.inativo {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.access-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* Modals & Forms in Usuario */
+.profile-card-premium {
+  border: 2px solid #f1f5f9;
+  border-radius: 24px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  background: white;
+  position: relative;
+}
+
+.profile-card-premium:hover {
+  border-color: rgba(16, 185, 129, 0.3);
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(16, 185, 129, 0.08);
+}
+
+.profile-card-premium.selected {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.profile-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: #f8fafc;
+  color: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.profile-card-premium.selected .profile-icon {
+  background: #10b981;
+  color: white;
+  transform: rotate(5deg);
+}
+
+.company-access-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 24px;
+  border-radius: 20px;
+  border: 1.5px solid #f1f5f9;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.company-access-row:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.company-access-row.authorized {
+  border-color: #10b981;
+  background: #f0fdf4;
+}
+
+.authorized .access-indicator {
+  background: #10b981;
+  color: white;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}

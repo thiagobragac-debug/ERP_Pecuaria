@@ -1,0 +1,111 @@
+.estoque-hub {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+}
+
+.submodule-menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--space-md);
+    margin-top: var(--space-sm);
+}
+
+.submodule-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-subtle);
+    box-shadow: var(--shadow-premium);
+    text-decoration: none;
+    color: inherit;
+    transition: var(--transition-smooth);
+    position: relative;
+    overflow: hidden;
+}
+
+.submodule-card.hover-effect:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--primary);
+}
+
+.submodule-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-subtle);
+}
+
+.submodule-icon.purple { background: rgba(139, 92, 246, 0.1); color: #8B5CF6; }
+.submodule-icon.blue { background: rgba(59, 130, 246, 0.1); color: #3B82F6; }
+.submodule-icon.orange { background: rgba(245, 158, 11, 0.1); color: #F59E0B; }
+
+.submodule-info h3 {
+    margin: 0 0 var(--space-3xs) 0;
+    font-size: 1.25rem;
+    color: var(--text-main);
+}
+
+.submodule-info p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-muted);
+}
+
+.submodule-card .arrow {
+    margin-left: auto;
+    color: var(--text-muted);
+    opacity: 0.3;
+    transition: all 0.2s;
+}
+
+.submodule-card:hover .arrow {
+    opacity: 1;
+    transform: translateX(5px);
+    color: var(--primary);
+}
+
+.submodule-card.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.badge-coming-soon {
+    position: absolute;
+    top: var(--space-sm);
+    right: var(--space-sm);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    font-weight: 800;
+    background: var(--bg-light);
+    color: var(--text-muted);
+    padding: 0.2rem 0.6rem;
+    border-radius: 99px;
+    letter-spacing: 0.05em;
+}
+
+.subpage-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2xs);
+    margin-bottom: var(--space-md);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.subpage-breadcrumb a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.subpage-breadcrumb span {
+    color: var(--text-muted);
+}

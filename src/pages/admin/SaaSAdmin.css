@@ -1,0 +1,245 @@
+/* Gestão Estratégica SaaS - Light Ultra-Premium Emerald Identity */
+
+
+
+.admin-header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.admin-header-section h1 {
+  font-size: 2.25rem;
+  font-weight: 900;
+  color: #1e293b;
+  letter-spacing: -0.025em;
+  margin-bottom: 6px;
+}
+
+
+/* Metrics Grid */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 24px;
+}
+
+.metric-card.premium {
+  background: white;
+  border-radius: 28px;
+  padding: 28px;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  border: 1.5px solid #f1f5f9;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+}
+
+.metric-card.premium:hover {
+  border-color: rgba(16, 185, 129, 0.3);
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(16, 185, 129, 0.08);
+}
+
+.metric-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.metric-icon.emerald { background: #f0fdf4; color: #10b981; border: 1px solid #dcfce7; }
+.metric-icon.blue { background: #eff6ff; color: #3b82f6; border: 1px solid #dbeafe; }
+.metric-icon.purple { background: #faf5ff; color: #a855f7; border: 1px solid #f3e8ff; }
+
+.metric-details {
+  flex-grow: 1;
+}
+
+.metric-details .label {
+  font-size: 0.9rem;
+  color: #64748b;
+  font-weight: 850;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.value-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
+}
+
+.metric-details .value {
+  font-size: 1.75rem;
+  font-weight: 950;
+  color: #1e293b;
+  letter-spacing: -0.01em;
+}
+
+.trend {
+  font-size: 0.8rem;
+  font-weight: 850;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.trend.positive { background: #dcfce7; color: #166534; }
+
+.metric-details .sublabel {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+/* Content Container */
+.admin-content-card {
+  background: white;
+  border-radius: 32px;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 25px 60px -12px rgba(16, 185, 129, 0.05);
+  overflow: hidden;
+}
+
+.card-header-actions {
+  padding: 24px 32px;
+  border-bottom: 2px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fcfdfe;
+}
+
+.header-title-group h3 {
+  font-size: 1.25rem;
+  font-weight: 850;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.badge-total {
+  font-size: 0.8rem;
+  background: #f1f5f9;
+  color: #64748b;
+  padding: 4px 12px;
+  border-radius: 10px;
+  font-weight: 850;
+}
+
+.filter-group {
+  display: flex;
+  gap: 12px;
+}
+
+.search-box {
+  position: relative;
+  width: 320px;
+}
+
+.search-box svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 12px 16px 12px 42px;
+  border-radius: 14px;
+  border: 1.5px solid #f1f5f9;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.search-box input:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+  background: white;
+}
+
+/* Table Design */
+.admin-table {
+  padding: 0;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 1.2fr 0.5fr;
+  padding: 20px 32px;
+  align-items: center;
+  font-size: 0.95rem;
+  border-bottom: 1px solid #f8fafc;
+  transition: all 0.3s ease;
+}
+
+.table-row.header {
+  color: #94a3b8;
+  font-weight: 850;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  background: #fcfdfe;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.table-row.hover-row:hover {
+  background: #f0fdf4;
+  transform: translateX(8px);
+  border-left: 4px solid #10b981;
+}
+
+.org-avatar {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-weight: 900;
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.15);
+}
+
+.plan-tag {
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.plan-tag.bronze { background: #fefce8; color: #854d0e; border: 1px solid #fef08a; }
+.plan-tag.silver { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.plan-tag.gold { background: #fffbeb; color: #92400e; border: 1px solid #fef3c7; }
+
+.status-pill {
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 850;
+}
+
+.status-pill.active { background: #dcfce7; color: #166534; }
+.status-pill.trialing { background: #e0f2fe; color: #075985; }
+.status-pill.canceled { background: #f1f5f9; color: #64748b; }
+.status-pill.past_due { background: #fee2e2; color: #991b1b; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}

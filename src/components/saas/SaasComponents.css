@@ -1,0 +1,189 @@
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  padding: 1rem;
+}
+
+.pricing-card {
+  background: var(--card-background, white);
+  border-radius: 24px;
+  padding: 2.5rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.pricing-card:hover {
+  transform: translateY(-12px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+  border-color: var(--primary-color);
+}
+
+.pricing-card.featured {
+  border-width: 2px;
+  border-color: var(--primary-color);
+  background: linear-gradient(135deg, white 0%, #f5f3ff 100%);
+}
+
+.pricing-card .badge-popular {
+  position: absolute;
+  top: 1.5rem;
+  right: -2rem;
+  background: var(--primary-color);
+  color: white;
+  padding: 0.5rem 3rem;
+  transform: rotate(45deg);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.pricing-header h3 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-main);
+}
+
+.pricing-header p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  min-height: 2.5rem;
+}
+
+.pricing-price {
+  margin: 2rem 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.pricing-price .currency {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.pricing-price .amount {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.pricing-price .period {
+  color: var(--text-muted);
+}
+
+.pricing-features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2.5rem 0;
+  flex-grow: 1;
+}
+
+.pricing-features li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.pricing-features li .check-icon {
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+.pricing-features li.disabled {
+  color: var(--text-muted);
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+
+.btn-plan {
+  width: 100%;
+  padding: 1rem;
+  border-radius: 12px;
+  font-weight: 600;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: 1px solid var(--primary-color);
+}
+
+.btn-plan.primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.btn-plan.secondary {
+  background: transparent;
+  color: var(--primary-color);
+}
+
+.btn-plan:hover {
+  filter: brightness(1.1);
+  transform: scale(1.02);
+}
+
+/* Subscription Status */
+.sub-status-card {
+  background: white;
+  border-radius: 20px;
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+  margin-bottom: 2rem;
+}
+
+.sub-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.plan-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.plan-badge {
+  background: #EEF2FF;
+  color: #4F46E5;
+  padding: 0.4rem 1rem;
+  border-radius: 99px;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.usage-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.usage-item label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-muted);
+}
+
+.progress-container {
+  height: 8px;
+  background: #F3F4F6;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 4px;
+  transition: width 1s ease-out;
+}

@@ -1,0 +1,152 @@
+/* Livestock Module - Abate - Light Ultra-Premium Emerald Theme */
+
+
+/* Premium Light Header */
+.page-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-lg);
+  background: rgba(255, 255, 255, 0.6);
+  padding: var(--space-md) var(--space-xl);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--shadow-premium);
+}
+
+.title-section {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.icon-badge.emerald {
+  width: 40px;
+  height: 40px;
+  background: var(--bg-emerald-subtle);
+  color: var(--primary);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-subtle);
+}
+
+.title-section h1 {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--slate-900);
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.summary-card {
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  transition: var(--transition-smooth);
+  box-shadow: var(--shadow-premium);
+}
+
+.summary-card:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+.summary-label {
+  font-size: 0.9rem;
+  font-weight: 850;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.summary-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--slate-900);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+/* Status Pills - Light Theme */
+.slaughter-status-pill {
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.slaughter-status-pill.pendente { background: #fffbeb; color: #d97706; }
+.slaughter-status-pill.aguardando-gta { background: #eff6ff; color: #2563eb; }
+.slaughter-status-pill.realizado { background: #f0fdf4; color: #16a34a; }
+
+/* Table and Sections - Light Theme */
+.abate-main-section {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-premium);
+  overflow: hidden;
+}
+
+.abate-filters {
+  padding: var(--filter-padding-y) var(--filter-padding-x);
+  gap: var(--standard-gap);
+  align-items: center;
+  background: #fcfdfe;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.data-table th {
+  padding: 0.6rem 1rem;
+  background: var(--slate-50);
+  color: var(--slate-500);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--slate-200);
+}
+
+.data-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--slate-100);
+  color: var(--slate-700);
+  font-weight: 500;
+}
+
+/* Badge System - Light Theme */
+.badge.secondary {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-weight: 900;
+}
+
+.weight-row .main {
+  font-size: 1.15rem;
+  font-weight: 950;
+  color: #1e293b;
+}
+
+.yield-info strong {
+  color: #16a34a;
+  font-size: 1.1rem;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}

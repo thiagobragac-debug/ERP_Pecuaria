@@ -1,0 +1,382 @@
+/* Financeiro & Bancos Shared Styles - Light Ultra-Premium Emerald */
+
+.bancos-wrapper {
+  padding: var(--space-lg);
+  background: radial-gradient(circle at top right, rgba(16, 185, 129, 0.05), transparent 400px);
+}
+
+/* Enhanced Bank Cards - Light */
+.bank-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+}
+
+.bank-card {
+  position: relative;
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  overflow: hidden;
+  transition: var(--transition-smooth);
+  box-shadow: var(--shadow-premium);
+}
+
+.bank-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 120px;
+  height: 120px;
+  background: var(--bank-brand-color, #10b981);
+  opacity: 0.05;
+  border-radius: 0 28px 0 100%;
+  transition: opacity 0.3s;
+}
+
+.bank-card:hover {
+  box-shadow: var(--shadow-hover);
+}
+
+.bank-brand-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--bank-color, #f8fafc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 850;
+  font-size: 1.25rem;
+  box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.1);
+  border: 2px solid #fff;
+}
+
+.bank-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bank-name {
+  font-size: 1.125rem;
+  font-weight: 850;
+  color: #1e293b;
+  letter-spacing: -0.01em;
+}
+
+.account-type-tag {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 6px;
+  width: fit-content;
+  border: 1px solid #e2e8f0;
+}
+
+.bank-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  z-index: 2;
+}
+
+.balance-display {
+  padding: var(--space-xs) 0;
+}
+
+.balance-display .label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: var(--space-3xs);
+  display: block;
+}
+
+.balance-display .amount {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--slate-900);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.account-number-block {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--slate-50);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--slate-200);
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detail-item .dt-label {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.detail-item .dt-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--slate-700);
+  font-family: 'Inter', sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.bank-card-footer {
+  display: flex;
+  gap: var(--space-xs);
+  margin-top: auto;
+  z-index: 2;
+}
+
+.premium-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2xs);
+  padding: 12px;
+  border-radius: 14px;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  transition: all 0.2s;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #64748b;
+}
+
+.premium-btn:hover {
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+}
+
+.premium-btn.primary {
+  background: #10b981;
+  color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+}
+
+.premium-btn.primary:hover {
+  background: #059669;
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+}
+
+/* Enhanced Form Layout - Light */
+.refined-form-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-xs);
+}
+
+.form-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.form-block-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.form-block-header .icon-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #f0fdf4;
+  color: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.form-block-header h3 {
+  font-size: 1rem;
+  font-weight: 850;
+  color: #1e293b;
+}
+
+.form-grid-refined {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--space-md);
+}
+
+.form-field-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.form-field-wrapper label {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3xs);
+}
+
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-with-icon .field-icon {
+  position: absolute;
+  left: 14px;
+  color: #94a3b8;
+}
+
+.input-with-icon input, 
+.input-with-icon select {
+  width: 100%;
+  padding: 12px 12px 12px 42px;
+  border-radius: 12px;
+  border: 1.5px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 0.875rem;
+  color: #1e293b;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.input-with-icon input:focus, 
+.input-with-icon select:focus {
+  background: white;
+  border-color: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+  outline: none;
+}
+
+.color-picker-grid {
+  display: flex;
+  gap: var(--space-xs);
+  margin-top: var(--space-3xs);
+}
+
+.color-option {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.color-option:hover { transform: scale(1.1); }
+.color-option.selected { 
+  border-color: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+}
+
+/* Transactions Table Polish */
+.glass-table-container {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-subtle);
+  padding: 0;
+  box-shadow: var(--shadow-premium);
+  overflow: hidden;
+}
+
+.data-table tr:hover {
+  background: #f0fdf4;
+}
+
+.premium-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  text-align: center;
+  color: #94a3b8;
+}
+
+/* Pagination Styles - Light Emerald */
+.pagination-btn {
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #64748b;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s;
+}
+
+.pagination-btn:not(.disabled):hover {
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: #cbd5e1;
+}
+
+.pagination-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f1f5f9;
+}
+
+.pagination-number {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #64748b;
+  transition: all 0.2s;
+}
+
+.pagination-number.active {
+  background: #10b981;
+  color: white;
+  box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+}
+
+.pagination-number:not(.active):hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
