@@ -341,7 +341,7 @@ export const Inventario = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">
-            <ClipboardList size={24} />
+            <ClipboardList size={32} />
           </div>
           <div>
             <h1>Inventário Periódico</h1>

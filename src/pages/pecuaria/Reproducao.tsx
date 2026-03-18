@@ -170,7 +170,7 @@ export const Reproducao = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">
-            <Baby size={24} />
+            <Baby size={32} />
           </div>
           <div>
             <h1>Inteligência Reprodutiva</h1>

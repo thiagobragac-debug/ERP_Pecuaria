@@ -113,7 +113,7 @@ export const Sanidade = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge success">
-            <ShieldCheck size={24} />
+            <ShieldCheck size={32} />
           </div>
           <div>
             <h1>Gestão Sanitária</h1>

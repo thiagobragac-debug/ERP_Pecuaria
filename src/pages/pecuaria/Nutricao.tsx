@@ -133,7 +133,7 @@ export const Nutricao = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge secondary">
-            <Utensils size={24} />
+            <Utensils size={32} />
           </div>
           <div>
             <h1>Inteligência Nutricional</h1>

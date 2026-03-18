@@ -156,7 +156,7 @@ export const Rebanho = () => {
         <div className="page-header-row">
           <div className="title-section">
             <div className="icon-badge indigo">
-            <Beef size={24} />
+            <Beef size={32} />
           </div>
             <div>
               <h1>Gestão de Rebanho</h1>

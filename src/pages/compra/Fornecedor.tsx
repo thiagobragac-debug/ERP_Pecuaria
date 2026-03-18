@@ -198,7 +198,7 @@ export const Fornecedor: React.FC = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">
-            <Truck size={24} />
+            <Truck size={32} />
           </div>
           <div>
             <h1>Gestão de Fornecedores</h1>

@@ -134,7 +134,7 @@ export const Lote = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">
-            <Layers size={24} />
+            <Layers size={32} />
           </div>
           <div>
             <h1>Gestão de Lotes</h1>

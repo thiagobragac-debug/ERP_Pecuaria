@@ -117,7 +117,7 @@ export const Insumo = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge secondary">
-            <Package size={24} />
+            <Package size={32} />
           </div>
           <div>
             <h1>Almoxarifado & Insumos</h1>

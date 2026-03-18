@@ -260,7 +260,7 @@ export const NotasEntrada = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge secondary">
-            <FileText size={24} />
+            <FileText size={32} />
           </div>
           <div>
             <h1>Notas de Entrada</h1>

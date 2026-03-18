@@ -209,7 +209,7 @@ export const ContasPagar = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge secondary">
-            <CreditCard size={24} />
+            <CreditCard size={32} />
           </div>
           <div>
             <h1>Contas a Pagar</h1>

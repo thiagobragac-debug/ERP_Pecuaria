@@ -84,7 +84,7 @@ export const FluxoCaixa: React.FC = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">
-            <LineChart size={24} />
+            <LineChart size={32} />
           </div>
           <div>
             <h1>Inteligência de Fluxo de Caixa</h1>

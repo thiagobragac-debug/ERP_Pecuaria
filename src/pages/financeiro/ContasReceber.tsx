@@ -210,7 +210,7 @@ export const ContasReceber = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge secondary">
-            <TrendingUp size={24} />
+            <TrendingUp size={32} />
           </div>
           <div>
             <h1>Contas a Receber</h1>

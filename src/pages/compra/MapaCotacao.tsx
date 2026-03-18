@@ -432,7 +432,7 @@ export const MapaCotacaoPage = () => {
         </button>
         <div className="title-section">
           <div className="icon-badge secondary">
-            <FileText size={24} />
+            <FileText size={32} />
           </div>
           <div>
             <h1>Mapa de Cotação</h1>

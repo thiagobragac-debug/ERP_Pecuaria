@@ -338,7 +338,7 @@ export const PedidoCompraPage = () => {
         </button>
         <div className="title-section">
           <div className="icon-badge secondary">
-            <ShoppingBag size={24} />
+            <ShoppingBag size={32} />
           </div>
           <div>
             <h1>Pedidos de Compra</h1>

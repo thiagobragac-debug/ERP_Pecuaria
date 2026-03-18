@@ -73,7 +73,7 @@ export const Dashboard = () => {
               )}
             </div>
             <div className={`summary-icon ${stat.colorClass}`}>
-              <stat.icon size={28} />
+              <stat.icon size={32} />
             </div>
           </div>
         ))}
