@@ -107,7 +107,7 @@ export const SaaSAdmin = () => {
     <div className="saas-admin-container">
       <header className="saas-header">
         <div className="title-section">
-          <div className="icon-wrapper">
+          <div className="icon-badge indigo">
             <TrendingUp size={32} strokeWidth={3} />
           </div>
           <div>

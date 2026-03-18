@@ -140,9 +140,17 @@
   flex-shrink: 0;
 }
 
-.activity-icon.indigo { background: rgba(79, 70, 229, 0.1); color: var(--primary-indigo); }
-.activity-icon.success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
-.activity-icon.danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+.summary-icon.indigo { background: #4f46e5; color: white; }
+.summary-icon.success { background: #10b981; color: white; }
+.summary-icon.emerald { background: #10b981; color: white; }
+.summary-icon.warning { background: #f59e0b; color: white; }
+.summary-icon.orange { background: #f59e0b; color: white; }
+.summary-icon.danger { background: #ef4444; color: white; }
+.summary-icon.red { background: #ef4444; color: white; }
+.summary-icon.blue { background: #3b82f6; color: white; }
+.summary-icon.purple { background: #8b5cf6; color: white; }
+.summary-icon.primary { background: #4f46e5; color: white; }
+.summary-icon.secondary { background: #6366f1; color: white; }
 
 .activity-content h5 {
   margin: 0;

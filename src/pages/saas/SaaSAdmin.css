@@ -24,17 +24,7 @@
   gap: 2rem;
 }
 
-.title-section .icon-wrapper {
-  width: 40px;
-  height: 40px;
-  background: var(--bg-emerald-subtle);
-  color: var(--primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-}
+/* Global .icon-badge from index.css will be used */
 
 .title-section h1 {
   font-size: 1.35rem;
