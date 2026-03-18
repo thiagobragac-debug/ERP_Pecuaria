@@ -597,12 +597,10 @@ button, input, textarea, select {
 
 /* Universal Color Variants (Solid & Vibrant) */
 .icon-badge.indigo, .summary-icon.indigo, .submodule-icon.indigo, .stat-icon.indigo, .metric-icon.indigo, .activity-icon.indigo { background: #4f46e5 !important; color: white !important; }
-.icon-badge.success, .summary-icon.success, .submodule-icon.success, .stat-icon.success, .metric-icon.success, .activity-icon.success { background: #10b981 !important; color: white !important; }
+.icon-badge.success, .summary-icon.success, .submodule-icon.success, .stat-icon.success, .metric-icon.success, .activity-icon.success, .summary-icon.green, .icon-badge.green { background: #10b981 !important; color: white !important; }
 .icon-badge.emerald, .summary-icon.emerald, .submodule-icon.emerald, .stat-icon.emerald, .metric-icon.emerald, .activity-icon.emerald { background: #10b981 !important; color: white !important; }
-.icon-badge.warning, .summary-icon.warning, .submodule-icon.warning, .stat-icon.warning, .metric-icon.warning, .activity-icon.warning { background: #f59e0b !important; color: white !important; }
-.icon-badge.orange, .summary-icon.orange, .submodule-icon.orange, .stat-icon.orange, .metric-icon.orange, .activity-icon.orange { background: #f59e0b !important; color: white !important; }
-.icon-badge.danger, .summary-icon.danger, .submodule-icon.danger, .stat-icon.danger, .metric-icon.danger, .activity-icon.danger { background: #ef4444 !important; color: white !important; }
-.icon-badge.red, .summary-icon.red, .submodule-icon.red, .stat-icon.red, .metric-icon.red, .activity-icon.red { background: #ef4444 !important; color: white !important; }
+.icon-badge.warning, .summary-icon.warning, .submodule-icon.warning, .stat-icon.warning, .metric-icon.warning, .activity-icon.warning, .summary-icon.orange, .icon-badge.orange { background: #f59e0b !important; color: white !important; }
+.icon-badge.danger, .summary-icon.danger, .submodule-icon.danger, .stat-icon.danger, .metric-icon.danger, .activity-icon.danger, .summary-icon.red, .icon-badge.red { background: #ef4444 !important; color: white !important; }
 .icon-badge.blue, .summary-icon.blue, .submodule-icon.blue, .stat-icon.blue, .metric-icon.blue, .activity-icon.blue { background: #3b82f6 !important; color: white !important; }
 .icon-badge.purple, .summary-icon.purple, .submodule-icon.purple, .stat-icon.purple, .metric-icon.purple, .activity-icon.purple { background: #8b5cf6 !important; color: white !important; }
 .icon-badge.primary, .summary-icon.primary, .submodule-icon.primary, .stat-icon.primary, .metric-icon.primary, .activity-icon.primary { background: #4f46e5 !important; color: white !important; }
