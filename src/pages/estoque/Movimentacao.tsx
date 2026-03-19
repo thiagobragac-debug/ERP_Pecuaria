@@ -34,7 +34,10 @@ import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { MovimentacaoEstoque as MovimentacaoType } from '../../types';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { useCompany } from '../../contexts/CompanyContext';
+import { MovimentacaoEstoque as MovimentacaoType, Company } from '../../types';
 
 
 export const Movimentacao = () => {
@@ -48,7 +51,9 @@ export const Movimentacao = () => {
     status: 'Todos',
     responsavel: ''
   });
-  
+
+  const { activeCompanyId: selectedEmpresaId, setActiveCompanyId, companies: empresasList } = useCompany();
+
   const isOnline = useOnlineStatus();
   const { data: movimentacoes = [], isLoading } = useOfflineQuery<MovimentacaoType>(['movimentacoes_estoque'], 'movimentacoes_estoque');
   const saveMovMutation = useOfflineMutation<MovimentacaoType>('movimentacoes_estoque', [['movimentacoes_estoque']]);
@@ -73,14 +78,14 @@ export const Movimentacao = () => {
   const totalEntradas = movimentacoes
     .filter(m => m.tipo === 'Entrada')
     .reduce((acc, m) => acc + m.quantidade, 0);
-  
+
   const totalSaidas = movimentacoes
     .filter(m => m.tipo === 'Saída')
     .reduce((acc, m) => acc + m.quantidade, 0);
 
   const filteredData = movimentacoes.filter(m => {
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = m.insumo_nome.toLowerCase().includes(searchLower) || 
+    const matchesSearch = m.insumo_nome.toLowerCase().includes(searchLower) ||
                          m.motivo.toLowerCase().includes(searchLower) ||
                          m.responsavel.toLowerCase().includes(searchLower) ||
                          m.local_origem.toLowerCase().includes(searchLower) ||
@@ -89,15 +94,17 @@ export const Movimentacao = () => {
                          m.status.toLowerCase().includes(searchLower) ||
                          m.quantidade.toString().includes(searchLower) ||
                          m.unidade.toLowerCase().includes(searchLower);
-    
-    const matchesColumnFilters = 
+
+    const matchesColumnFilters =
       (columnFilters.insumo === '' || m.insumo_nome.toLowerCase().includes(columnFilters.insumo.toLowerCase())) &&
       (columnFilters.localEstoque === 'Todos os Locais' || m.local_origem === columnFilters.localEstoque) &&
       (columnFilters.tipo === 'Todos' || m.tipo === columnFilters.tipo) &&
       (columnFilters.status === 'Todos' || m.status === columnFilters.status) &&
       (columnFilters.responsavel === '' || m.responsavel.toLowerCase().includes(columnFilters.responsavel.toLowerCase()));
 
-    return matchesSearch && matchesColumnFilters;
+    const matchesEmpresa = selectedEmpresaId === 'Todas' || m.empresaId === selectedEmpresaId;
+
+    return matchesSearch && matchesColumnFilters && matchesEmpresa;
   });
 
   const {
@@ -198,13 +205,26 @@ export const Movimentacao = () => {
           placeholder="Buscar por insumo, motivo ou responsável..."
           actionsLabel="Filtragem"
         >
-          <button 
+          <button
             className={`btn-premium-outline h-11 px-6 gap-2 ${isFiltersOpen ? 'filter-active' : ''}`}
             onClick={() => setIsFiltersOpen(!isFiltersOpen)}
           >
             <Filter size={18} strokeWidth={3} />
             <span>{isFiltersOpen ? 'Fechar Filtros' : 'Filtros Avançados'}</span>
           </button>
+          <div className="flex items-center gap-2 ml-4">
+            <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Unidade:</span>
+            <select
+              className="select-premium-minimal"
+              value={selectedEmpresaId}
+              onChange={(e) => setActiveCompanyId(e.target.value)}
+            >
+              <option value="Todas">Todas as Unidades</option>
+              {empresasList.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.nomeFantasia}</option>
+              ))}
+            </select>
+          </div>
         </TableFilters>
 
 

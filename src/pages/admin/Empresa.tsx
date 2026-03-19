@@ -579,6 +579,22 @@ export const Empresa: React.FC = () => {
                 <label>Longitude</label>
                 <input type="text" value={formData.longitude || ''} onChange={(e) => handleInputChange('longitude', e.target.value)} />
               </div>
+              <div className="form-group col-3">
+                <label>Área Total (ha)</label>
+                <input type="number" value={formData.areaTotal || ''} onChange={(e) => handleInputChange('areaTotal', parseFloat(e.target.value))} placeholder="0.00" />
+              </div>
+              <div className="form-group col-3">
+                <label>Área Pasto (ha)</label>
+                <input type="number" value={formData.areaPasto || ''} onChange={(e) => handleInputChange('areaPasto', parseFloat(e.target.value))} placeholder="0.00" />
+              </div>
+              <div className="form-group col-3">
+                <label>Área Reserva (ha)</label>
+                <input type="number" value={formData.areaReserva || ''} onChange={(e) => handleInputChange('areaReserva', parseFloat(e.target.value))} placeholder="0.00" />
+              </div>
+              <div className="form-group col-3">
+                <label>Área APP (ha)</label>
+                <input type="number" value={formData.areaApp || ''} onChange={(e) => handleInputChange('areaApp', parseFloat(e.target.value))} placeholder="0.00" />
+              </div>
               <div className="form-group col-12">
                 <div className="info-box info">
                   <Globe size={18} strokeWidth={3} />

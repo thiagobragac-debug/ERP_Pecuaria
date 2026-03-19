@@ -429,3 +429,134 @@
     padding: 30px;
   }
 }
+
+/* Company Selection Phase */
+.company-selection-view {
+  display: flex;
+  flex-direction: column;
+  animation: fade-in 0.5s ease-out;
+}
+
+.selection-title {
+  font-size: 24px;
+  font-weight: 900;
+  color: #1e293b;
+  margin-bottom: 8px;
+  letter-spacing: -0.02em;
+}
+
+.selection-subtitle {
+  color: #64748b;
+  font-size: 14px;
+  margin-bottom: 32px;
+  line-height: 1.5;
+}
+
+.company-cards-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.company-selection-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  background: white;
+  border: 2px solid #f1f5f9;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.company-selection-card:hover {
+  border-color: #4f46e5;
+  background: #f8fafc;
+  transform: translateX(4px);
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.05);
+}
+
+.company-selection-card.all-units:hover {
+  border-color: #4f46e5;
+  background: rgba(79, 70, 229, 0.03);
+}
+
+.company-selection-card.group:hover .card-icon.all {
+  background: #4f46e5;
+  color: white;
+  transform: scale(1.1);
+}
+
+.company-selection-card.group:hover .card-icon.unit {
+  background: #10b981;
+  color: white;
+  transform: scale(1.1);
+}
+
+.card-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.card-icon.all {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.card-icon.unit {
+  background: #ecfdf5;
+  color: #10b981;
+}
+
+.card-info {
+  flex: 1;
+}
+
+.card-info h3 {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+}
+
+.card-info p {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}
+
+.company-selection-card .arrow {
+  color: #cbd5e1;
+  transition: all 0.3s ease;
+}
+
+.company-selection-card:hover .arrow {
+  color: #4f46e5;
+  transform: translateX(4px);
+}
+
+.btn-back-login {
+  margin-top: 32px;
+  width: 100%;
+  padding: 14px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.btn-back-login:hover {
+  background: #f8fafc;
+  color: #4f46e5;
+}

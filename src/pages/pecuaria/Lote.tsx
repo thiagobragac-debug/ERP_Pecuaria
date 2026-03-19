@@ -32,6 +32,7 @@ import { Lote as LoteType } from '../../types';
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useCompany } from '../../contexts/CompanyContext';
 
 export const LotePage = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,9 +41,13 @@ export const LotePage = () => {
   const [activeTab, setActiveTab] = useState<'geral' | 'sanidade' | 'nutricao'>('geral');
   const [isViewMode, setIsViewMode] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const { activeCompanyId } = useCompany();
 
   // Live Queries
-  const lotes = useLiveQuery(() => db.lotes.toArray()) || [];
+  const allLotes = useLiveQuery(() => db.lotes.toArray()) || [];
+  
+  // Filter lotes by active company
+  const lotes = allLotes.filter(l => activeCompanyId === 'Todas' || l.empresaId === activeCompanyId);
   const animais = useLiveQuery(() => db.animais.toArray()) || [];
   const pastos = useLiveQuery(() => db.pastos.toArray()) || [];
   const registros = useLiveQuery(() => db.registrosSanitarios.toArray()) || [];
@@ -343,6 +348,7 @@ export const LotePage = () => {
                   dataCriacao: formData.get('dataCriacao') as string,
                   cor: formData.get('cor') as string,
                   status: formData.get('status') as any || 'Ativo',
+                  empresaId: selectedLote?.empresaId || (activeCompanyId === 'Todas' ? undefined : activeCompanyId),
                   tenant_id: 'default',
                   qtdAnimais: selectedLote?.qtdAnimais || 0,
                   pesoMedio: selectedLote?.pesoMedio || 0

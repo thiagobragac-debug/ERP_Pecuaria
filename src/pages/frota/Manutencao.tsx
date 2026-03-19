@@ -34,6 +34,7 @@ import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { supabase } from '../../services/supabase';
 import { Asset, Insumo, Manutencao as ManutencaoType } from '../../types';
+import { useCompany } from '../../contexts/CompanyContext';
 import './Manutencao.css';
 
 interface ItemAplicado {
@@ -111,9 +112,15 @@ const initialOS: OrdemServico[] = [
 ];
 
 export const Manutencao: React.FC = () => {
-  const osList = useLiveQuery(() => db.manutencoes.toArray()) || [];
-  const assets = useLiveQuery(() => db.ativos.toArray()) || [];
-  const insumos = useLiveQuery(() => db.insumos.toArray()) || [];
+  const { activeCompanyId } = useCompany();
+  const allOS = useLiveQuery(() => db.manutencoes.toArray()) || [];
+  const allAssets = useLiveQuery(() => db.ativos.toArray()) || [];
+  const allInsumos = useLiveQuery(() => db.insumos.toArray()) || [];
+
+  // Filter by active company
+  const osList = allOS.filter(os => activeCompanyId === 'Todas' || os.empresaId === activeCompanyId);
+  const assets = allAssets.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
+  const insumos = allInsumos.filter(i => activeCompanyId === 'Todas' || (i as any).empresaId === activeCompanyId);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [columnFilters, setColumnFilters] = useState({
@@ -214,6 +221,7 @@ export const Manutencao: React.FC = () => {
         ...formData,
         id: editingOS?.id || Math.random().toString(36).substr(2, 9),
         ativo_nome: asset?.nome || 'N/A',
+        empresaId: asset?.empresaId || (activeCompanyId === 'Todas' ? undefined : activeCompanyId),
         tenant_id
       } as ManutencaoType;
 

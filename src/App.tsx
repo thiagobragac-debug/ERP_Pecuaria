@@ -56,6 +56,7 @@ import { AlertasCareencia } from './pages/pecuaria/AlertasCareencia';
 import { AnaliseCustoNutricao } from './pages/pecuaria/AnaliseCustoNutricao';
 import { PlaceholderPage } from './pages/PlaceholderPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { CompanyProvider } from './contexts/CompanyContext';
 import { LoginPage } from './pages/auth/LoginPage';
 import { 
   Users, 
@@ -135,83 +136,86 @@ function App() {
       persistOptions={{ persister }}
     >
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/" element={
-              <ProtectedRoute>
-                <MainLayout />
-              </ProtectedRoute>
-            }>
-            <Route index element={<Dashboard />} />
-            
-             {/* Administração */}
-             <Route path="admin/users" element={<Usuario />} />
-             <Route path="admin/profiles" element={<PerfilUsuario />} />
-             <Route path="admin/companies" element={<Empresa />} />
-             <Route path="admin/definicao" element={<Definicao />} />
-             <Route path="admin/settings" element={<Configuracoes />} />
-             <Route path="admin/saas" element={<SaaSAdmin />} />
-            <Route path="/equipe" element={<TeamManagement />} />
-            
-            {/* Pecuária */}
-            <Route path="pecuaria/rebanho" element={<Rebanho />} />
-            <Route path="pecuaria/lotes" element={<Lote />} />
-            <Route path="pecuaria/pastos" element={<Pasto />} />
-            <Route path="pecuaria/pesagens" element={<Pesagem />} />
-            <Route path="pecuaria/pesagem" element={<Pesagem />} />
-            <Route path="pecuaria/confinamento" element={<Confinamento />} />
-            <Route path="pecuaria/reproducao" element={<Reproducao />} />
-            <Route path="pecuaria/nutricao" element={<Nutricao />} />
-            <Route path="pecuaria/sanidade" element={<Sanidade />} />
-            <Route path="pecuaria/abate" element={<Abate />} />
-            <Route path="pecuaria/alertas" element={<AlertasCareencia onBack={() => window.history.back()} />} />
-            <Route path="pecuaria/custo-nutricao" element={<AnaliseCustoNutricao onBack={() => window.history.back()} />} />
-            <Route path="pecuaria/relatorios" element={<RelatoriosRebanho onBack={() => window.history.back()} />} />
-            
-            {/* Outros Módulos */}
-            <Route path="maquinas" element={<Frota />} />
-            <Route path="maquinas/manutencao" element={<Manutencao />} />
-            <Route path="maquinas/abastecimento" element={<Abastecimento />} />
-            <Route path="compras" element={<Compra />}>
-              <Route path="fornecedores" element={<Fornecedor />} />
-              <Route path="solicitacoes" element={<SolicitacaoCompraPage />} />
-              <Route path="cotacoes" element={<MapaCotacaoPage />} />
-              <Route path="pedidos" element={<PedidoCompraPage />} />
-              <Route path="notas-entrada" element={<NotasEntradaPage />} />
+        <CompanyProvider>
+          <BrowserRouter>
+            <Routes>
+              {/* ... routes ... */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/" element={
+                <ProtectedRoute>
+                  <MainLayout />
+                </ProtectedRoute>
+              }>
+              <Route index element={<Dashboard />} />
+              
+               {/* Administração */}
+               <Route path="admin/users" element={<Usuario />} />
+               <Route path="admin/profiles" element={<PerfilUsuario />} />
+               <Route path="admin/companies" element={<Empresa />} />
+               <Route path="admin/definicao" element={<Definicao />} />
+               <Route path="admin/settings" element={<Configuracoes />} />
+               <Route path="admin/saas" element={<SaaSAdmin />} />
+              <Route path="/equipe" element={<TeamManagement />} />
+              
+              {/* Pecuária */}
+              <Route path="pecuaria/rebanho" element={<Rebanho />} />
+              <Route path="pecuaria/lotes" element={<Lote />} />
+              <Route path="pecuaria/pastos" element={<Pasto />} />
+              <Route path="pecuaria/pesagens" element={<Pesagem />} />
+              <Route path="pecuaria/pesagem" element={<Pesagem />} />
+              <Route path="pecuaria/confinamento" element={<Confinamento />} />
+              <Route path="pecuaria/reproducao" element={<Reproducao />} />
+              <Route path="pecuaria/nutricao" element={<Nutricao />} />
+              <Route path="pecuaria/sanidade" element={<Sanidade />} />
+              <Route path="pecuaria/abate" element={<Abate />} />
+              <Route path="pecuaria/alertas" element={<AlertasCareencia onBack={() => window.history.back()} />} />
+              <Route path="pecuaria/custo-nutricao" element={<AnaliseCustoNutricao onBack={() => window.history.back()} />} />
+              <Route path="pecuaria/relatorios" element={<RelatoriosRebanho onBack={() => window.history.back()} />} />
+              
+              {/* Outros Módulos */}
+              <Route path="maquinas" element={<Frota />} />
+              <Route path="maquinas/manutencao" element={<Manutencao />} />
+              <Route path="maquinas/abastecimento" element={<Abastecimento />} />
+              <Route path="compras" element={<Compra />}>
+                <Route path="fornecedores" element={<Fornecedor />} />
+                <Route path="solicitacoes" element={<SolicitacaoCompraPage />} />
+                <Route path="cotacoes" element={<MapaCotacaoPage />} />
+                <Route path="pedidos" element={<PedidoCompraPage />} />
+                <Route path="notas-entrada" element={<NotasEntradaPage />} />
+              </Route>
+              <Route path="vendas" element={<Vendas />}>
+                <Route path="clientes" element={<Cliente />} />
+                <Route path="pedidos" element={<PedidosVenda />} />
+                <Route path="notas-fiscais" element={<NotasSaida />} />
+                <Route path="contratos" element={<Contratos />} />
+                <Route path="oportunidades" element={<Oportunidades />} />
+              </Route>
+              
+              <Route path="estoque" element={<Estoque />}>
+                <Route path="insumos" element={<Insumo />} />
+                <Route path="movimentacao" element={<Movimentacao />} />
+                <Route path="inventario" element={<Inventario />} />
+              </Route>
+              
+              {/* Financeiro e Banco */}
+              <Route path="financeiro/contas-pagar" element={<ContasPagar />} />
+              <Route path="financeiro/contas-receber" element={<ContasReceber />} />
+              <Route path="financeiro/bancos" element={<Bancos />} />
+              <Route path="financeiro/conciliacao" element={<Conciliacao />} />
+              <Route path="financeiro/fluxo" element={<FluxoCaixa />} />
+              
+              {/* Contábil & Fiscal */}
+              <Route path="contabil/plano" element={<PlanoContas />} />
+              <Route path="contabil/livro-caixa" element={<LivroCaixa />} />
+              <Route path="contabil/impostos" element={<Imposto />} />
+              <Route path="contabil/planejamento" element={<PlanejamentoFiscal />} />
+              
+              {/* Fallback */}
+              <Route path="*" element={<PlaceholderPage title="Recurso em Desenvolvimento" icon={BookOpen} />} />
             </Route>
-            <Route path="vendas" element={<Vendas />}>
-              <Route path="clientes" element={<Cliente />} />
-              <Route path="pedidos" element={<PedidosVenda />} />
-              <Route path="notas-fiscais" element={<NotasSaida />} />
-              <Route path="contratos" element={<Contratos />} />
-              <Route path="oportunidades" element={<Oportunidades />} />
-            </Route>
-            
-            <Route path="estoque" element={<Estoque />}>
-              <Route path="insumos" element={<Insumo />} />
-              <Route path="movimentacao" element={<Movimentacao />} />
-              <Route path="inventario" element={<Inventario />} />
-            </Route>
-            
-            {/* Financeiro e Banco */}
-            <Route path="financeiro/contas-pagar" element={<ContasPagar />} />
-            <Route path="financeiro/contas-receber" element={<ContasReceber />} />
-            <Route path="financeiro/bancos" element={<Bancos />} />
-            <Route path="financeiro/conciliacao" element={<Conciliacao />} />
-            <Route path="financeiro/fluxo" element={<FluxoCaixa />} />
-            
-            {/* Contábil & Fiscal */}
-            <Route path="contabil/plano" element={<PlanoContas />} />
-            <Route path="contabil/livro-caixa" element={<LivroCaixa />} />
-            <Route path="contabil/impostos" element={<Imposto />} />
-            <Route path="contabil/planejamento" element={<PlanejamentoFiscal />} />
-            
-            {/* Fallback */}
-            <Route path="*" element={<PlaceholderPage title="Recurso em Desenvolvimento" icon={BookOpen} />} />
-          </Route>
-        </Routes>
-        </BrowserRouter>
+          </Routes>
+          </BrowserRouter>
+        </CompanyProvider>
       </AuthProvider>
     </PersistQueryClientProvider>
   );

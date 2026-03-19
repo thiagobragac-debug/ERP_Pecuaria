@@ -147,6 +147,7 @@ export const NotasEntradaPage = () => {
             status: 'Processado',
             responsavel: 'Sistema',
             motivo: `Entrada via NF ${notaToSave.numero}`,
+            empresaId: notaToSave.empresaId,
             tenant_id: 'default'
           });
         }
@@ -161,6 +162,7 @@ export const NotasEntradaPage = () => {
           tipo: 'out',
           status: 'Pendente',
           categoria: 'Insumos',
+          empresaId: notaToSave.empresaId,
           tenant_id: 'default'
         });
       }
@@ -358,7 +360,7 @@ export const NotasEntradaPage = () => {
             <div className="flex gap-2">
               <button className="btn-premium-outline hide-mobile" onClick={() => setIsModalOpen(false)}>Cancelar</button>
               {!isViewMode && formData.status === 'Pendente' && (
-                <button className="btn-premium-outline indigo" onClick={handleSave}>
+                <button className="btn-premium-outline indigo" onClick={() => handleSave()}>
                   <Clock size={18} /> Salvar como Rascunho
                 </button>
               )}

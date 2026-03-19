@@ -18,21 +18,40 @@ import {
   LineChart as LineChartIcon,
   AlertCircle
 } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../services/db';
+import { useCompany } from '../contexts/CompanyContext';
 import './Dashboard.css';
-import { mockAnimals } from '../data/mockData';
 
 export const Dashboard = () => {
+  const { activeCompanyId } = useCompany();
+
+  // Real Queries
+  const allAnimais = useLiveQuery(() => db.animais.toArray()) || [];
+  const allTransacoes = useLiveQuery(() => db.transacoes.toArray()) || [];
+  const allPastos = useLiveQuery(() => db.pastos.toArray()) || [];
+  const allInsumos = useLiveQuery(() => db.insumos.toArray()) || [];
+
+  // Filtered Data
+  const animais = useMemo(() => allAnimais.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId), [allAnimais, activeCompanyId]);
+  const transacoes = useMemo(() => allTransacoes.filter(t => activeCompanyId === 'Todas' || t.empresaId === activeCompanyId), [allTransacoes, activeCompanyId]);
+  const pastos = useMemo(() => allPastos.filter(p => activeCompanyId === 'Todas' || p.empresaId === activeCompanyId), [allPastos, activeCompanyId]);
+  const insumos = useMemo(() => allInsumos.filter(i => activeCompanyId === 'Todas' || (i as any).empresaId === activeCompanyId), [allInsumos, activeCompanyId]);
+
   const stats = useMemo(() => {
-    const total = mockAnimals.length;
-    const pesoMedio = (mockAnimals.reduce((acc, a) => acc + (a.peso || 0), 0) / total).toFixed(1);
+    const total = animais.length;
+    const pesoMedio = total > 0 ? (animais.reduce((acc, a) => acc + (a.peso || 0), 0) / total).toFixed(1) : '0';
     
+    const saldo = transacoes.reduce((acc, t) => acc + (t.tipo === 'in' ? t.valor : -t.valor), 0);
+    const lowStock = insumos.filter(i => i.status === 'Crítico' || i.status === 'Baixo').length;
+
     return [
-      { title: 'Total Rebanho', value: total.toLocaleString(), icon: Beef, colorClass: 'indigo', trend: '+12', trendUp: true },
+      { title: 'Total Rebanho', value: total.toLocaleString(), icon: Beef, colorClass: 'indigo', trend: total > 0 ? '+12' : '0', trendUp: true },
       { title: 'Peso Médio', value: `${pesoMedio} kg`, icon: Activity, colorClass: 'success', trend: '+0.8', trendUp: true },
-      { title: 'Saldo Operacional', value: 'R$ 142.500', icon: Wallet, colorClass: 'primary', trend: '+5.2', trendUp: true },
-      { title: 'Autonomia Estoque', value: '18 dias', icon: Zap, colorClass: 'warning', trend: '-2', trendUp: false }
+      { title: 'Saldo Operacional', value: `R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`, icon: Wallet, colorClass: 'primary', trend: '+5.2', trendUp: true },
+      { title: 'Produtos em Alerta', value: `${lowStock} itens`, icon: Zap, colorClass: 'warning', trend: lowStock > 0 ? 'CRÍTICO' : 'NORMAL', trendUp: false }
     ];
-  }, []);
+  }, [animais, transacoes, insumos]);
 
   // Simple SVG Line Chart for "Evolução do Rebanho"
   const chartData = [300, 450, 420, 600, 800, 950, 1248];
@@ -203,32 +222,50 @@ export const Dashboard = () => {
       </div>
 
       <div className="dashboard-footer-grid">
-         <div className="mini-dashboard card glass">
+          <div className="mini-dashboard card glass">
             <h4>Distribuição por Sexo</h4>
-            <div className="gender-dist">
-               <div className="gender-bar">
-                  <div className="segment male" style={{ width: '45%' }}></div>
-                  <div className="segment female" style={{ width: '55%' }}></div>
-               </div>
-               <div className="gender-legend">
-                  <span><i className="dot male"></i> Machos (45%)</span>
-                  <span><i className="dot female"></i> Fêmeas (55%)</span>
-               </div>
-            </div>
-         </div>
-         <div className="mini-dashboard card glass">
+            {(() => {
+              const machos = animais.filter(a => a.sexo === 'M').length;
+              const femeas = animais.filter(a => a.sexo === 'F').length;
+              const total = animais.length || 1;
+              const percM = Math.round((machos / total) * 100);
+              const percF = Math.round((femeas / total) * 100);
+
+              return (
+                <div className="gender-dist">
+                  <div className="gender-bar">
+                    <div className="segment male" style={{ width: `${percM}%` }}></div>
+                    <div className="segment female" style={{ width: `${percF}%` }}></div>
+                  </div>
+                  <div className="gender-legend">
+                    <span><i className="dot male"></i> Machos ({percM}%)</span>
+                    <span><i className="dot female"></i> Fêmeas ({percF}%)</span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+          <div className="mini-dashboard card glass">
             <h4>Ocupação de Pastos</h4>
-            <div className="occupation-status">
-               <div className="status-row">
-                  <span>Pastos em Uso</span>
-                  <span className="badge warning">12/15</span>
-               </div>
-               <div className="progress-bar-small">
-                  <div className="fill" style={{ width: '80%' }}></div>
-               </div>
-               <p className="helper">Recomendável: Rotação em 3 dias</p>
-            </div>
-         </div>
+            {(() => {
+              const totalPastos = pastos.length || 1;
+              const emUso = pastos.filter(p => p.status === 'Ocupado').length;
+              const perc = Math.round((emUso / totalPastos) * 100);
+
+              return (
+                <div className="occupation-status">
+                  <div className="status-row">
+                    <span>Pastos em Uso</span>
+                    <span className="badge warning">{emUso}/{totalPastos}</span>
+                  </div>
+                  <div className="progress-bar-small">
+                    <div className="fill" style={{ width: `${perc}%` }}></div>
+                  </div>
+                  <p className="helper">{perc > 80 ? '⚠️ Atenção: Lotação Elevada' : 'Lotação dentro da capacidade'}</p>
+                </div>
+              );
+            })()}
+          </div>
       </div>
     </div>
   );

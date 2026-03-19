@@ -22,11 +22,16 @@ import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { dataService } from '../../services/dataService';
+import { useCompany } from '../../contexts/CompanyContext';
 import './PlanoContas.css';
  // Reusing general accounting styles
 
 export const LivroCaixa = () => {
-  const lancamentos = useLiveQuery(() => db.lancamentos_contabeis.toArray()) || [];
+  const { activeCompanyId } = useCompany();
+  const allLancamentos = useLiveQuery(() => db.lancamentos_contabeis.toArray()) || [];
+  
+  // Filter by active company
+  const lancamentos = allLancamentos.filter(l => activeCompanyId === 'Todas' || l.empresaId === activeCompanyId);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterTipo, setFilterTipo] = useState('Todos');
@@ -249,6 +254,7 @@ export const LivroCaixa = () => {
                 dataService.saveItem('lancamentos_contabeis', { 
                   ...formData, 
                   id: Math.random().toString(36).substr(2, 9),
+                  empresaId: activeCompanyId === 'Todas' ? undefined : activeCompanyId,
                   tenant_id: 'default' 
                 });
                 setIsModalOpen(false);

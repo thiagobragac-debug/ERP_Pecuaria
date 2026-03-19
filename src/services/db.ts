@@ -6,7 +6,7 @@ import {
   Confinamento, SalesInvoice, PurchaseOrder, SolicitacaoCompra, 
   MapaCotacao, NotaEntrada, AccountingAccount, AccountingEntry, 
   TaxApuracao, Company, Categoria, UnidadeMedida, Profile, 
-  AppSettings, Opportunity 
+  AppSettings, Opportunity, AccessRole
 } from '../types';
 
 export interface SyncItem {
@@ -52,46 +52,48 @@ export class PecuariaDB extends Dexie {
   settings!: Table<AppSettings>;
   oportunidades!: Table<Opportunity>;
   sync_queue!: Table<SyncItem>;
+  access_roles!: Table<AccessRole>;
 
   constructor() {
     super('PecuariaDB_ULTRA');
     
     // Consolidated Schema for Version 22
     this.version(22).stores({
-      animais: 'id, brinco, lote, status',
-      lotes: 'id, nome, status',
-      pastos: 'id, nome, status',
+      animais: '++id, brinco, lote, pasto, status, empresaId, tenant_id',
+      lotes: '++id, nome, status, empresaId, tenant_id',
+      pastos: '++id, nome, status, empresaId, tenant_id',
       dietas: 'id, nome, status',
       registrosSanitarios: 'id, animal_id, lote_id, status, tenant_id',
-      transacoes: 'id, tipo, status, categoria, tenant_id',
+      transacoes: 'id, tipo, status, categoria, empresaId, tenant_id',
       insumos: 'id, categoria, status, tenant_id',
-      movimentacoes_estoque: 'id, insumo_id, tipo, status, tenant_id',
+      movimentacoes_estoque: 'id, insumo_id, tipo, status, empresaId, tenant_id',
       sessoes_inventario: 'id, data, status',
-      bancos: 'id, nome',
+      bancos: 'id, nome, empresaId',
       fornecedores: 'id, nome',
       clientes: 'id, nome',
-      ativos: 'id, nome',
-      abastecimentos: 'id, data',
-      manutencoes: 'id, data',
+      ativos: 'id, nome, empresaId',
+      abastecimentos: 'id, data, empresaId',
+      manutencoes: 'id, data, empresaId',
       pesagens: 'id, animal_id, data',
       abates: 'id, data, lote',
       reproducao: 'id, data',
       confinamento: 'id, data',
-      pedidos_venda: 'id, numero, cliente_id, status',
-      pedidos_compra: 'id, numero, fornecedorId, status',
+      pedidos_venda: 'id, numero, cliente_id, status, empresaId',
+      pedidos_compra: 'id, numero, fornecedorId, status, empresaId',
       plano_contas: 'id, codigo, nome',
-      lancamentos_contabeis: 'id, data, descricao',
-      apuracoes_impostos: 'id, imposto, periodo',
+      lancamentos_contabeis: 'id, data, descricao, empresaId',
+      apuracoes_impostos: 'id, imposto, periodo, empresaId',
       empresas: 'id, razaoSocial, cnpj, parentId',
       categorias_definicao: 'id, nome',
       unidades_medida: 'id, sigla, nome',
-      solicitacoes_compra: 'id, numero, status, solicitante',
-      mapas_cotacao: 'id, numero, status',
-      notas_entrada: 'id, numero, fornecedorId, status',
+      solicitacoes_compra: 'id, numero, status, solicitante, empresaId',
+      mapas_cotacao: 'id, numero, status, empresaId',
+      notas_entrada: 'id, numero, fornecedorId, status, empresaId',
       profiles: 'id, full_name, email, role',
       settings: '++id, farmName',
-      oportunidades: 'id, titulo, cliente_id, estagio, tenant_id',
-      sync_queue: '++id, table, action, timestamp'
+      oportunidades: 'id, titulo, cliente_id, estagio, empresaId, tenant_id',
+      sync_queue: '++id, table, action, timestamp',
+      access_roles: 'id, nome'
     });
   }
 }

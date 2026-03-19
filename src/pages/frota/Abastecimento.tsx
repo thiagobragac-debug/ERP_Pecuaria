@@ -28,12 +28,18 @@ import { dataService } from '../../services/dataService';
 import { supabase } from '../../services/supabase';
 import { Asset, Abastecimento as AbastecimentoType } from '../../types';
 import { INITIAL_COMPANIES } from '../../data/initialData';
+import { useCompany } from '../../contexts/CompanyContext';
 import './Abastecimento.css';
 
 
 export const Abastecimento: React.FC = () => {
-  const records = useLiveQuery(() => db.abastecimentos.toArray()) || [];
-  const assets = useLiveQuery(() => db.ativos.toArray()) || [];
+  const { activeCompanyId } = useCompany();
+  const allRecords = useLiveQuery(() => db.abastecimentos.toArray()) || [];
+  const allAssets = useLiveQuery(() => db.ativos.toArray()) || [];
+
+  // Filter by active company
+  const records = allRecords.filter(r => activeCompanyId === 'Todas' || r.empresaId === activeCompanyId);
+  const assets = allAssets.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [columnFilters, setColumnFilters] = useState({
@@ -80,6 +86,7 @@ export const Abastecimento: React.FC = () => {
         ...formData,
         id: Math.random().toString(36).substr(2, 9),
         ativo_nome: asset?.nome || 'N/A',
+        empresaId: asset?.empresaId || (activeCompanyId === 'Todas' ? undefined : activeCompanyId),
         tenant_id
       } as AbastecimentoType;
 

@@ -11,11 +11,27 @@ import {
   CreditCard,
   History
 } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { useCompany } from '../../contexts/CompanyContext';
 import './Compra.css';
 
 export const Compra = () => {
+  const { activeCompanyId } = useCompany();
   const location = useLocation();
   const isHubIndex = location.pathname === '/compras' || location.pathname === '/compras/';
+
+  const allSolicitacoes = useLiveQuery(() => db.solicitacoes_compra.toArray()) || [];
+  const allCotacoes = useLiveQuery(() => db.mapas_cotacao.toArray()) || [];
+  const allPedidos = useLiveQuery(() => db.pedidos_compra.toArray()) || [];
+
+  const solicitacoes = allSolicitacoes.filter(s => activeCompanyId === 'Todas' || (s as any).empresaId === activeCompanyId);
+  const cotacoes = allCotacoes.filter(c => activeCompanyId === 'Todas' || (c as any).empresaId === activeCompanyId);
+  const pedidos = allPedidos.filter(p => activeCompanyId === 'Todas' || p.empresaId === activeCompanyId);
+
+  const pendingOrders = pedidos.filter(p => p.status === 'Pendente').length;
+  const activeQuotes = cotacoes.filter(c => c.status === 'Em Aberto' || c.status === 'Em Análise').length;
+  const totalMonth = pedidos.reduce((acc, p) => acc + (p.valorTotal || 0), 0);
 
   if (!isHubIndex) {
     return <Outlet />;
@@ -39,7 +55,7 @@ export const Compra = () => {
         <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="summary-info">
             <span className="summary-label">Pedidos Pende.</span>
-            <span className="summary-value">12</span>
+            <span className="summary-value">{pendingOrders.toString().padStart(2, '0')}</span>
             <span className="summary-subtext">Aguardando aprovação</span>
           </div>
           <div className="summary-icon blue">
@@ -49,7 +65,7 @@ export const Compra = () => {
         <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="summary-info">
             <span className="summary-label">Cotações Ativas</span>
-            <span className="summary-value">05</span>
+            <span className="summary-value">{activeQuotes.toString().padStart(2, '0')}</span>
             <span className="summary-subtext">Em negociação</span>
           </div>
           <div className="summary-icon primary">
@@ -59,7 +75,7 @@ export const Compra = () => {
         <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <div className="summary-info">
             <span className="summary-label">Compras (Mês)</span>
-            <span className="summary-value">R$ 145k</span>
+            <span className="summary-value">R$ {(totalMonth / 1000).toFixed(0)}k</span>
             <span className="summary-subtext">Volume de suprimentos</span>
           </div>
           <div className="summary-icon orange">

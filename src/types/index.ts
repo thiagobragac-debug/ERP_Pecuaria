@@ -19,6 +19,7 @@ export interface Lote {
   dataCriacao?: string;
   status: 'Ativo' | 'Encerrado' | 'Vendido';
   cor?: string;
+  empresaId?: string;
   tenant_id: string;
 }
 
@@ -30,6 +31,7 @@ export interface Pasto {
   pasto_tipo?: string;
   status: 'Ocupado' | 'Vazio' | 'Descanso' | 'Reforma';
   data_ultima_adubacao?: string;
+  empresaId?: string;
   tenant_id: string;
 }
 
@@ -59,6 +61,7 @@ export interface Animal {
   valorVenda?: number;
   historicoCustos: CustoLancamento[];
   statusEmAbate?: boolean;
+  empresaId?: string;
   tenant_id?: string;
   created_at?: string;
 }
@@ -200,6 +203,7 @@ export interface Transacao {
   cliente_id?: string;
   forma_pagamento?: string;
   comprovante_url?: string;
+  empresaId?: string;
   tenant_id: string;
   created_at?: string;
 }
@@ -275,6 +279,7 @@ export interface BankAccount {
   status: 'Ativa' | 'Inativa';
   color?: string;
   brandColor?: string;
+  empresaId?: string;
   tenant_id: string;
   created_at?: string;
 }
@@ -311,6 +316,7 @@ export interface MovimentacaoEstoque {
   data: string;
   responsavel: string;
   status: 'Processado' | 'Pendente' | 'Cancelado';
+  empresaId?: string;
   tenant_id: string;
   created_at?: string;
 }
@@ -352,6 +358,7 @@ export interface Abastecimento {
   odometroHorimetro: number;
   posto?: string;
   operador?: string;
+  empresaId?: string;
   tenant_id: string;
   created_at?: string;
 }
@@ -371,6 +378,7 @@ export interface Manutencao {
   prioridade?: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
   responsavel?: string;
   itens?: any[];
+  empresaId?: string;
   tenant_id: string;
   created_at?: string;
 }
@@ -539,6 +547,7 @@ export interface AccountingEntry {
   tipo: 'Entrada' | 'Sa\u00edda';
   valor: number;
   conta: string;
+  empresaId?: string;
   tenant_id?: string;
 }
 
@@ -549,6 +558,7 @@ export interface TaxApuracao {
   valor: number;
   vencimento: string;
   status: 'Pago' | 'Pendente' | 'Vencido';
+  empresaId?: string;
   tenant_id?: string;
 }
 

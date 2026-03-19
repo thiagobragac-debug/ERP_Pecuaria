@@ -11,15 +11,21 @@ import {
 } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
+import { useCompany } from '../../contexts/CompanyContext';
 import './Vendas.css';
 
 export const Vendas = () => {
+  const { activeCompanyId } = useCompany();
   const location = useLocation();
   const isHubHome = location.pathname === '/vendas' || location.pathname === '/vendas/';
 
   // Data
-  const notas = useLiveQuery(() => db.pedidos_venda.toArray()) || [];
-  const oportunidades = useLiveQuery(() => db.oportunidades.toArray()) || [];
+  const allNotas = useLiveQuery(() => db.pedidos_venda.toArray()) || [];
+  const allOportunidades = useLiveQuery(() => db.oportunidades.toArray()) || [];
+
+  // Filter by active company
+  const notas = allNotas.filter(n => activeCompanyId === 'Todas' || n.empresaId === activeCompanyId);
+  const oportunidades = allOportunidades.filter(o => activeCompanyId === 'Todas' || (o as any).empresaId === activeCompanyId);
 
   // Metrics
   const currentMonth = new Date().getMonth();

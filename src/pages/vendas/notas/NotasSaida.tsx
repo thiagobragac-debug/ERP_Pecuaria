@@ -164,6 +164,7 @@ export const NotasSaida = () => {
         status: 'Pendente',
         tipo: 'in',
         categoria: 'Venda Gado',
+        empresaId: payload.empresaId,
         tenant_id: 'default'
       });
 
@@ -181,6 +182,7 @@ export const NotasSaida = () => {
           data: new Date().toISOString().split('T')[0],
           responsavel: 'Sistema',
           status: 'Processado',
+          empresaId: payload.empresaId,
           tenant_id: 'default'
         });
       }
@@ -224,6 +226,7 @@ export const NotasSaida = () => {
               status: 'Pendente',
               tipo: 'in',
               categoria: 'Venda Gado',
+              empresaId: updatedNota.empresaId,
               tenant_id: 'default'
             });
 
@@ -241,6 +244,7 @@ export const NotasSaida = () => {
                 data: new Date().toISOString().split('T')[0],
                 responsavel: 'Sistema',
                 status: 'Processado',
+                empresaId: updatedNota.empresaId,
                 tenant_id: 'default'
               });
             }

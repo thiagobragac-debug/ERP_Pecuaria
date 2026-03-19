@@ -13,6 +13,7 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters, ColumnFilterConfig } from '../../components/ColumnFilters';
 import { usePagination } from '../../hooks/usePagination';
+import { useCompany } from '../../contexts/CompanyContext';
 
 
 const calculateCategory = (dataNasc: string, sexo: 'M' | 'F'): string => {
@@ -55,11 +56,15 @@ export const Rebanho = () => {
   });
   const [costCalculationMode, setCostCalculationMode] = useState<'fixed' | 'proportional'>('proportional');
   const [showReports, setShowReports] = useState(false);
+  const { activeCompanyId, companies } = useCompany();
 
   // Live Queries
-  const animais = useLiveQuery(() => db.animais.toArray()) || [];
+  const allAnimais = useLiveQuery(() => db.animais.toArray()) || [];
   const dietas = useLiveQuery(() => db.dietas.toArray()) || [];
   const registrosSanitarios = useLiveQuery(() => db.registrosSanitarios.toArray()) || [];
+
+  // Filter animals by active company
+  const animais = allAnimais.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
 
   useEscapeKey(() => {
     if (isModalOpen) handleCloseModal();
@@ -365,6 +370,7 @@ export const Rebanho = () => {
               custoOperacional: selectedAnimal?.custoOperacional || 0,
               statusEmAbate: selectedAnimal?.statusEmAbate || false,
               historicoCustos: selectedAnimal?.historicoCustos || [],
+              empresaId: selectedAnimal?.empresaId || (activeCompanyId === 'Todas' ? undefined : activeCompanyId),
               tenant_id: 'default'
             };
             await dataService.saveItem('animais', updatedAnimal);

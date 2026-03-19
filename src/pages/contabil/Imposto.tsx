@@ -22,10 +22,15 @@ import { usePagination } from '../../hooks/usePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { dataService } from '../../services/dataService';
+import { useCompany } from '../../contexts/CompanyContext';
 import './PlanoContas.css';
 
 export const Imposto = () => {
-  const apuracoes = useLiveQuery(() => db.apuracoes_impostos.toArray()) || [];
+  const { activeCompanyId } = useCompany();
+  const allApuracoes = useLiveQuery(() => db.apuracoes_impostos.toArray()) || [];
+  
+  // Filter by active company
+  const apuracoes = allApuracoes.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState('Todos');
@@ -271,6 +276,7 @@ export const Imposto = () => {
                 dataService.saveItem('apuracoes_impostos', { 
                   ...formData, 
                   id: Math.random().toString(36).substr(2, 9),
+                  empresaId: activeCompanyId === 'Todas' ? undefined : activeCompanyId,
                   tenant_id: 'default' 
                 });
                 setIsModalOpen(false);

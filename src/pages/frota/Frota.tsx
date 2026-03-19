@@ -32,6 +32,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { supabase } from '../../services/supabase';
+import { useCompany } from '../../contexts/CompanyContext';
 import './Frota.css';
 
 import { 
@@ -42,7 +43,11 @@ import {
 } from '../../data/fleetData';
 
 export const Frota: React.FC = () => {
-  const assets = useLiveQuery(() => db.ativos.toArray()) || [];
+  const { activeCompanyId } = useCompany();
+  const allAssets = useLiveQuery(() => db.ativos.toArray()) || [];
+  
+  // Filter by active company
+  const assets = allAssets.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState('Todos');
@@ -108,6 +113,7 @@ export const Frota: React.FC = () => {
         ...formData,
         id: editingAsset?.id || Math.random().toString(36).substr(2, 9),
         tenant_id,
+        empresaId: formData.empresaId || (activeCompanyId === 'Todas' ? undefined : activeCompanyId),
         proximaRevisao: formData.proximaRevisao || 'A definir'
       } as Asset;
 

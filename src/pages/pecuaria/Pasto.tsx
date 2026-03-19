@@ -23,20 +23,26 @@ import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Pasto as PastoType } from '../../types';
+import { useCompany } from '../../contexts/CompanyContext';
 import './Pasto.css';
 
 export const Pasto = () => {
-  const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const { activeCompanyId } = useCompany();
   const [filterStatus, setFilterStatus] = useState('Todos');
   const [filterForrageira, setFilterForrageira] = useState('Todos');
+  const [searchTerm, setSearchTerm] = useState('');
   const [view, setView] = useState<'list' | 'map'>('list');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPasto, setSelectedPasto] = useState<PastoType | null>(null);
 
   // Live Queries
-  const pastos = useLiveQuery(() => db.pastos.toArray()) || [];
-  const animais = useLiveQuery(() => db.animais.toArray()) || [];
+  const allPastos = useLiveQuery(() => db.pastos.toArray()) || [];
+  const allAnimais = useLiveQuery(() => db.animais.toArray()) || [];
+
+  // Filter by active company
+  const pastos = allPastos.filter(p => activeCompanyId === 'Todas' || p.empresaId === activeCompanyId);
+  const animais = allAnimais.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
 
   const [columnFilters, setColumnFilters] = useState({
     nome: '',
@@ -311,6 +317,7 @@ export const Pasto = () => {
               capacidade_ua: Number(formData.get('capacidade')),
               status: selectedPasto?.status || 'Vazio',
               data_ultima_adubacao: formData.get('dataUltimaAdubacao') as string,
+              empresaId: selectedPasto?.empresaId || (activeCompanyId === 'Todas' ? undefined : activeCompanyId),
               tenant_id: 'default'
             };
             await dataService.saveItem('pastos', updatedPasto);

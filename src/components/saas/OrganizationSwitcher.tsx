@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { Building2, ChevronDown, Check, Plus } from 'lucide-react';
+import { Building2, ChevronDown, Check, Plus, Globe } from 'lucide-react';
+import { useCompany } from '../../contexts/CompanyContext';
 import './OrganizationSwitcher.css';
 
 export const OrganizationSwitcher = () => {
-  const { currentOrg, userOrgs, switchOrg } = useAuth();
+  const { activeCompany, companies, setActiveCompanyId, activeCompanyId } = useCompany();
   const [isOpen, setIsOpen] = useState(false);
 
-  if (!currentOrg && userOrgs.length === 0) return null;
+  if (companies.length === 0) return null;
 
   return (
     <div className="org-switcher-container">
@@ -17,8 +17,8 @@ export const OrganizationSwitcher = () => {
       >
         <Building2 size={18} className="org-icon" />
         <div className="org-info-mini">
-          <span className="org-label">Empresa Ativa</span>
-          <span className="org-name-current">{currentOrg?.nome || 'Selecionar...'}</span>
+          <span className="org-label">Unidade Ativa</span>
+          <span className="org-name-current">{activeCompanyId === 'Todas' ? 'Todas as Unidades' : activeCompany?.nomeFantasia || 'Selecionar...'}</span>
         </div>
         <ChevronDown size={16} className={`chevron ${isOpen ? 'open' : ''}`} />
       </button>
@@ -27,23 +27,31 @@ export const OrganizationSwitcher = () => {
         <>
           <div className="org-switcher-overlay" onClick={() => setIsOpen(false)} />
           <div className="org-switcher-dropdown glass floating">
-            <div className="dropdown-header">
-              <span>Suas Empresas</span>
-            </div>
-            
             <div className="org-list">
-              {userOrgs.map((org) => (
+              <button
+                className={`org-item ${activeCompanyId === 'Todas' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveCompanyId('Todas');
+                  setIsOpen(false);
+                }}
+              >
+                <Globe size={16} />
+                <span>Todas as Unidades</span>
+                {activeCompanyId === 'Todas' && <Check size={14} className="check-icon" />}
+              </button>
+
+              {companies.map((company) => (
                 <button
-                  key={org.id}
-                  className={`org-item ${currentOrg?.id === org.id ? 'active' : ''}`}
+                  key={company.id}
+                  className={`org-item ${activeCompanyId === company.id ? 'active' : ''}`}
                   onClick={() => {
-                    switchOrg(org.id);
+                    setActiveCompanyId(company.id);
                     setIsOpen(false);
                   }}
                 >
                   <Building2 size={16} />
-                  <span>{org.nome}</span>
-                  {currentOrg?.id === org.id && <Check size={14} className="check-icon" />}
+                  <span>{company.nomeFantasia}</span>
+                  {activeCompanyId === company.id && <Check size={14} className="check-icon" />}
                 </button>
               ))}
             </div>

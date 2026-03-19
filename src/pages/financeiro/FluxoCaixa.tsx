@@ -25,7 +25,9 @@ import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { Transacao } from '../../types';
+import { useCompany } from '../../contexts/CompanyContext';
+import { db } from '../../services/db';
+import { Transacao, Company } from '../../types';
 import './FluxoCaixa.css';
 
 interface MonthlyFlow {
@@ -84,11 +86,20 @@ export const FluxoCaixa: React.FC = () => {
     valor: '',
     data: '',
     status: 'Todos',
-    categoria: 'Todas'
+    categoria: 'Todas',
+    empresa: 'Todas'
   });
   
+  const { activeCompanyId: selectedEmpresaId, setActiveCompanyId, companies: empresasList } = useCompany();
+  
   const isOnline = useOnlineStatus();
-  const { data: transactions = [], isLoading } = useOfflineQuery<Transacao>(['transacoes'], 'transacoes');
+  const { data: allTransactions = [], isLoading } = useOfflineQuery<Transacao>(['transacoes'], 'transacoes');
+
+  const transactions = useMemo(() => {
+    return allTransactions.filter(t => {
+      return selectedEmpresaId === 'Todas' || t.empresaId === selectedEmpresaId;
+    });
+  }, [allTransactions, selectedEmpresaId]);
   
   const monthlyFlow = useMemo(() => getMonthlyFlowFromTransactions(transactions), [transactions]);
 
@@ -320,6 +331,19 @@ export const FluxoCaixa: React.FC = () => {
               <Filter size={18} strokeWidth={3} />
               <span>{isFiltersOpen ? 'Fechar Filtros' : 'Filtros Avançados'}</span>
             </button>
+            <div className="flex items-center gap-2 ml-4">
+              <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Unidade:</span>
+              <select 
+                className="select-premium-minimal"
+                value={selectedEmpresaId} 
+                onChange={(e) => setActiveCompanyId(e.target.value)}
+              >
+                <option value="Todas">Todas as Unidades</option>
+                {empresasList.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.nomeFantasia}</option>
+                ))}
+              </select>
+            </div>
           </TableFilters>
 
           

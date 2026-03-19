@@ -26,7 +26,10 @@ import { ColumnFilters } from '../../components/ColumnFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { Transacao, BankAccount, Cliente } from '../../types';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { useCompany } from '../../contexts/CompanyContext';
+import { Transacao, BankAccount, Cliente, Company } from '../../types';
 import './ContasReceber.css';
 import './Settlement.css';
 
@@ -47,6 +50,8 @@ export const ContasReceber = () => {
     valor: '',
     status: 'Todos'
   });
+  
+  const { activeCompanyId: selectedEmpresaId, setActiveCompanyId, companies: empresasList } = useCompany();
 
   // Settlement Form State
   const [settlementDate, setSettlementDate] = useState(new Date().toISOString().split('T')[0]);
@@ -87,6 +92,7 @@ export const ContasReceber = () => {
                            (r.vencimento?.toLowerCase().includes(searchLower) || false);
       const matchesStatus = filterStatus === 'Todos' || r.status === filterStatus;
       const matchesCategoria = filterCategoria === 'Todos' || r.categoria === filterCategoria;
+      const matchesEmpresa = selectedEmpresaId === 'Todas' || r.empresaId === selectedEmpresaId;
       
       const matchesColumnFilters = 
         (columnFilters.descricao === '' || r.desc.toLowerCase().includes(columnFilters.descricao.toLowerCase())) &&
@@ -95,9 +101,9 @@ export const ContasReceber = () => {
         (columnFilters.valor === '' || r.valor.toString().includes(columnFilters.valor)) &&
         (columnFilters.status === 'Todos' || r.status === columnFilters.status);
 
-      return matchesSearch && matchesStatus && matchesCategoria && matchesColumnFilters;
+      return matchesSearch && matchesStatus && matchesCategoria && matchesEmpresa && matchesColumnFilters;
     });
-  }, [contasReceber, searchTerm, filterStatus, filterCategoria, columnFilters, clientes]);
+  }, [contasReceber, searchTerm, filterStatus, filterCategoria, columnFilters, clientes, selectedEmpresaId]);
 
   const categorias = useMemo(() => Array.from(new Set(contasReceber.map(r => r.categoria))), [contasReceber]);
 
@@ -172,6 +178,7 @@ export const ContasReceber = () => {
       status: selectedConta?.status || 'Pendente',
       tipo: 'in',
       categoria: categoria,
+      empresaId: empresaId,
       tenant_id: 'default'
     } as Transacao;
     
@@ -256,7 +263,21 @@ export const ContasReceber = () => {
           placeholder="Buscar por descrição, cliente ou documento..."
           onToggleAdvanced={() => setIsFiltersOpen(!isFiltersOpen)}
           isAdvancedOpen={isFiltersOpen}
-        />
+        >
+          <div className="flex items-center gap-2 ml-4">
+            <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Unidade:</span>
+            <select 
+              className="select-premium-minimal"
+              value={selectedEmpresaId} 
+              onChange={(e) => setActiveCompanyId(e.target.value)}
+            >
+              <option value="Todas">Todas as Unidades</option>
+              {empresasList.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.nomeFantasia}</option>
+              ))}
+            </select>
+          </div>
+        </TableFilters>
 
         <table className="data-table">
           <thead>
@@ -423,7 +444,10 @@ export const ContasReceber = () => {
               <div className="form-group col-4">
                 <label>Empresa</label>
                 <select value={empresaId} onChange={e => setEmpresaId(e.target.value)} disabled={isViewMode}>
-                   <option value="default">Empresa Padrão</option>
+                   <option value="">Selecione a empresa...</option>
+                   {empresasList.filter(c => c.status === 'Ativa').map(c => (
+                     <option key={c.id} value={c.id}>{c.nomeFantasia}</option>
+                   ))}
                 </select>
               </div>
               <div className="form-group col-6">

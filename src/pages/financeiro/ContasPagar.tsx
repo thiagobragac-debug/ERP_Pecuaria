@@ -36,7 +36,8 @@ import { ColumnFilters } from '../../components/ColumnFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { Transacao, BankAccount, Supplier } from '../../types';
+import { useCompany } from '../../contexts/CompanyContext';
+import { Transacao, BankAccount, Supplier, Company } from '../../types';
 import './ContasPagar.css';
 import './Settlement.css';
 
@@ -59,6 +60,8 @@ export const ContasPagar = () => {
     valor: '',
     status: 'Todos'
   });
+  
+  const { activeCompanyId: selectedEmpresaId, setActiveCompanyId, companies: empresasList } = useCompany();
   
   // Settlement Form State
   const [settlementDate, setSettlementDate] = useState(new Date().toISOString().split('T')[0]);
@@ -99,6 +102,7 @@ export const ContasPagar = () => {
                            (c.vencimento?.toLowerCase().includes(searchLower) || false);
       const matchesStatus = filterStatus === 'Todos' || c.status === filterStatus;
       const matchesCategoria = filterCategoria === 'Todos' || c.categoria === filterCategoria;
+      const matchesEmpresa = selectedEmpresaId === 'Todas' || c.empresaId === selectedEmpresaId;
       
       const matchesColumnFilters = 
         (columnFilters.descricao === '' || c.desc.toLowerCase().includes(columnFilters.descricao.toLowerCase())) &&
@@ -106,9 +110,9 @@ export const ContasPagar = () => {
         (columnFilters.valor === '' || c.valor.toString().includes(columnFilters.valor)) &&
         (columnFilters.status === 'Todos' || c.status === columnFilters.status);
 
-      return matchesSearch && matchesStatus && matchesCategoria && matchesColumnFilters;
+      return matchesSearch && matchesStatus && matchesCategoria && matchesEmpresa && matchesColumnFilters;
     });
-  }, [contasPagar, searchTerm, filterStatus, filterCategoria, columnFilters]);
+  }, [contasPagar, searchTerm, filterStatus, filterCategoria, columnFilters, selectedEmpresaId]);
 
   const categorias = useMemo(() => 
     Array.from(new Set(contasPagar.map(c => c.categoria))),
@@ -259,7 +263,21 @@ export const ContasPagar = () => {
           placeholder="Buscar por descrição, fornecedor ou documento..."
           onToggleAdvanced={() => setIsFiltersOpen(!isFiltersOpen)}
           isAdvancedOpen={isFiltersOpen}
-        />
+        >
+          <div className="flex items-center gap-2 ml-4">
+            <span className="text-sm font-medium text-slate-500 whitespace-nowrap">Unidade:</span>
+            <select 
+              className="select-premium-minimal"
+              value={selectedEmpresaId} 
+              onChange={(e) => setActiveCompanyId(e.target.value)}
+            >
+              <option value="Todas">Todas as Unidades</option>
+              {empresasList.map(emp => (
+                <option key={emp.id} value={emp.id}>{emp.nomeFantasia}</option>
+              ))}
+            </select>
+          </div>
+        </TableFilters>
 
         <table className="data-table">
           <thead>
@@ -411,8 +429,9 @@ export const ContasPagar = () => {
                      tipo: 'out',
                      status: status as any,
                      categoria,
-                     fornecedor_id: fornecedorId,
-                     tenant_id: 'default'
+                      fornecedor_id: fornecedorId,
+                      empresaId: empresaId,
+                      tenant_id: 'default'
                    };
                    saveMutation.mutate(payload);
                    setIsModalOpen(false);
@@ -494,7 +513,8 @@ export const ContasPagar = () => {
               <div className="form-group col-4">
                 <label>Empresa Responsável</label>
                 <select value={empresaId} onChange={(e) => setEmpresaId(e.target.value)} disabled={isViewMode}>
-                  {INITIAL_COMPANIES.filter(c => c.status === 'Ativa').map(c => (
+                  <option value="">Selecione a empresa...</option>
+                  {empresasList.filter(c => c.status === 'Ativa').map(c => (
                     <option key={c.id} value={c.id}>{c.nomeFantasia}</option>
                   ))}
                 </select>
