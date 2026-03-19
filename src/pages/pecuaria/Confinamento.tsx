@@ -33,6 +33,7 @@ import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Confinamento as ConfinamentoType, Lote, Dieta } from '../../types';
+import { useCompany } from '../../contexts/CompanyContext';
 import './Confinamento.css';
 
 // Removed mockConfinamento
@@ -49,10 +50,16 @@ export const Confinamento = () => {
   const [selectedEntry, setSelectedEntry] = useState<ConfinamentoType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
 
+  const { activeCompanyId } = useCompany();
+  
   // Live Queries
-  const confinamentos = useLiveQuery(() => db.confinamento.toArray()) || [];
-  const lotes = useLiveQuery(() => db.lotes.toArray()) || [];
-  const dietas = useLiveQuery(() => db.dietas.toArray()) || [];
+  const allConfinamentos = useLiveQuery(() => db.confinamento.toArray()) || [];
+  const allLotes = useLiveQuery(() => db.lotes.toArray()) || [];
+  const allDietas = useLiveQuery(() => db.dietas.toArray()) || [];
+
+  const confinamentos = allConfinamentos.filter(c => activeCompanyId === 'Todas' || c.empresaId === activeCompanyId);
+  const lotes = allLotes.filter(l => activeCompanyId === 'Todas' || l.empresaId === activeCompanyId);
+  const dietas = allDietas.filter(d => activeCompanyId === 'Todas' || d.empresaId === activeCompanyId);
 
   const [columnFilters, setColumnFilters] = useState({
     curral: 'Todos',
@@ -265,7 +272,7 @@ export const Confinamento = () => {
                       <button className="action-btn-global btn-edit" title="Editar" onClick={() => handleOpenModal(entry)}>
                         <Edit size={18} strokeWidth={3} />
                       </button>
-                      <button className="action-btn-global btn-delete" title="Excluir" onClick={() => {}}>
+                      <button className="action-btn-global btn-delete" title="Excluir" onClick={() => dataService.deleteItem('confinamento', entry.id)}>
                         <Trash2 size={18} strokeWidth={3} />
                       </button>
                     </div>
@@ -337,6 +344,7 @@ export const Confinamento = () => {
               dieta: formData.get('dieta') as string,
               imgAnterior: parseFloat(formData.get('imgAnterior') as string),
               status: formData.get('status') as any || 'Em Engorda',
+              empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : (selectedEntry?.empresaId || undefined),
               tenant_id: 'default'
             };
 

@@ -24,6 +24,7 @@ import { ColumnFilters } from '../../../components/ColumnFilters';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../../services/db';
 import { dataService } from '../../../services/dataService';
+import { useCompany } from '../../../contexts/CompanyContext';
 import { SalesInvoice, Cliente, Company } from '../../../types';
 import { InvoiceHeader } from './components/InvoiceHeader';
 import { InvoiceItems } from './components/InvoiceItems';
@@ -32,7 +33,9 @@ import { nfeService } from '../../../services/nfeService';
 import './NotasSaida.css';
 
 export const NotasSaida = () => {
-  const notas = useLiveQuery(() => db.pedidos_venda.toArray()) || [];
+  const { activeCompanyId } = useCompany();
+  const allNotas = useLiveQuery(() => db.pedidos_venda.toArray()) || [];
+  const notas = allNotas.filter(n => activeCompanyId === 'Todas' || (n as any).empresaId === activeCompanyId);
   const clientes = useLiveQuery(() => db.clientes.toArray()) || [];
   const empresasList = useLiveQuery(() => db.empresas.toArray()) || [] as Company[];
   
@@ -94,7 +97,8 @@ export const NotasSaida = () => {
         valorSeguro: 0,
         valorDesconto: 0,
         valorOutrasDespesas: 0,
-        valorTotal: 0
+        valorTotal: 0,
+        empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : ''
       });
       setIsViewMode(false);
     }
@@ -147,6 +151,7 @@ export const NotasSaida = () => {
       ...formData,
       id: notaId,
       status: formData.status || 'Pendente',
+      empresaId: formData.empresaId || (activeCompanyId !== 'Todas' ? activeCompanyId : ''),
       tenant_id: 'default',
       created_at: selectedNota?.created_at || new Date().toISOString()
     } as SalesInvoice;

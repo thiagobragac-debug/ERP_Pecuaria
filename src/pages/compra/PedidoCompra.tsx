@@ -30,6 +30,7 @@ import {
   List
 } from 'lucide-react';
 import './PedidoCompra.css';
+import { useCompany } from '../../contexts/CompanyContext';
 import { INITIAL_CATEGORIES } from '../../data/initialData';
 import { StandardModal } from '../../components/StandardModal';
 import { TablePagination } from '../../components/TablePagination';
@@ -44,10 +45,14 @@ import { PurchaseOrder, PurchaseItem, Supplier, Insumo, Company } from '../../ty
 
 
 export const PedidoCompraPage = () => {
-  const orders = useLiveQuery(() => db.pedidos_compra.toArray()) || [];
+  const { activeCompanyId } = useCompany();
+  const allOrders = useLiveQuery(() => db.pedidos_compra.toArray()) || [];
   const suppliersList = useLiveQuery(() => db.fornecedores.toArray()) || [];
   const inventoryList = useLiveQuery(() => db.insumos.toArray()) || [];
   const empresasList = useLiveQuery(() => db.empresas.toArray()) || [];
+
+  // Filter by active company
+  const orders = allOrders.filter(o => activeCompanyId === 'Todas' || o.empresaId === activeCompanyId);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -56,6 +61,13 @@ export const PedidoCompraPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
   const [selectedPedido, setSelectedPedido] = useState<PurchaseOrder | null>(null);
+  
+  // Default empresaId from context
+  useEffect(() => {
+    if (activeCompanyId !== 'Todas') {
+      setEmpresaId(activeCompanyId);
+    }
+  }, [activeCompanyId]);
   
   // Form State
   const [items, setItems] = useState<PurchaseItem[]>([]);

@@ -25,6 +25,7 @@ import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { RegistroSanitario as RegistroSanitarioType, Animal, Lote, MedicamentoUsado } from '../../types';
+import { useCompany } from '../../contexts/CompanyContext';
 import './Sanidade.css';
 
 export const Sanidade = () => {
@@ -35,10 +36,16 @@ export const Sanidade = () => {
   const [selectedRegistro, setSelectedRegistro] = useState<RegistroSanitarioType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
 
+  const { activeCompanyId } = useCompany();
+  
   // Live Queries
-  const registros = useLiveQuery(() => db.registrosSanitarios.toArray()) || [];
-  const animais = useLiveQuery(() => db.animais.toArray()) || [];
-  const lotes = useLiveQuery(() => db.lotes.toArray()) || [];
+  const allRegistros = useLiveQuery(() => db.registrosSanitarios.toArray()) || [];
+  const allAnimais = useLiveQuery(() => db.animais.toArray()) || [];
+  const allLotes = useLiveQuery(() => db.lotes.toArray()) || [];
+
+  const registros = allRegistros.filter(r => activeCompanyId === 'Todas' || r.empresaId === activeCompanyId);
+  const animais = allAnimais.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
+  const lotes = allLotes.filter(l => activeCompanyId === 'Todas' || l.empresaId === activeCompanyId);
   const [columnFilters, setColumnFilters] = useState({
     animal: '',
     doenca: '',
@@ -312,6 +319,7 @@ export const Sanidade = () => {
               medicamentos: [
                 { id: '1', nome: formData.get('medicamento') as string, dose: '1ml', quantidade: 1 }
               ],
+              empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : (selectedRegistro?.empresaId || undefined),
               tenant_id: 'default'
             };
 

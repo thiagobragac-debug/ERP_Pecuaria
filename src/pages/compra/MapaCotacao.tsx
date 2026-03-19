@@ -39,8 +39,10 @@ import { MapaCotacao as MapaType, CotacaoItem, Bid, Supplier, SolicitacaoCompra 
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useCompany } from '../../contexts/CompanyContext';
 
 export const MapaCotacaoPage = () => {
+  const { activeCompanyId } = useCompany();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -65,8 +67,12 @@ export const MapaCotacaoPage = () => {
   });
 
   // Database Queries
-  const mapas = useLiveQuery(() => db.mapas_cotacao.toArray()) || [];
-  const solicitacoes = useLiveQuery(() => db.solicitacoes_compra.filter(s => s.status === 'Pendente').toArray()) || [];
+  const allMapas = useLiveQuery(() => db.mapas_cotacao.toArray()) || [];
+  const solicitacoesRaw = useLiveQuery(() => db.solicitacoes_compra.filter(s => s.status === 'Pendente').toArray()) || [];
+  
+  const mapas = allMapas.filter(m => activeCompanyId === 'Todas' || (m as any).empresaId === activeCompanyId);
+  const solicitacoes = solicitacoesRaw.filter(s => activeCompanyId === 'Todas' || (s as any).empresaId === activeCompanyId);
+  
   const fornecedores = useLiveQuery(() => db.fornecedores.toArray()) || [];
   const empresasList = useLiveQuery(() => db.empresas.toArray()) || [];
 
@@ -149,7 +155,7 @@ export const MapaCotacaoPage = () => {
       setSelectedMapa(null);
       setNumero(`MAP-${new Date().getFullYear()}-${String(mapas.length + 1).padStart(3, '0')}`);
       setData(new Date().toISOString().split('T')[0]);
-      setEmpresaId((empresasList as any[])[0]?.id || '');
+      setEmpresaId(activeCompanyId !== 'Todas' ? activeCompanyId : ((empresasList as any[])[0]?.id || ''));
       setItens([]);
       setSuppliers([]);
     }

@@ -30,7 +30,7 @@ export const Compra = () => {
   const pedidos = allPedidos.filter(p => activeCompanyId === 'Todas' || p.empresaId === activeCompanyId);
 
   const pendingOrders = pedidos.filter(p => p.status === 'Pendente').length;
-  const activeQuotes = cotacoes.filter(c => c.status === 'Em Aberto' || c.status === 'Em Análise').length;
+  const activeQuotes = cotacoes.filter(c => c.status === 'Em Aberto').length;
   const totalMonth = pedidos.reduce((acc, p) => acc + (p.valorTotal || 0), 0);
 
   if (!isHubIndex) {

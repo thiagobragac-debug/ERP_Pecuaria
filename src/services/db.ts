@@ -55,10 +55,10 @@ export class PecuariaDB extends Dexie {
   access_roles!: Table<AccessRole>;
 
   constructor() {
-    super('PecuariaDB_ULTRA');
+    super('PecuariaDB_ULTRA_V3');
     
-    // Consolidated Schema for Version 22
-    this.version(22).stores({
+    // Consolidated Schema for Version 23
+    this.version(23).stores({
       animais: '++id, brinco, lote, pasto, status, empresaId, tenant_id',
       lotes: '++id, nome, status, empresaId, tenant_id',
       pastos: '++id, nome, status, empresaId, tenant_id',

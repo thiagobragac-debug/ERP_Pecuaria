@@ -36,6 +36,7 @@ import { usePagination } from '../../hooks/usePagination';
 import { Dieta, Ingrediente, LogTrato, Animal } from '../../types';
 
 
+import { useCompany } from '../../contexts/CompanyContext';
 import { AnaliseCustoNutricao } from './AnaliseCustoNutricao';
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
@@ -43,6 +44,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { financialService } from '../../services/financialService';
 
 export const Nutricao = () => {
+  const { activeCompanyId } = useCompany();
   const [view, setView] = useState<'list' | 'analise'>('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,8 +63,11 @@ export const Nutricao = () => {
   const [costCalculationMode, setCostCalculationMode] = useState<'fixed' | 'proportional'>('proportional');
 
   // Live Queries
-  const dietas = useLiveQuery(() => db.dietas.toArray()) || [];
-  const animais = useLiveQuery(() => db.animais.toArray()) || [];
+  const allDietas = useLiveQuery(() => db.dietas.toArray()) || [];
+  const allAnimais = useLiveQuery(() => db.animais.toArray()) || [];
+
+  const dietas = allDietas.filter(d => activeCompanyId === 'Todas' || d.empresaId === activeCompanyId);
+  const animais = allAnimais.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
 
   const handleOpenModal = (dieta: Dieta | null = null, viewOnly = false) => {
     setSelectedDieta(dieta);
@@ -320,6 +325,7 @@ export const Nutricao = () => {
                   const updatedDieta: Dieta = {
                     ...selectedDieta!,
                     id: selectedDieta?.id || Math.random().toString(36).substr(2, 9),
+                    empresaId: selectedDieta?.empresaId || (activeCompanyId !== 'Todas' ? activeCompanyId : undefined),
                     nome: formData.get('nome') as string,
                     categoria: formData.get('categoria') as string,
                     cmsProjetado: Number(formData.get('cmsProjetado')),

@@ -17,7 +17,9 @@ import {
   Users,
   Scale
 } from 'lucide-react';
-import { mockAnimals } from '../../data/mockData';
+import { useCompany } from '../../contexts/CompanyContext';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
 import './AnaliseCustoNutricao.css';
 
 interface IngredienteAnalise {
@@ -34,8 +36,43 @@ const mockIngredientes: IngredienteAnalise[] = [
 ];
 
 export const AnaliseCustoNutricao: React.FC<{ onBack: () => void; dietaNome?: string }> = ({ onBack, dietaNome = 'Dieta Acabamento Grão Inteiro' }) => {
-  const [ingredientes, setIngredientes] = useState<IngredienteAnalise[]>(mockIngredientes);
-  const [cms, setCms] = useState(10.5); // CMS em kg
+  const { activeCompanyId } = useCompany();
+  
+  // Live Queries
+  const allDietas = useLiveQuery(() => db.dietas.toArray()) || [];
+  const allAnimais = useLiveQuery(() => db.animais.toArray()) || [];
+  const allInsumos = useLiveQuery(() => db.insumos.toArray()) || [];
+
+  const dietas = allDietas.filter(d => activeCompanyId === 'Todas' || d.empresaId === activeCompanyId);
+  const animais = allAnimais.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
+  
+  // Find specific dieta if name provided
+  const currentDieta = dietas.find(d => d.nome === dietaNome);
+
+  // Map ingredients from dieta to analysis format
+  const initialIngredientes: IngredienteAnalise[] = useMemo(() => {
+    if (!currentDieta) return [
+      { id: '1', nome: 'Milho Grão Inteiro', proporcao: 85, custoOriginal: 1.10, custoSimulado: 1.10 },
+      { id: '2', nome: 'Núcleo Confinamento 15%', proporcao: 15, custoOriginal: 3.50, custoSimulado: 3.50 },
+    ];
+
+    return currentDieta.ingredientes.map((ing, idx) => ({
+      id: idx.toString(),
+      nome: ing.nome,
+      proporcao: ing.proporcao,
+      custoOriginal: ing.custoUnitario,
+      custoSimulado: ing.custoUnitario
+    }));
+  }, [currentDieta]);
+
+  const [ingredientes, setIngredientes] = useState<IngredienteAnalise[]>(initialIngredientes);
+  
+  // Sync state with initialIngredientes when it changes
+  React.useEffect(() => {
+    setIngredientes(initialIngredientes);
+  }, [initialIngredientes]);
+
+  const [cms, setCms] = useState(currentDieta?.cmsProjetado || 10.5); // CMS em kg
   const [isSimulating, setIsSimulating] = useState(false);
   const [visualTab, setVisualTab] = useState<'componente' | 'animais'>('componente');
   const [costCalculationMode, setCostCalculationMode] = useState<'fixed' | 'proportional'>('proportional');
@@ -245,7 +282,14 @@ export const AnaliseCustoNutricao: React.FC<{ onBack: () => void; dietaNome?: st
                 
                 <div className="sim-animal-grid">
                    {(() => {
-                      const lotAnimals = mockAnimals.filter(a => a.lote.includes('Lote 02'));
+                      const relevantLoteId = currentDieta?.loteId;
+                      const lotAnimals = relevantLoteId 
+                        ? animais.filter(a => {
+                            const searchStr = `Lote ${relevantLoteId.padStart(2, '0')}`;
+                            return a.lote.startsWith(searchStr);
+                          })
+                        : animais.slice(0, 10); // Show first 10 for sample if no lote linked
+
                       const totalWeight = lotAnimals.reduce((acc, a) => acc + a.peso, 0);
                       const totalOriginalLotCost = (stats.original) * lotAnimals.length;
                       const totalSimulatedLotCost = (stats.simulado) * lotAnimals.length;

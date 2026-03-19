@@ -21,6 +21,7 @@ import {
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../../services/db';
 import { dataService } from '../../../services/dataService';
+import { useCompany } from '../../../contexts/CompanyContext';
 import { Opportunity, OpportunityStage, Cliente } from '../../../types';
 import { StandardModal } from '../../../components/StandardModal';
 import './Oportunidades.css';
@@ -37,7 +38,9 @@ const STAGE_LABELS: Record<OpportunityStage, string> = {
 };
 
 export const Oportunidades: React.FC = () => {
-  const opportunities = useLiveQuery(() => db.oportunidades.toArray()) || [];
+  const { activeCompanyId } = useCompany();
+  const allOpportunities = useLiveQuery(() => db.oportunidades.toArray()) || [];
+  const opportunities = allOpportunities.filter(o => activeCompanyId === 'Todas' || (o as any).empresaId === activeCompanyId);
   const clientes = useLiveQuery(() => db.clientes.toArray()) || [];
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -85,6 +88,7 @@ export const Oportunidades: React.FC = () => {
       ...(selectedOpp || {}),
       ...formData,
       id: selectedOpp?.id || Math.random().toString(36).substr(2, 9),
+      empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : (selectedOpp as any)?.empresaId,
       tenant_id: 'default',
       created_at: selectedOpp?.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString()

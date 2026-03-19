@@ -35,8 +35,10 @@ import { NotaEntrada as NotaType, ItemNota, Supplier, PurchaseOrder } from '../.
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useCompany } from '../../contexts/CompanyContext';
 
 export const NotasEntradaPage = () => {
+  const { activeCompanyId } = useCompany();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -56,8 +58,12 @@ export const NotasEntradaPage = () => {
   });
 
   // Database Queries
-  const notas = useLiveQuery(() => db.notas_entrada.toArray()) || [];
-  const pedidos = useLiveQuery(() => db.pedidos_compra.filter(p => p.status === 'Confirmado').toArray()) || [];
+  const allNotas = useLiveQuery(() => db.notas_entrada.toArray()) || [];
+  const allPedidos = useLiveQuery(() => db.pedidos_compra.filter(p => p.status === 'Confirmado').toArray()) || [];
+  
+  const notas = allNotas.filter(n => activeCompanyId === 'Todas' || (n as any).empresaId === activeCompanyId);
+  const pedidos = allPedidos.filter(p => activeCompanyId === 'Todas' || p.empresaId === activeCompanyId);
+  
   const empresas = useLiveQuery(() => db.empresas.toArray()) || [];
   const fornecedores = useLiveQuery(() => db.fornecedores.toArray()) || [];
 
@@ -96,7 +102,7 @@ export const NotasEntradaPage = () => {
         serie: '1',
         dataEmissao: new Date().toISOString().split('T')[0],
         dataEntrada: new Date().toISOString().split('T')[0],
-        empresaId: empresas[0]?.id || '',
+        empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : (empresas[0]?.id || ''),
         itens: [],
         status: 'Pendente',
         naturezaOperacao: 'Compra para Industrialização',

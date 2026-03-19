@@ -34,6 +34,7 @@ import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Reproducao as ReproducaoType, Animal } from '../../types';
+import { useCompany } from '../../contexts/CompanyContext';
 import './Reproducao.css';
 
 // Removed mockSessions
@@ -50,9 +51,14 @@ export const Reproducao = () => {
   const [isViewMode, setIsViewMode] = useState(false);
   const [activeTab, setActiveTab] = useState('geral');
 
+  const { activeCompanyId } = useCompany();
+  
   // Live Queries
-  const reproducoes = useLiveQuery(() => db.reproducao.toArray()) || [];
-  const animais = useLiveQuery(() => db.animais.toArray()) || [];
+  const allReproducoes = useLiveQuery(() => db.reproducao.toArray()) || [];
+  const allAnimais = useLiveQuery(() => db.animais.toArray()) || [];
+
+  const reproducoes = allReproducoes.filter(r => activeCompanyId === 'Todas' || r.empresaId === activeCompanyId);
+  const animais = allAnimais.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
 
   const [columnFilters, setColumnFilters] = useState({
     animal: '',
@@ -281,7 +287,7 @@ export const Reproducao = () => {
                       <button className="action-btn-global btn-edit" title="Editar" onClick={() => handleOpenModal(session)}>
                         <Edit size={18} strokeWidth={3} />
                       </button>
-                      <button className="action-btn-global btn-delete" title="Excluir" onClick={() => {}}>
+                      <button className="action-btn-global btn-delete" title="Excluir" onClick={() => dataService.deleteItem('reproducao', session.id)}>
                         <Trash2 size={18} strokeWidth={3} />
                       </button>
                     </div>
@@ -364,6 +370,7 @@ export const Reproducao = () => {
               previsaoDiagnostico: formData.get('previsaoDiagnostico') as string,
               status: formData.get('status') as any,
               insumos: selectedSession?.insumos || [],
+              empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : (selectedSession?.empresaId || undefined),
               tenant_id: 'default'
             };
 

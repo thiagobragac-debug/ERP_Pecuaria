@@ -31,13 +31,17 @@ import { ColumnFilters } from '../../../components/ColumnFilters';
 import { db } from '../../../services/db';
 import { dataService } from '../../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useCompany } from '../../../contexts/CompanyContext';
 import { SalesInvoice, InvoiceItem, SalesOrder, SalesItem, Cliente, Animal, Company } from '../../../types';
 
 
 export const PedidosVenda: React.FC = () => {
-  const sales = useLiveQuery(() => db.pedidos_venda.toArray()) || [];
+  const { activeCompanyId } = useCompany();
+  const allSales = useLiveQuery(() => db.pedidos_venda.toArray()) || [];
+  const sales = allSales.filter(s => activeCompanyId === 'Todas' || (s as any).empresaId === activeCompanyId);
   const clientesList = useLiveQuery(() => db.clientes.toArray()) || [];
-  const animaisList = useLiveQuery(() => db.animais.filter(a => a.status === 'Ativo').toArray()) || [];
+  const allAnimais = useLiveQuery(() => db.animais.filter(a => a.status === 'Ativo').toArray()) || [];
+  const animaisList = allAnimais.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
   const empresasList = useLiveQuery(() => db.empresas.toArray()) || [];
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -51,7 +55,7 @@ export const PedidosVenda: React.FC = () => {
   const [formaPagamento, setFormaPagamento] = useState('Boleto');
   const [isViewMode, setIsViewMode] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<SalesInvoice | null>(null);
-  const [selectedEmpresaId, setSelectedEmpresaId] = useState('');
+  const [selectedEmpresaId, setSelectedEmpresaId] = useState(activeCompanyId !== 'Todas' ? activeCompanyId : '');
   const [columnFilters, setColumnFilters] = useState({
     numero: '',
     cliente: '',

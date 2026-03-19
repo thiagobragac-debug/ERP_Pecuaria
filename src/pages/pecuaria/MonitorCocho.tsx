@@ -15,63 +15,85 @@ import {
   CloudRain
 } from 'lucide-react';
 import { TableFilters } from '../../components/TableFilters';
+import { useCompany } from '../../contexts/CompanyContext';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { Confinamento as ConfinamentoType, Lote } from '../../types';
 import './MonitorCocho.css';
 
-interface CurralMonitor {
-  id: string;
-  lote: string;
-  curral?: string; // Add optional curral label
-  qtdAnimais: number;
-  escoreAnterior: number;
+// Interfaces simplified for DB integration
+interface CurralMonitor extends ConfinamentoType {
   escoreAtual: number;
-  tratoAnterior: number; // kg/cab
-  tratoSugerido: number; // kg/cab
-  dieta: string;
+  tratoSugerido: number;
   historicoConsumo: number[];
 }
 
-const mockMonitor: CurralMonitor[] = [
-  { id: 'C-01', lote: 'Lote 02 - Engorda Machos', qtdAnimais: 85, escoreAnterior: 1, escoreAtual: 1, tratoAnterior: 10.2, tratoSugerido: 10.2, dieta: 'Engorda Rápida V4', historicoConsumo: [9.8, 10.0, 10.2, 10.2, 10.2] },
-  { id: 'C-02', lote: 'Boi China 2024', curral: 'C-02', qtdAnimais: 120, escoreAnterior: 0, escoreAtual: 0, tratoAnterior: 11.8, tratoSugerido: 12.2, dieta: 'Acabamento Top', historicoConsumo: [11.0, 11.2, 11.5, 11.8, 11.8] },
-  { id: 'C-04', lote: 'Novilhas Premium', curral: 'C-04', qtdAnimais: 42, escoreAnterior: 2, escoreAtual: 2, tratoAnterior: 8.5, tratoSugerido: 8.0, dieta: 'Transição Elevada', historicoConsumo: [8.8, 8.7, 8.6, 8.5, 8.5] },
-];
-
 export const MonitorCocho: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const [monitorData, setMonitorData] = useState<CurralMonitor[]>(mockMonitor);
+  const { activeCompanyId } = useCompany();
+  
+  // Live Queries
+  const allConfinamentos = useLiveQuery(() => db.confinamento.toArray()) || [];
+  const allLotes = useLiveQuery(() => db.lotes.toArray()) || [];
+
+  const confinamentos = allConfinamentos.filter(c => activeCompanyId === 'Todas' || c.empresaId === activeCompanyId);
+  const lotes = allLotes.filter(l => activeCompanyId === 'Todas' || l.empresaId === activeCompanyId);
+
+  const [localMonitorData, setLocalMonitorData] = useState<Record<string, { escore: number, trato: number }>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  const updateEscore = (id: string, novoEscore: number) => {
-    setMonitorData(prev => prev.map(curral => {
-      if (curral.id === id) {
-        // Lógica simplificada de sugestão baseada no escore:
-        // 0-0.5: Aumentar | 1: Manter | 1.5-2: Diminuir | >2: Alerta/Corte
-        let sugestao = curral.tratoAnterior;
-        if (novoEscore === 0) sugestao = curral.tratoAnterior * 1.05;
-        else if (novoEscore >= 1.5 && novoEscore <= 2) sugestao = curral.tratoAnterior * 0.95;
-        else if (novoEscore > 2) sugestao = curral.tratoAnterior * 0.90;
+  const monitorData = confinamentos.map(c => ({
+    ...c,
+    escoreAtual: localMonitorData[c.id]?.escore ?? 1,
+    tratoSugerido: localMonitorData[c.id]?.trato ?? c.imgAnterior,
+    historicoConsumo: [c.imgAnterior * 0.95, c.imgAnterior * 0.98, c.imgAnterior] // Mock history
+  }));
 
-        return { ...curral, escoreAtual: novoEscore, tratoSugerido: Number(sugestao.toFixed(2)) };
-      }
-      return curral;
+  const updateEscore = (id: string, novoEscore: number) => {
+    const entry = confinamentos.find(c => c.id === id);
+    if (!entry) return;
+
+    let sugestao = localMonitorData[id]?.trato ?? entry.imgAnterior;
+    if (novoEscore === 0) sugestao = entry.imgAnterior * 1.05;
+    else if (novoEscore >= 1.5 && novoEscore <= 2) sugestao = entry.imgAnterior * 0.95;
+    else if (novoEscore > 2) sugestao = entry.imgAnterior * 0.90;
+
+    setLocalMonitorData(prev => ({
+      ...prev,
+      [id]: { escore: novoEscore, trato: Number(sugestao.toFixed(2)) }
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      // Save all updated treatments back to confinement records
+      for (const id in localMonitorData) {
+        const entry = confinamentos.find(c => c.id === id);
+        if (entry) {
+          await dataService.saveItem('confinamento', {
+            ...entry,
+            imgAnterior: localMonitorData[id].trato
+          });
+        }
+      }
+      setLocalMonitorData({}); // Clear local changes after save
       setIsSaving(false);
-      alert('Leituras de cocho salvas e chamadas de trato atualizadas!');
-    }, 1500);
+    } catch (error) {
+      console.error('Error saving bunk reading:', error);
+      setIsSaving(false);
+    }
   };
 
   const filteredMonitor = monitorData.filter(m => {
     const searchLower = searchTerm.toLowerCase();
-    return m.id.toLowerCase().includes(searchLower) || 
-           m.lote.toLowerCase().includes(searchLower) ||
+    const loteNome = lotes.find(l => l.id === m.lote_id)?.nome.toLowerCase() || '';
+    return m.curral.toLowerCase().includes(searchLower) || 
+           loteNome.includes(searchLower) ||
            m.dieta.toLowerCase().includes(searchLower) ||
            m.qtdAnimais.toString().includes(searchLower) ||
-           m.tratoAnterior.toString().includes(searchLower);
+           m.imgAnterior.toString().includes(searchLower);
   });
 
   return (
@@ -119,8 +141,8 @@ export const MonitorCocho: React.FC<{ onBack: () => void }> = ({ onBack }) => {
           <div key={curral.id} className="monitor-card card glass">
             <div className="card-header">
               <div className="curral-info flex items-center gap-3">
-                <span className="curral-label bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-black text-xs">{curral.id}</span>
-                <h3 className="font-bold text-slate-800 m-0">{curral.lote}</h3>
+                <span className="curral-label bg-emerald-100 text-emerald-700 px-2 py-1 rounded font-black text-xs">{curral.curral}</span>
+                <h3 className="font-bold text-slate-800 m-0">{lotes.find(l => l.id === curral.lote_id)?.nome || '-'}</h3>
               </div>
               <div className="animal-count">
                 <Utensils size={14} strokeWidth={3} />
@@ -132,7 +154,7 @@ export const MonitorCocho: React.FC<{ onBack: () => void }> = ({ onBack }) => {
               <label>Escore de Cocho (Leitura)</label>
               <div className="escore-selector">
                 {[0, 0.5, 1, 1.5, 2, 3, 4].map((score) => (
-                  <button 
+                   <button 
                     key={score}
                     className={`score-btn score-${score.toString().replace('.', '')} ${curral.escoreAtual === score ? 'active' : ''}`}
                     onClick={() => updateEscore(curral.id, score)}
@@ -145,13 +167,13 @@ export const MonitorCocho: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 <Info size={14} strokeWidth={3} />
                 {curral.escoreAtual === 0 && "Cocho Limpo - Sugerido aumentar trato"}
                 {curral.escoreAtual === 1 && "Leitura Ideal - Manter trato"}
-                {curral.escoreAnterior > 1 && "Sobras Excessivas - Reduzir trato"}
+                {curral.escoreAtual > 1 && "Sobras Excessivas - Reduzir trato"}
               </p>
             </div>
 
             <div className="adjustment-logic">
               <div className="logic-row">
-                <span>Anterior: <strong>{curral.tratoAnterior} kg/cab</strong></span>
+                <span>Anterior: <strong>{curral.imgAnterior} kg/cab</strong></span>
                 <ChevronRight size={16} strokeWidth={3} />
                 <div className="suggested-box">
                   <label>Sugerido</label>
@@ -161,7 +183,10 @@ export const MonitorCocho: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                     value={curral.tratoSugerido} 
                     onChange={(e) => {
                       const val = parseFloat(e.target.value);
-                      setMonitorData(prev => prev.map(c => c.id === curral.id ? { ...c, tratoSugerido: val } : c));
+                      setLocalMonitorData(prev => ({
+                        ...prev,
+                        [curral.id]: { ...(prev[curral.id] || { escore: curral.escoreAtual }), trato: val }
+                      }));
                     }}
                   />
                   <span>kg/cab</span>
@@ -188,10 +213,10 @@ export const MonitorCocho: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                  <Activity size={12} strokeWidth={3} />
                  {curral.dieta}
                </div>
-               {curral.tratoSugerido > curral.tratoAnterior && (
+               {curral.tratoSugerido > curral.imgAnterior && (
                  <span className="trend-badge positive">Aumento</span>
                )}
-               {curral.tratoSugerido < curral.tratoAnterior && (
+               {curral.tratoSugerido < curral.imgAnterior && (
                  <span className="trend-badge negative">Redução</span>
                )}
             </div>
@@ -201,4 +226,3 @@ export const MonitorCocho: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     </div>
   );
 };
-

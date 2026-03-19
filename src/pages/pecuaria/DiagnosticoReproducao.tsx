@@ -21,32 +21,34 @@ import {
 } from 'lucide-react';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
+import { useCompany } from '../../contexts/CompanyContext';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { Reproducao as ReproducaoType, Animal, Lote } from '../../types';
 import './DiagnosticoReproducao.css';
 
-interface FemeaPendente {
-  id: string;
-  animal: string;
-  protocolo: string;
-  dataInseminacao: string;
-  dgPrevisto: string;
-  diasPosInseminacao: number;
-  tecnicoResponsavel: string;
-  lote: string;
-}
-
-const mockPendentes: FemeaPendente[] = [
-  { id: '101', animal: 'VAC-8820', protocolo: 'IATF 3 Manejos', dataInseminacao: '2024-03-08', dgPrevisto: '2024-04-01', diasPosInseminacao: 32, tecnicoResponsavel: 'Dr. Roberto Santos', lote: 'Matrizes Primíparas' },
-  { id: '102', animal: 'VAC-9905', protocolo: 'IATF 3 Manejos', dataInseminacao: '2024-03-08', dgPrevisto: '2024-04-01', diasPosInseminacao: 32, tecnicoResponsavel: 'Dr. Roberto Santos', lote: 'Matrizes Primíparas' },
-  { id: '103', animal: 'VAC-4412', protocolo: 'IA Convencional', dataInseminacao: '2024-03-05', dgPrevisto: '2024-04-05', diasPosInseminacao: 35, tecnicoResponsavel: 'Dra. Luana Melo', lote: 'Novilhas Nelore' },
-];
+// Interfaces removed as we use from types
 
 export const DiagnosticoReproducao: React.FC<{ onBack: () => void }> = ({ onBack }) => {
-  const [pendentes, setPendentes] = useState<FemeaPendente[]>(mockPendentes);
-  const [selectedAnimal, setSelectedAnimal] = useState<FemeaPendente | null>(null);
+  const { activeCompanyId } = useCompany();
+  
+  // Live Queries
+  const allReproducoes = useLiveQuery(() => db.reproducao.toArray()) || [];
+  const allAnimais = useLiveQuery(() => db.animais.toArray()) || [];
+  const allLotes = useLiveQuery(() => db.lotes.toArray()) || [];
+
+  const reproducoes = allReproducoes.filter(r => activeCompanyId === 'Todas' || r.empresaId === activeCompanyId);
+  const animais = allAnimais.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
+  const lotes = allLotes.filter(l => activeCompanyId === 'Todas' || l.empresaId === activeCompanyId);
+
+  // Filter for females pending diagnosis
+  const pendentes = reproducoes.filter(r => r.status === 'Em Protocolo');
+
+  const [selectedAnimal, setSelectedAnimal] = useState<ReproducaoType | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [filterProtocolo, setFilterProtocolo] = useState('Todos');
   const [columnFilters, setColumnFilters] = useState({
     animal: '',
     protocolo: 'Todos',
@@ -54,43 +56,64 @@ export const DiagnosticoReproducao: React.FC<{ onBack: () => void }> = ({ onBack
   });
   
   // Diagnóstico Form State
-  const [status, setStatus] = useState<'Pendentes' | 'Prenhe' | 'Vazia' | 'Inconclusiva'>('Pendentes');
+  const [status, setStatus] = useState<'Prenhe' | 'Vazia' | 'Inconclusiva'>('Prenhe');
   const [idadeGestacional, setIdadeGestacional] = useState<number>(0);
   const [sexagem, setSexagem] = useState<'Indefinido' | 'Macho' | 'Fêmea'>('Indefinido');
   const [obs, setObs] = useState('');
 
-  const handleSelectAnimal = (animal: FemeaPendente) => {
-    setSelectedAnimal(animal);
-    setIdadeGestacional(animal.diasPosInseminacao);
+  const handleSelectAnimal = (repro: ReproducaoType) => {
+    setSelectedAnimal(repro);
+    
+    // Calculate days since insemination (D0)
+    const d0 = new Date(repro.dataInicio);
+    const today = new Date();
+    const diffDays = Math.max(0, Math.ceil((today.getTime() - d0.getTime()) / (1000 * 60 * 60 * 24)));
+    
+    setIdadeGestacional(diffDays);
     setStatus('Prenhe');
     setSexagem('Indefinido');
     setObs('');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selectedAnimal) return;
     setIsSaving(true);
-    setTimeout(() => {
-      setPendentes(prev => prev.filter(p => p.id !== selectedAnimal.id));
+    
+    try {
+      const updatedReproducao: ReproducaoType = {
+        ...selectedAnimal,
+        status: status === 'Inconclusiva' ? 'Em Protocolo' : status as any,
+        // In a real scenario, we might want to store the diagnosis details (sexing, obs, etc.) 
+        // in a separate history or extended fields. For now, we update the status.
+        created_at: new Date().toISOString()
+      };
+      
+      await dataService.saveItem('reproducao', updatedReproducao);
+      
       setSelectedAnimal(null);
       setIsSaving(false);
-      alert('Diagnóstico registrado com sucesso!');
-    }, 1200);
+    } catch (error) {
+      console.error('Error saving diagnosis:', error);
+      setIsSaving(false);
+    }
   };
 
   const filteredPendentes = pendentes.filter(p => {
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = p.animal.toLowerCase().includes(searchLower) || 
+    const animal = animais.find(a => a.id === p.animal_id);
+    const animalBrinco = animal?.brinco.toLowerCase() || '';
+    const loteNome = lotes.find(l => l.id === animal?.lote_id)?.nome.toLowerCase() || '';
+
+    const matchesSearch = animalBrinco.includes(searchLower) || 
            p.protocolo.toLowerCase().includes(searchLower) ||
-           p.lote.toLowerCase().includes(searchLower) ||
-           p.dataInseminacao.toLowerCase().includes(searchLower) ||
-           p.dgPrevisto.toLowerCase().includes(searchLower) ||
-           p.tecnicoResponsavel.toLowerCase().includes(searchLower);
+           loteNome.includes(searchLower) ||
+           p.dataInicio.toLowerCase().includes(searchLower) ||
+           p.previsaoDiagnostico.toLowerCase().includes(searchLower);
 
     const matchesColumnFilters = 
-      (columnFilters.animal === '' || p.animal.toLowerCase().includes(columnFilters.animal.toLowerCase())) &&
+      (columnFilters.animal === '' || animalBrinco.includes(columnFilters.animal.toLowerCase())) &&
       (columnFilters.protocolo === 'Todos' || p.protocolo === columnFilters.protocolo) &&
-      (columnFilters.lote === 'Todos' || p.lote === columnFilters.lote);
+      (columnFilters.lote === 'Todos' || loteNome.includes(columnFilters.lote.toLowerCase()));
 
     return matchesSearch && matchesColumnFilters;
   });
@@ -143,8 +166,8 @@ export const DiagnosticoReproducao: React.FC<{ onBack: () => void }> = ({ onBack
               <ColumnFilters
                 columns={[
                   { key: 'animal', type: 'text', placeholder: 'Filtrar animal...' },
-                  { key: 'protocolo', type: 'select', options: Array.from(new Set(mockPendentes.map(p => p.protocolo))) },
-                  { key: 'lote', type: 'select', options: Array.from(new Set(mockPendentes.map(p => p.lote))) }
+                  { key: 'protocolo', type: 'select', options: Array.from(new Set(pendentes.map(p => p.protocolo))) },
+                  { key: 'lote', type: 'select', options: Array.from(new Set(lotes.map(l => l.nome))) }
                 ]}
                 values={columnFilters}
                 onChange={(key, value) => setColumnFilters(prev => ({ ...prev, [key]: value }))}
@@ -162,14 +185,14 @@ export const DiagnosticoReproducao: React.FC<{ onBack: () => void }> = ({ onBack
                 onClick={() => handleSelectAnimal(p)}
               >
                 <div className="card-top">
-                  <h3>{p.animal}</h3>
-                  <span className="lote-tag">{p.lote}</span>
+                  <h3>{animais.find(a => a.id === p.animal_id)?.brinco || '-'}</h3>
+                  <span className="lote-tag">{lotes.find(l => l.id === animais.find(a => a.id === p.animal_id)?.lote_id)?.nome || '-'}</span>
                 </div>
                 <div className="card-details">
                   <span>{p.protocolo}</span>
                   <div className="days-badge">
                     <History size={12} />
-                    {p.diasPosInseminacao} dias
+                    {Math.ceil((new Date().getTime() - new Date(p.dataInicio).getTime()) / (1000 * 60 * 60 * 24))} dias
                   </div>
                 </div>
                 <ChevronRight className="chevron" size={18} />
@@ -191,7 +214,7 @@ export const DiagnosticoReproducao: React.FC<{ onBack: () => void }> = ({ onBack
                <div className="form-header">
                   <div className="animal-display">
                     <span className="label">Diagnosticando:</span>
-                    <h2>{selectedAnimal.animal}</h2>
+                    <h2>{animais.find(a => a.id === selectedAnimal.animal_id)?.brinco || '-'}</h2>
                   </div>
                   <div className="ultrasound-icon">
                     <Camera size={24} strokeWidth={3} />

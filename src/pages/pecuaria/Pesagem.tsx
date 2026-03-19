@@ -34,6 +34,7 @@ import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Pesagem as PesagemType, Animal, Lote } from '../../types';
+import { useCompany } from '../../contexts/CompanyContext';
 
 import { HistoricoPesagem } from './HistoricoPesagem';
 
@@ -47,10 +48,16 @@ export const Pesagem = () => {
   const [selectedPesagem, setSelectedPesagem] = useState<PesagemType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
 
+  const { activeCompanyId } = useCompany();
+  
   // Live Queries
-  const pesagens = useLiveQuery(() => db.pesagens.toArray()) || [];
-  const animais = useLiveQuery(() => db.animais.toArray()) || [];
-  const lotes = useLiveQuery(() => db.lotes.toArray()) || [];
+  const allPesagens = useLiveQuery(() => db.pesagens.toArray()) || [];
+  const allAnimais = useLiveQuery(() => db.animais.toArray()) || [];
+  const allLotes = useLiveQuery(() => db.lotes.toArray()) || [];
+
+  const pesagens = allPesagens.filter(p => activeCompanyId === 'Todas' || p.empresaId === activeCompanyId);
+  const animais = allAnimais.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
+  const lotes = allLotes.filter(l => activeCompanyId === 'Todas' || l.empresaId === activeCompanyId);
   const [columnFilters, setColumnFilters] = useState({
     brinco: '',
     data: '',
@@ -343,6 +350,7 @@ export const Pesagem = () => {
                   gmd: gmd,
                   lote_id: animal?.lote_id || '',
                   manejo: formData.get('manejo') as string,
+                  empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : (selectedPesagem?.empresaId || undefined),
                   tenant_id: 'default'
                 };
 

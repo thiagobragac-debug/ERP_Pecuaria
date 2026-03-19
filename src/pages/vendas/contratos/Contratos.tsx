@@ -16,6 +16,7 @@ import {
   DollarSign,
   AlertCircle
 } from 'lucide-react';
+import { useCompany } from '../../../contexts/CompanyContext';
 import { TablePagination } from '../../../components/TablePagination';
 import { TableFilters } from '../../../components/TableFilters';
 import { usePagination } from '../../../hooks/usePagination';
@@ -32,15 +33,17 @@ interface Contrato {
   unidade: string;
   precoFixado: number;
   status: 'Ativo' | 'Liquidado' | 'Pendente' | 'Cancelado';
+  empresaId: string;
 }
 
 const mockContratos: Contrato[] = [
-  { id: '1', referencia: 'CT-2024-082', cliente: 'Frigorífico Boi Gordo', dataAssinatura: '2024-01-15', dataEntrega: '2024-05-10', quantidade: 150, unidade: 'cab', precoFixado: 235.00, status: 'Ativo' },
-  { id: '2', referencia: 'CT-2024-095', cliente: 'Exportadora Pantanal', dataAssinatura: '2024-02-10', dataEntrega: '2024-06-20', quantidade: 300, unidade: 'cab', precoFixado: 242.50, status: 'Ativo' },
-  { id: '3', referencia: 'CT-2023-450', cliente: 'Frigorífico Boi Gordo', dataAssinatura: '2023-11-05', dataEntrega: '2024-02-15', quantidade: 120, unidade: 'cab', precoFixado: 228.00, status: 'Liquidado' },
+  { id: '1', referencia: 'CT-2024-082', cliente: 'Frigorífico Boi Gordo', dataAssinatura: '2024-01-15', dataEntrega: '2024-05-10', quantidade: 150, unidade: 'cab', precoFixado: 235.00, status: 'Ativo', empresaId: '1' },
+  { id: '2', referencia: 'CT-2024-095', cliente: 'Exportadora Pantanal', dataAssinatura: '2024-02-10', dataEntrega: '2024-06-20', quantidade: 300, unidade: 'cab', precoFixado: 242.50, status: 'Ativo', empresaId: '2' },
+  { id: '3', referencia: 'CT-2023-450', cliente: 'Frigorífico Boi Gordo', dataAssinatura: '2023-11-05', dataEntrega: '2024-02-15', quantidade: 120, unidade: 'cab', precoFixado: 228.00, status: 'Liquidado', empresaId: '1' },
 ];
 
 export const Contratos = () => {
+  const { activeCompanyId } = useCompany();
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState('Todos');
@@ -53,7 +56,9 @@ export const Contratos = () => {
     status: 'Todos'
   });
 
-  const filteredData = mockContratos.filter(c => {
+  const contracts = mockContratos.filter(c => activeCompanyId === 'Todas' || c.empresaId === activeCompanyId);
+
+  const filteredData = contracts.filter(c => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = c.referencia.toLowerCase().includes(searchLower) || 
                          c.cliente.toLowerCase().includes(searchLower) ||

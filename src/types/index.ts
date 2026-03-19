@@ -92,6 +92,7 @@ export interface Dieta {
   status: 'Ativa' | 'Ajuste Necess\u00e1rio' | 'Programada';
   ingredientes: Ingrediente[];
   historicoTrato: LogTrato[];
+  empresaId?: string;
   tenant_id?: string;
 }
 
@@ -114,6 +115,7 @@ export interface RegistroSanitario {
   careencia_fim: string;
   status: 'Conclu\u00eddo' | 'Em Curso' | 'Agendado';
   medicamentos: MedicamentoUsado[];
+  empresaId?: string;
   tenant_id?: string;
 }
 export interface SaaSPlan {
@@ -393,6 +395,7 @@ export interface Pesagem {
   gmd: number;
   lote_id?: string;
   manejo: string;
+  empresaId?: string;
   tenant_id: string;
   created_at?: string;
 }
@@ -433,6 +436,7 @@ export interface Abate {
   frigorifico: string;
   status: 'Pendente' | 'Aguardando GTA' | 'Realizado';
   valorArroba?: number;
+  empresaId?: string;
   tenant_id: string;
   created_at?: string;
 }
@@ -451,6 +455,7 @@ export interface Reproducao {
   previsaoDiagnostico: string;
   status: 'Em Protocolo' | 'Prenhe' | 'Vazia' | 'Parto Previsto';
   insumos: InsumoUsado[];
+  empresaId?: string;
   tenant_id: string;
   created_at?: string;
 }
@@ -466,6 +471,7 @@ export interface Confinamento {
   dieta: string;
   imgAnterior: number; // Ingestão Matéria Seca
   status: 'Em Engorda' | 'Finalizando' | 'Saída Programada';
+  empresaId?: string;
   tenant_id: string;
   created_at?: string;
 }

@@ -40,9 +40,11 @@ import { SolicitacaoCompra as SolicitacaoType, ItemSolicitacao, Insumo } from '.
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { useCompany } from '../../contexts/CompanyContext';
 
 
 export const SolicitacaoCompraPage = () => {
+  const { activeCompanyId } = useCompany();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -68,7 +70,8 @@ export const SolicitacaoCompraPage = () => {
   });
 
   // Database Queries
-  const solicitacoes = useLiveQuery(() => db.solicitacoes_compra.toArray()) || [];
+  const allSolicitacoes = useLiveQuery(() => db.solicitacoes_compra.toArray()) || [];
+  const solicitacoes = allSolicitacoes.filter(s => activeCompanyId === 'Todas' || (s as any).empresaId === activeCompanyId);
   const insumos = useLiveQuery(() => db.insumos.filter(i => i.paraCompra).toArray()) || [];
   const empresasList = useLiveQuery(() => db.empresas.toArray()) || [];
 
@@ -82,6 +85,7 @@ export const SolicitacaoCompraPage = () => {
       setFormNumero(sol.numero);
       setFormEmpresaId(sol.empresaId || '');
     } else {
+      const defaultEmpresaId = activeCompanyId !== 'Todas' ? activeCompanyId : ((empresasList as any[]).filter((c: any) => c.status === 'Ativa')[0]?.id || '');
       const newSolicitacao: SolicitacaoType = {
         id: Math.random().toString(36).substr(2, 9),
         numero: `SC-${new Date().getFullYear()}-${String(solicitacoes.length + 1).padStart(3, '0')}`,
@@ -91,7 +95,7 @@ export const SolicitacaoCompraPage = () => {
         status: 'Pendente',
         itens: [{ id: Date.now().toString(), insumoId: '', insumoNome: '', quantidade: 0, unidade: '', preco: 0, centroCustoId: '' }],
         valorTotal: 0,
-        empresaId: (empresasList as any[]).filter((c: any) => c.status === 'Ativa')[0]?.id || '',
+        empresaId: defaultEmpresaId,
         tenant_id: 'default'
       };
       setSelectedSolicitacao(null); // Indicate new creation

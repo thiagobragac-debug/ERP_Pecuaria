@@ -113,7 +113,7 @@ const MOCK_EMPRESAS: any[] = [
     id: 'M1',
     isMatriz: true,
     razaoSocial: 'Agropecuária Horizonte LTDA',
-    nomeFantasia: 'Fazenda Horizonte',
+    nomeFantasia: 'Fazenda Horizonte (Matriz)',
     cnpj: '00.123.456/0001-99',
     inscricaoEstadual: '123456789',
     inscricaoMunicipal: '987654',
@@ -132,6 +132,31 @@ const MOCK_EMPRESAS: any[] = [
     responsavel: 'Thiago Costa',
     status: 'Ativa',
     tenant_id: 'default'
+  },
+  {
+    id: 'F1',
+    isMatriz: false,
+    parentId: 'M1',
+    razaoSocial: 'Agropecuária Horizonte - Unidade II',
+    nomeFantasia: 'Fazenda Bela Vista (Filial)',
+    cnpj: '00.123.456/0002-88',
+    inscricaoEstadual: '987654321',
+    inscricaoMunicipal: '123456',
+    regimeTributario: 'Simples Nacional',
+    crt: '1',
+    tipoLogradouro: 'Rodovia',
+    logradouro: 'BR-060, KM 120',
+    numero: 'S/N',
+    bairro: 'Distrito Industrial',
+    cidade: 'Campo Grande',
+    estado: 'MS',
+    pais: 'Brasil',
+    cep: '79000-000',
+    telefone: '(67) 3322-4455',
+    email: 'filial@horizonte.com.br',
+    responsavel: 'João Silva',
+    status: 'Ativa',
+    tenant_id: 'default'
   }
 ];
 
@@ -143,56 +168,21 @@ export const seedDatabase = async () => {
     
     console.log('Database version:', db.verno);
     
-    // Pesagem / Sanidade / Herd (v10+)
-    const animaisCount = await db.animais.count();
-    if (animaisCount === 0) {
-      console.log('Seeding Herd Data...');
-      await Promise.all([
-        db.lotes.bulkPut(mockLotes),
-        db.pastos.bulkPut(mockPastos),
-        db.animais.bulkPut(mockAnimals),
-        db.dietas.bulkPut(mockDietas),
-        db.registrosSanitarios.bulkPut(mockRegistrosSanitarios),
-        db.bancos.bulkPut(MOCK_BANKS.map(b => ({ ...b, tenant_id: 'default' }))),
-        db.fornecedores.bulkPut(MOCK_SUPPLIERS.map(s => ({ ...s, tenant_id: 'default' }))),
-      ]);
-    }
-
-    // Vendas & CRM (v21+)
-    try {
-      const clientesCount = await db.clientes.count();
-      if (clientesCount === 0) {
-        console.log('Seeding Clientes...');
-        await db.clientes.bulkPut(MOCK_CLIENTES);
-      }
-      
-      const empresasCount = await db.empresas.count();
-      if (empresasCount === 0) {
-        console.log('Seeding Empresas...');
-        await db.empresas.bulkPut(MOCK_EMPRESAS);
-      }
-    } catch (e) { console.warn('Seeding Clientes/Empresas skipped/failed:', e); }
-
-    try {
-      const oppsCount = await db.oportunidades.count();
-      if (oppsCount === 0) {
-        console.log('Seeding Oportunidades...');
-        await db.oportunidades.bulkPut(MOCK_OPPORTUNITIES);
-      }
-    } catch (e) { console.warn('Seeding Oportunidades skipped/failed:', e); }
-
-    try {
-      const salesCount = await db.pedidos_venda.count();
-      if (salesCount === 0) {
-        console.log('Seeding Vendas...');
-        await db.pedidos_venda.bulkPut(MOCK_SALES);
-      }
-    } catch (e) { console.warn('Seeding Vendas skipped/failed:', e); }
-
-    // Suprimentos (v17+)
-    const solCount = await db.solicitacoes_compra.count();
-    if (solCount === 0) {
-      const financialMocks = [
+    // Seed everything
+    console.log('Seeding Multi-Company Data...');
+    await Promise.all([
+      db.empresas.bulkPut(MOCK_EMPRESAS),
+      db.lotes.bulkPut(mockLotes),
+      db.pastos.bulkPut(mockPastos),
+      db.animais.bulkPut(mockAnimals),
+      db.dietas.bulkPut(mockDietas),
+      db.registrosSanitarios.bulkPut(mockRegistrosSanitarios),
+      db.bancos.bulkPut(MOCK_BANKS.map(b => ({ ...b, empresaId: 'M1', tenant_id: 'default' }))),
+      db.fornecedores.bulkPut(MOCK_SUPPLIERS.map(s => ({ ...s, tenant_id: 'default' }))),
+      db.clientes.bulkPut(MOCK_CLIENTES),
+      db.oportunidades.bulkPut(MOCK_OPPORTUNITIES.map(o => ({ ...o, empresaId: 'M1' }))),
+      db.pedidos_venda.bulkPut(MOCK_SALES.map(s => ({ ...s, empresaId: 'M1' }))),
+      db.transacoes.bulkPut([
         {
           id: 'T1',
           desc: 'Compra de Insumos - NF 1234',
@@ -202,6 +192,7 @@ export const seedDatabase = async () => {
           tipo: 'out',
           status: 'Pendente',
           categoria: 'Insumos',
+          empresaId: 'M1',
           tenant_id: 'default'
         },
         {
@@ -213,17 +204,14 @@ export const seedDatabase = async () => {
           tipo: 'in',
           status: 'Pago',
           categoria: 'Venda Animais',
+          empresaId: 'M1',
           tenant_id: 'default'
         }
-      ];
-
-      await Promise.all([
-        db.transacoes.bulkPut(financialMocks as any),
-        db.solicitacoes_compra.bulkPut(mockSolicitacoes),
-        db.mapas_cotacao.bulkPut(mockMapas),
-        db.notas_entrada.bulkPut(mockNotas)
-      ]);
-    }
+      ] as any),
+      db.solicitacoes_compra.bulkPut(mockSolicitacoes.map(s => ({ ...s, empresaId: 'M1' }))),
+      db.mapas_cotacao.bulkPut(mockMapas.map(m => ({ ...m, empresaId: 'M1' }))),
+      db.notas_entrada.bulkPut(mockNotas.map(n => ({ ...n, empresaId: 'M1' })))
+    ]);
   } catch (err: any) {
     console.error('Seeding error (Detailed):', err.name, err.message, err.stack || err);
     if (err.name === 'VersionChangeError') {

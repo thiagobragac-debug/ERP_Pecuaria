@@ -30,6 +30,7 @@ import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Abate as AbateType, Lote } from '../../types';
+import { useCompany } from '../../contexts/CompanyContext';
 import './Abate.css';
 
 export const Abate = () => {
@@ -41,9 +42,14 @@ export const Abate = () => {
   const [selectedAbate, setSelectedAbate] = useState<AbateType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
 
+  const { activeCompanyId } = useCompany();
+  
   // Live Queries
-  const abates = useLiveQuery(() => db.abates.toArray()) || [];
-  const lotes = useLiveQuery(() => db.lotes.toArray()) || [];
+  const allAbates = useLiveQuery(() => db.abates.toArray()) || [];
+  const allLotes = useLiveQuery(() => db.lotes.toArray()) || [];
+
+  const abates = allAbates.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
+  const lotes = allLotes.filter(l => activeCompanyId === 'Todas' || l.empresaId === activeCompanyId);
   const [columnFilters, setColumnFilters] = useState({
     data: '',
     lote: 'Todos',
@@ -332,6 +338,7 @@ export const Abate = () => {
               pesoLiquidoProjetado: pesoLiquidoProjetado,
               status: formData.get('status') as any || 'Pendente',
               valorArroba: parseFloat(formData.get('valorArroba') as string),
+              empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : (selectedAbate?.empresaId || undefined),
               tenant_id: 'default'
             };
 
