@@ -22,31 +22,18 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
-import { mockAssets, Asset } from '../../data/fleetData';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { supabase } from '../../services/supabase';
+import { Asset, Abastecimento as AbastecimentoType } from '../../types';
 import { INITIAL_COMPANIES } from '../../data/initialData';
 import './Abastecimento.css';
 
-interface RefuelingRecord {
-  id: string;
-  assetId: string;
-  data: string;
-  litros: number;
-  valorTotal: number;
-  tipoCombustivel: string;
-  horasOuKm: number;
-  operador: string;
-}
-
-const mockRefueling: RefuelingRecord[] = [
-  { id: '1', assetId: '1', data: '2026-03-12', litros: 50, valorTotal: 300, tipoCombustivel: 'Diesel S10', horasOuKm: 1200, operador: 'João Silva' },
-  { id: '1-prev', assetId: '1', data: '2026-03-05', litros: 45, valorTotal: 270, tipoCombustivel: 'Diesel S10', horasOuKm: 1150, operador: 'João Silva' },
-  { id: '2', assetId: '2', data: '2026-03-14', litros: 120, valorTotal: 720, tipoCombustivel: 'Diesel S10', horasOuKm: 45600, operador: 'Carlos Santos' },
-  { id: '2-prev', assetId: '2', data: '2026-03-07', litros: 110, valorTotal: 660, tipoCombustivel: 'Diesel S10', horasOuKm: 45000, operador: 'Carlos Santos' },
-  { id: '3', assetId: '3', data: '2026-03-15', litros: 80, valorTotal: 480, tipoCombustivel: 'Gasolina', horasOuKm: 850, operador: 'Manoel Ferreira' },
-];
 
 export const Abastecimento: React.FC = () => {
-  const [records, setRecords] = useState<RefuelingRecord[]>(mockRefueling);
+  const records = useLiveQuery(() => db.abastecimentos.toArray()) || [];
+  const assets = useLiveQuery(() => db.ativos.toArray()) || [];
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [columnFilters, setColumnFilters] = useState({
@@ -56,71 +43,75 @@ export const Abastecimento: React.FC = () => {
     tipoCombustivel: 'Todos'
   });
   const [searchTerm, setSearchTerm] = useState('');
-  const [formData, setFormData] = useState<Partial<RefuelingRecord>>({
-    data: new Date().toISOString().split('T')[0],
-    tipoCombustivel: 'Diesel S10'
-  });
-
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newRecord: RefuelingRecord = {
-      ...formData,
-      id: Math.random().toString(36).substr(2, 9),
-    } as RefuelingRecord;
-    setRecords([newRecord, ...records]);
-    setRecords([newRecord, ...records]);
-    setIsModalOpen(false);
-  };
-
-  const filteredRecords = records.filter(r => {
-    const asset = getAsset(r.assetId);
-    if (!asset) return true;
-    const company = INITIAL_COMPANIES.find(c => c.id === asset.empresaId);
-    
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = asset.nome.toLowerCase().includes(searchLower) || 
-                          asset.placaOuSerie.toLowerCase().includes(searchLower) ||
-                          r.operador.toLowerCase().includes(searchLower) ||
-                          r.data.toLowerCase().includes(searchLower) ||
-                          r.litros.toString().includes(searchLower) ||
-                          r.valorTotal.toString().includes(searchLower) ||
-                          r.tipoCombustivel.toLowerCase().includes(searchLower) ||
-                          r.horasOuKm.toString().includes(searchLower);
-    
-    const matchesColumnFilters = 
-      (columnFilters.assetId === 'Todos' || getAsset(r.assetId)?.nome === columnFilters.assetId) &&
-      (columnFilters.data === '' || r.data.includes(columnFilters.data)) &&
-      (columnFilters.operador === '' || r.operador.toLowerCase().includes(columnFilters.operador.toLowerCase())) &&
-      (columnFilters.tipoCombustivel === 'Todos' || r.tipoCombustivel === columnFilters.tipoCombustivel);
-
-    return (!company || company.status === 'Ativa') && matchesSearch && matchesColumnFilters;
-  });
 
   const {
+    paginatedData,
     currentPage,
     totalPages,
-    paginatedData,
     itemsPerPage,
     setItemsPerPage,
-    startIndex,
-    endIndex,
-    totalItems,
-    goToPage,
     nextPage,
     prevPage,
-  } = usePagination({ data: filteredRecords, initialItemsPerPage: 10 });
+    goToPage,
+    startIndex,
+    endIndex,
+    totalItems
+  } = usePagination({ data: records as AbastecimentoType[], initialItemsPerPage: 10 });
 
-  const getAsset = (id: string) => mockAssets.find(a => a.id === id);
+  const [formData, setFormData] = useState<Partial<AbastecimentoType>>({
+    data: new Date().toISOString().split('T')[0],
+    combustivel: 'Diesel'
+  });
 
-  const calculateConsumption = (assetId: string) => {
-    const assetRecords = records.filter(r => r.assetId === assetId);
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.ativo_id || !formData.quantidade || !formData.valorTotal) {
+      alert('Preencha os campos obrigatórios');
+      return;
+    }
+
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth?.user;
+      const tenant_id = user?.user_metadata?.tenant_id || 'default';
+      const asset = assets.find(a => a.id === formData.ativo_id);
+
+      const newRecord: AbastecimentoType = {
+        ...formData,
+        id: Math.random().toString(36).substr(2, 9),
+        ativo_nome: asset?.nome || 'N/A',
+        tenant_id
+      } as AbastecimentoType;
+
+      await dataService.saveItem('abastecimentos', newRecord);
+      setIsModalOpen(false);
+      setFormData({
+        data: new Date().toISOString().split('T')[0],
+        combustivel: 'Diesel'
+      });
+    } catch (error) {
+      console.error('Error saving refueling:', error);
+      alert('Erro ao salvar abastecimento');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Excluir este abastecimento?')) {
+      await dataService.deleteItem('abastecimentos', id);
+    }
+  };
+
+  const getAsset = (id: string) => assets.find(a => a.id === id);
+
+  const calculateConsumption = (ativo_id: string) => {
+    const assetRecords = records.filter(r => r.ativo_id === ativo_id);
     if (assetRecords.length < 2) return '--';
     const sorted = [...assetRecords].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
     const latest = sorted[0];
     const previous = sorted[1];
-    const diffUsage = latest.horasOuKm - previous.horasOuKm;
+    const diffUsage = latest.odometroHorimetro - previous.odometroHorimetro;
     if (diffUsage <= 0) return '--';
-    return (latest.litros / diffUsage).toFixed(2);
+    return (latest.quantidade / diffUsage).toFixed(2);
   };
 
   const totalGasto = records.reduce((acc, r) => acc + r.valorTotal, 0);
@@ -228,21 +219,21 @@ export const Abastecimento: React.FC = () => {
                 <th className="text-right">Ações</th>
               </tr>
               {isFiltersOpen && (
-                <ColumnFilters
-                  columns={[
-                    { key: 'assetId', type: 'select', options: mockAssets.map(a => a.nome), placeholder: 'Equipamento...' },
-                    { key: 'data', type: 'text', placeholder: 'Data...' },
-                    { key: 'operador', type: 'text', placeholder: 'Operador...' },
-                    { key: 'tipoCombustivel', type: 'select', options: ['Diesel S10', 'Diesel S500', 'Gasolina', 'Etanol'] }
-                  ]}
+                  <ColumnFilters
+                    columns={[
+                      { key: 'assetId', type: 'select', options: assets.map(a => a.nome), placeholder: 'Equipamento...' },
+                      { key: 'data', type: 'text', placeholder: 'Data...' },
+                      { key: 'operador', type: 'text', placeholder: 'Operador...' },
+                      { key: 'tipoCombustivel', type: 'select', options: ['Diesel', 'Gasolina', 'Etanol', 'Arla'] }
+                    ]}
                   values={columnFilters}
                   onChange={(key, value) => setColumnFilters(prev => ({ ...prev, [key]: value }))}
                 />
               )}
             </thead>
             <tbody>
-              {paginatedData.map((record) => {
-                const asset = getAsset(record.assetId);
+              {(paginatedData as AbastecimentoType[]).map((record) => {
+                const asset = getAsset(record.ativo_id);
                 return (
                   <tr key={record.id}>
                     <td>
@@ -270,7 +261,7 @@ export const Abastecimento: React.FC = () => {
                     </td>
                     <td>
                       <div className="volume-badge">
-                        <strong className="text-indigo-700">{record.litros}</strong> <small>L</small>
+                        <strong className="text-indigo-700">{record.quantidade}</strong> <small>L</small>
                       </div>
                     </td>
                     <td>
@@ -278,18 +269,18 @@ export const Abastecimento: React.FC = () => {
                     </td>
                     <td>
                       <span className="consumption-value font-bold text-emerald-600">
-                        {calculateConsumption(record.assetId)} <small>{asset?.tipoUso === 'Horas' ? 'L/h' : 'L/km'}</small>
+                        {calculateConsumption(record.ativo_id)} <small>{asset?.tipoUso === 'Horas' ? 'L/h' : 'L/km'}</small>
                       </span>
                     </td>
                     <td>
                       <div className="usage-pill">
                         <Gauge size={14} className="text-slate-400" />
-                        <span className="font-bold text-slate-700">{record.horasOuKm.toLocaleString()} <small className="font-normal text-slate-400">{asset?.tipoUso}</small></span>
+                        <span className="font-bold text-slate-700">{record.odometroHorimetro.toLocaleString()} <small className="font-normal text-slate-400">{asset?.tipoUso}</small></span>
                       </div>
                     </td>
                     <td className="text-right">
                       <div className="table-actions">
-                        <button className="action-btn-global btn-delete" title="Excluir"><Trash2 size={18} strokeWidth={3} /></button>
+                        <button className="action-btn-global btn-delete" title="Excluir" onClick={() => handleDelete(record.id)}><Trash2 size={18} strokeWidth={3} /></button>
                       </div>
                     </td>
                   </tr>
@@ -334,9 +325,9 @@ export const Abastecimento: React.FC = () => {
             <div className="form-grid">
               <div className="form-group col-12">
                 <label>Ativo / Equipamento</label>
-                <select required onChange={(e) => setFormData({...formData, assetId: e.target.value})}>
+                <select required value={formData.ativo_id} onChange={(e) => setFormData({...formData, ativo_id: e.target.value})}>
                   <option value="">Selecione o ativo...</option>
-                  {mockAssets.filter(a => {
+                  {assets.filter(a => {
                     const company = INITIAL_COMPANIES.find(c => c.id === a.empresaId);
                     return !company || company.status === 'Ativa';
                   }).map(a => <option key={a.id} value={a.id}>{a.nome} ({a.placaOuSerie})</option>)}
@@ -348,7 +339,7 @@ export const Abastecimento: React.FC = () => {
               </div>
               <div className="form-group col-6">
                 <label>Tipo de Combustível</label>
-                <select value={formData.tipoCombustivel} onChange={(e) => setFormData({...formData, tipoCombustivel: e.target.value})}>
+                <select value={formData.combustivel} onChange={(e) => setFormData({...formData, combustivel: e.target.value as any})}>
                   <option value="Diesel S10">Diesel S10</option>
                   <option value="Diesel S500">Diesel S500</option>
                   <option value="Gasolina">Gasolina</option>
@@ -357,7 +348,7 @@ export const Abastecimento: React.FC = () => {
               </div>
               <div className="form-group col-4">
                 <label>Volume (Litros)</label>
-                <input type="number" required placeholder="0.00" onChange={(e) => setFormData({...formData, litros: parseFloat(e.target.value) || 0})} />
+                <input type="number" required placeholder="0.00" onChange={(e) => setFormData({...formData, quantidade: parseFloat(e.target.value) || 0})} />
               </div>
               <div className="form-group col-4">
                 <label>Valor Total (R$)</label>
@@ -365,7 +356,7 @@ export const Abastecimento: React.FC = () => {
               </div>
               <div className="form-group col-4">
                 <label>Horímetro / Odômetro</label>
-                <input type="number" required placeholder="Leitura atual" onChange={(e) => setFormData({...formData, horasOuKm: parseInt(e.target.value) || 0})} />
+                <input type="number" required placeholder="Leitura atual" onChange={(e) => setFormData({...formData, odometroHorimetro: parseInt(e.target.value) || 0})} />
               </div>
               <div className="form-group col-12">
                 <label>Operador / Motorista</label>

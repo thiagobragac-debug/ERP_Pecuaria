@@ -26,46 +26,11 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { usePagination } from '../../hooks/usePagination';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Abate as AbateType, Lote } from '../../types';
 import './Abate.css';
-
-interface Abate {
-  id: string;
-  lote: string;
-  data: string;
-  quantidade: number;
-  pesoMedioCampo: number;
-  quebraEstimada: number;
-  pesoLiquidoProjetado: number;
-  frigorifico: string;
-  status: 'Pendente' | 'Aguardando GTA' | 'Realizado';
-  valorArroba?: number;
-}
-
-const mockAbates: Abate[] = [
-  { 
-    id: '1', 
-    lote: 'Lote 02 - Engorda', 
-    data: '2024-03-20', 
-    quantidade: 45, 
-    pesoMedioCampo: 540.5, 
-    quebraEstimada: 4.5, 
-    pesoLiquidoProjetado: 516.2, 
-    frigorifico: 'JBS - Unidade Campo Grande',
-    status: 'Aguardando GTA'
-  },
-  { 
-    id: '2', 
-    lote: 'Lote Confinamento 01', 
-    data: '2024-03-15', 
-    quantidade: 32, 
-    pesoMedioCampo: 580.0, 
-    quebraEstimada: 5.0, 
-    pesoLiquidoProjetado: 551.0, 
-    frigorifico: 'Marfrig - Unidade Maringá',
-    status: 'Realizado',
-    valorArroba: 285.50
-  }
-];
 
 export const Abate = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -73,8 +38,12 @@ export const Abate = () => {
   const [filterStatus, setFilterStatus] = useState('Todos');
   const [filterFrigorifico, setFilterFrigorifico] = useState('Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedAbate, setSelectedAbate] = useState<Abate | null>(null);
+  const [selectedAbate, setSelectedAbate] = useState<AbateType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
+
+  // Live Queries
+  const abates = useLiveQuery(() => db.abates.toArray()) || [];
+  const lotes = useLiveQuery(() => db.lotes.toArray()) || [];
   const [columnFilters, setColumnFilters] = useState({
     data: '',
     lote: 'Todos',
@@ -86,16 +55,18 @@ export const Abate = () => {
   });
 
   const stats = useMemo(() => {
-    const totalAnimais = mockAbates.reduce((acc, a) => acc + a.quantidade, 0);
-    const realizado = mockAbates.filter(a => a.status === 'Realizado').length;
-    const pesoMedioGeral = (mockAbates.reduce((acc, a) => acc + a.pesoMedioCampo, 0) / mockAbates.length || 0).toFixed(1);
+    const totalAnimais = abates.reduce((acc, a) => acc + a.quantidade, 0);
+    const realizado = abates.filter(a => a.status === 'Realizado').length;
+    const pesoMedioGeral = (abates.reduce((acc, a) => acc + a.pesoMedioCampo, 0) / abates.length || 0).toFixed(1);
     
     return { totalAnimais, realizado, pesoMedioGeral };
-  }, []);
+  }, [abates]);
 
-  const filteredData = mockAbates.filter(a => {
+  const filteredData = abates.filter(a => {
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = a.lote.toLowerCase().includes(searchLower) ||
+    const loteNome = lotes.find(l => l.id === a.lote_id)?.nome.toLowerCase() || '';
+    
+    const matchesSearch = loteNome.includes(searchLower) ||
                          a.frigorifico.toLowerCase().includes(searchLower) ||
                          a.status.toLowerCase().includes(searchLower) ||
                          a.quantidade.toString().includes(searchLower) ||
@@ -106,7 +77,7 @@ export const Abate = () => {
     
     const matchesColumnFilters = 
       (columnFilters.data === '' || a.data.includes(columnFilters.data)) &&
-      (columnFilters.lote === 'Todos' || a.lote === columnFilters.lote) &&
+      (columnFilters.lote === 'Todos' || a.lote_id === columnFilters.lote) &&
       (columnFilters.frigorifico === 'Todos' || a.frigorifico === columnFilters.frigorifico) &&
       (columnFilters.qtd === '' || a.quantidade.toString().includes(columnFilters.qtd)) &&
       (columnFilters.peso === '' || a.pesoMedioCampo.toString().includes(columnFilters.peso)) &&
@@ -115,7 +86,7 @@ export const Abate = () => {
     return matchesSearch && matchesStatus && matchesFrigorifico && matchesColumnFilters;
   });
 
-  const frigorificos = Array.from(new Set(mockAbates.map(a => a.frigorifico)));
+  const frigorificos = Array.from(new Set(abates.map(a => a.frigorifico)));
 
   const { 
     currentPage, 
@@ -131,7 +102,7 @@ export const Abate = () => {
     totalItems 
   } = usePagination({ data: filteredData, initialItemsPerPage: 10 });
 
-  const handleOpenModal = (abate: Abate | null = null, viewOnly = false) => {
+  const handleOpenModal = (abate: AbateType | null = null, viewOnly = false) => {
     setSelectedAbate(abate);
     setIsViewMode(viewOnly);
     setIsModalOpen(true);
@@ -244,7 +215,7 @@ export const Abate = () => {
                 <ColumnFilters
                   columns={[
                     { key: 'data', type: 'text', placeholder: 'Data...' },
-                    { key: 'lote', type: 'select', options: Array.from(new Set(mockAbates.map(a => a.lote))) },
+                    { key: 'lote', type: 'select', options: lotes.map(l => ({ value: l.id, label: l.nome })) as any },
                     { key: 'frigorifico', type: 'select', options: frigorificos },
                     { key: 'qtd', type: 'text', placeholder: 'Qtd...' },
                     { key: 'peso', type: 'text', placeholder: 'Peso...' },
@@ -257,52 +228,55 @@ export const Abate = () => {
               )}
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {paginatedData.map((item) => (
-                <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                  <td><span className="font-bold text-slate-500">{new Date(item.data).toLocaleDateString('pt-BR')}</span></td>
-                  <td>
-                    <div className="lote-info-cell flex items-center gap-2">
-                       <span className="text-slate-800 font-black text-base">{item.lote}</span>
-                       <span className="text-emerald-600 font-bold uppercase text-[10px] tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">Invernada Norte</span>
-                    </div>
-                  </td>
-                  <td><span className="font-extrabold text-slate-600">{item.frigorifico}</span></td>
-                  <td><span className="badge secondary text-lg">{item.quantidade}</span></td>
-                  <td>
-                     <div className="weight-row flex items-center gap-3">
-                        <span className="main font-bold text-slate-700">{item.pesoMedioCampo} <small className="text-xs text-slate-500">kg</small></span>
-                        <div className="w-1 h-1 rounded-full bg-slate-300"></div>
-                        <span className="secondary font-black text-emerald-600">{(item.pesoMedioCampo / 30).toFixed(1)} @</span>
-                     </div>
-                  </td>
-                  <td>
-                     <div className="yield-info flex items-center gap-2">
-                        <strong className="text-rose-600 text-base">{item.quebraEstimada}%</strong>
-                        <div className="bg-slate-100 text-[10px] font-black text-slate-500 uppercase px-2 py-0.5 rounded border border-slate-200">
-                          Est: {item.pesoLiquidoProjetado}kg
-                        </div>
-                     </div>
-                  </td>
-                  <td>
-                    <span className={`slaughter-status-pill ${item.status.toLowerCase().replace(' ', '-')}`}>
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="text-right">
-                    <div className="actions-cell">
-                      <button className="action-btn-global btn-view" title="Visualizar" onClick={() => handleOpenModal(item, true)}>
-                        <Eye size={18} strokeWidth={3} />
-                      </button>
-                      <button className="action-btn-global btn-edit" title="Editar" onClick={() => handleOpenModal(item)}>
-                        <Edit size={18} strokeWidth={3} />
-                      </button>
-                      <button className="action-btn-global btn-delete" title="Excluir" onClick={() => {}}>
-                        <Trash2 size={18} strokeWidth={3} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {paginatedData.map((item) => {
+                const loteNome = lotes.find(l => l.id === item.lote_id)?.nome || '-';
+                return (
+                  <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                    <td><span className="font-bold text-slate-500">{new Date(item.data).toLocaleDateString('pt-BR')}</span></td>
+                    <td>
+                      <div className="lote-info-cell flex items-center gap-2">
+                         <span className="text-slate-800 font-black text-base">{loteNome}</span>
+                         <span className="text-emerald-600 font-bold uppercase text-[10px] tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">Invernada Norte</span>
+                      </div>
+                    </td>
+                    <td><span className="font-extrabold text-slate-600">{item.frigorifico}</span></td>
+                    <td><span className="badge secondary text-lg">{item.quantidade}</span></td>
+                    <td>
+                       <div className="weight-row flex items-center gap-3">
+                          <span className="main font-bold text-slate-700">{item.pesoMedioCampo} <small className="text-xs text-slate-500">kg</small></span>
+                          <div className="w-1 h-1 rounded-full bg-slate-300"></div>
+                          <span className="secondary font-black text-emerald-600">{(item.pesoMedioCampo / 30).toFixed(1)} @</span>
+                       </div>
+                    </td>
+                    <td>
+                       <div className="yield-info flex items-center gap-2">
+                          <strong className="text-rose-600 text-base">{item.quebraEstimada}%</strong>
+                          <div className="bg-slate-100 text-[10px] font-black text-slate-500 uppercase px-2 py-0.5 rounded border border-slate-200">
+                            Est: {item.pesoLiquidoProjetado}kg
+                          </div>
+                       </div>
+                    </td>
+                    <td>
+                      <span className={`slaughter-status-pill ${item.status.toLowerCase().replace(' ', '-')}`}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="text-right">
+                      <div className="actions-cell">
+                        <button className="action-btn-global btn-view" title="Visualizar" onClick={() => handleOpenModal(item, true)}>
+                          <Eye size={18} strokeWidth={3} />
+                        </button>
+                        <button className="action-btn-global btn-edit" title="Editar" onClick={() => handleOpenModal(item)}>
+                          <Edit size={18} strokeWidth={3} />
+                        </button>
+                        <button className="action-btn-global btn-delete" title="Excluir" onClick={() => dataService.deleteItem('abates', item.id)}>
+                          <Trash2 size={18} strokeWidth={3} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -337,18 +311,44 @@ export const Abate = () => {
         }
       >
         <div className="form-sections-grid">
-          <form id="abate-form" onSubmit={(e) => { e.preventDefault(); handleCloseModal(); }}>
+          <form id="abate-form" onSubmit={async (e) => { 
+            e.preventDefault(); 
+            const formData = new FormData(e.currentTarget);
+            
+            const quantidade = parseInt(formData.get('quantidade') as string);
+            const pesoMedioCampo = parseFloat(formData.get('pesoMedioCampo') as string);
+            const quebraEstimada = parseFloat(formData.get('quebraEstimada') as string);
+            const pesoLiquidoProjetado = pesoMedioCampo * (1 - quebraEstimada / 100);
+
+            const newAbate: AbateType = {
+              ...selectedAbate!,
+              id: selectedAbate?.id || Math.random().toString(36).substr(2, 9),
+              lote_id: formData.get('lote_id') as string,
+              data: formData.get('data') as string,
+              frigorifico: formData.get('frigorifico') as string,
+              quantidade: quantidade,
+              pesoMedioCampo: pesoMedioCampo,
+              quebraEstimada: quebraEstimada,
+              pesoLiquidoProjetado: pesoLiquidoProjetado,
+              status: formData.get('status') as any || 'Pendente',
+              valorArroba: parseFloat(formData.get('valorArroba') as string),
+              tenant_id: 'default'
+            };
+
+            await dataService.saveItem('abates', newAbate);
+            handleCloseModal(); 
+          }}>
             <div className="form-section">
               <h4>Identificação de Embarque</h4>
               <div className="form-grid">
                 <div className="form-group col-6">
                   <label>Lote de Origem</label>
                   <div className="input-with-icon">
-                    <select defaultValue={selectedAbate?.lote} disabled={isViewMode} required>
+                    <select name="lote_id" defaultValue={selectedAbate?.lote_id} disabled={isViewMode} required>
                       <option value="">Selecione o lote...</option>
-                      <option>Lote 01 - Recria</option>
-                      <option>Lote 02 - Engorda</option>
-                      <option>Lote Confinamento 01</option>
+                      {lotes.map(l => (
+                          <option key={l.id} value={l.id}>{l.nome}</option>
+                      ))}
                     </select>
                     <Layers size={18} className="field-icon" />
                   </div>
@@ -356,22 +356,33 @@ export const Abate = () => {
                 <div className="form-group col-6">
                   <label>Data de Embarque</label>
                   <div className="input-with-icon">
-                    <input type="date" defaultValue={selectedAbate?.data || new Date().toISOString().split('T')[0]} disabled={isViewMode} required />
+                    <input type="date" name="data" defaultValue={selectedAbate?.data || new Date().toLocaleDateString('en-CA')} disabled={isViewMode} required />
                     <Calendar size={18} className="field-icon" />
                   </div>
                 </div>
                 <div className="form-group col-8">
                   <label>Frigorífico / Destino</label>
                   <div className="input-with-icon">
-                    <input type="text" defaultValue={selectedAbate?.frigorifico} disabled={isViewMode} placeholder="Ex: JBS Unidade X" required />
+                    <input type="text" name="frigorifico" defaultValue={selectedAbate?.frigorifico} disabled={isViewMode} placeholder="Ex: JBS Unidade X" required />
                     <Truck size={18} className="field-icon" />
                   </div>
                 </div>
                 <div className="form-group col-4">
                   <label>Quantidade (Cab.)</label>
                   <div className="input-with-icon">
-                    <input type="number" defaultValue={selectedAbate?.quantidade} disabled={isViewMode} required placeholder="0" />
+                    <input type="number" name="quantidade" defaultValue={selectedAbate?.quantidade} disabled={isViewMode} required placeholder="0" />
                     <Beef size={18} className="field-icon" />
+                  </div>
+                </div>
+                <div className="form-group col-12">
+                  <label>Status</label>
+                  <div className="input-with-icon">
+                    <select name="status" defaultValue={selectedAbate?.status} disabled={isViewMode} required>
+                        <option value="Pendente">Pendente</option>
+                        <option value="Aguardando GTA">Aguardando GTA</option>
+                        <option value="Realizado">Realizado</option>
+                    </select>
+                    <AlertCircle size={18} className="field-icon" />
                   </div>
                 </div>
               </div>
@@ -383,21 +394,21 @@ export const Abate = () => {
                 <div className="form-group col-4">
                   <label>Peso Médio Campo (kg)</label>
                   <div className="input-with-icon">
-                    <input type="number" step="0.1" defaultValue={selectedAbate?.pesoMedioCampo} disabled={isViewMode} required placeholder="0.0" />
+                    <input type="number" name="pesoMedioCampo" step="0.1" defaultValue={selectedAbate?.pesoMedioCampo} disabled={isViewMode} required placeholder="0.0" />
                     <Scale size={18} className="field-icon" />
                   </div>
                 </div>
                 <div className="form-group col-4">
                   <label>Quebra de Jejum Est. (%)</label>
                   <div className="input-with-icon">
-                    <input type="number" step="0.1" defaultValue={selectedAbate?.quebraEstimada || 4.5} disabled={isViewMode} required />
+                    <input type="number" name="quebraEstimada" step="0.1" defaultValue={selectedAbate?.quebraEstimada || 4.5} disabled={isViewMode} required />
                     <TrendingDown size={18} className="field-icon" />
                   </div>
                 </div>
                 <div className="form-group col-4">
                   <label>Valor da @ (R$)</label>
                   <div className="input-with-icon">
-                    <input type="number" step="0.01" defaultValue={selectedAbate?.valorArroba} disabled={isViewMode} placeholder="R$ 0,00" />
+                    <input type="number" name="valorArroba" step="0.01" defaultValue={selectedAbate?.valorArroba} disabled={isViewMode} placeholder="R$ 0,00" />
                     <DollarSign size={18} className="field-icon" />
                   </div>
                 </div>

@@ -21,34 +21,24 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { usePagination } from '../../hooks/usePagination';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { RegistroSanitario as RegistroSanitarioType, Animal, Lote, MedicamentoUsado } from '../../types';
 import './Sanidade.css';
-
-interface RegistroSanitario {
-  id: string;
-  animal: string;
-  brinco: string;
-  doenca_motivo: string;
-  data: string;
-  medicamento: string;
-  careencia_fim: string;
-  status: 'Pendente' | 'Concluido' | 'Alerta';
-  veterinario: string;
-}
-
-const mockRegistros: RegistroSanitario[] = [
-  { id: '1', animal: 'VAC-8820', brinco: '8820', doenca_motivo: 'Protocolo IATF', data: '2024-03-10', medicamento: 'Sincrogest', careencia_fim: '2024-03-10', status: 'Concluido', veterinario: 'Dr. Roberto Santos' },
-  { id: '2', animal: 'BOV-4432', brinco: '4432', doenca_motivo: 'Pneumonia', data: '2024-03-12', medicamento: 'Terramicina', careencia_fim: '2024-03-25', status: 'Alerta', veterinario: 'Dra. Luiza Lima' },
-  { id: '3', animal: 'MAT-2121', brinco: '2121', doenca_motivo: 'Vermifugação', data: '2024-03-05', medicamento: 'Ivomec', careencia_fim: '2024-03-05', status: 'Concluido', veterinario: 'Sistema' },
-  { id: '4', animal: 'GAR-9901', brinco: '9901', doenca_motivo: 'Tristeza Parasitária', data: '2024-03-14', medicamento: 'Imizol', careencia_fim: '2024-04-10', status: 'Pendente', veterinario: 'Dr. Roberto Santos' },
-];
 
 export const Sanidade = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState('Todos');
-  const [selectedRegistro, setSelectedRegistro] = useState<RegistroSanitario | null>(null);
+  const [selectedRegistro, setSelectedRegistro] = useState<RegistroSanitarioType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
+
+  // Live Queries
+  const registros = useLiveQuery(() => db.registrosSanitarios.toArray()) || [];
+  const animais = useLiveQuery(() => db.animais.toArray()) || [];
+  const lotes = useLiveQuery(() => db.lotes.toArray()) || [];
   const [columnFilters, setColumnFilters] = useState({
     animal: '',
     doenca: '',
@@ -58,37 +48,37 @@ export const Sanidade = () => {
     status: 'Todos'
   });
 
-  const handleOpenModal = (registro: RegistroSanitario | null = null, viewOnly = false) => {
+  const handleOpenModal = (registro: RegistroSanitarioType | null = null, viewOnly = false) => {
     setSelectedRegistro(registro);
     setIsViewMode(viewOnly);
     setIsModalOpen(true);
   };
 
   const totals = {
-    tratamentos: mockRegistros.length,
-    emAlerta: mockRegistros.filter(r => r.status === 'Alerta').length,
-    emCareencia: mockRegistros.filter(r => new Date(r.careencia_fim) > new Date()).length
+    tratamentos: registros.length,
+    emAlerta: registros.filter(r => r.status === 'Agendado').length,
+    emCareencia: registros.filter(r => r.careencia_fim && new Date(r.careencia_fim) > new Date()).length
   };
 
-  const filteredData = mockRegistros.filter(r => {
+  const filteredData = registros.filter(r => {
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = r.animal.toLowerCase().includes(searchLower) || 
+    const animalBrinco = r.animal?.toLowerCase() || animais.find(a => a.id === r.animal_id)?.brinco.toLowerCase() || '';
+    const meds = r.medicamentos?.map(m => m.nome).join(', ').toLowerCase() || '';
+    
+    const matchesSearch = animalBrinco.includes(searchLower) || 
       r.doenca_motivo.toLowerCase().includes(searchLower) ||
-      r.medicamento.toLowerCase().includes(searchLower) ||
-      r.brinco.toLowerCase().includes(searchLower) ||
-      r.veterinario.toLowerCase().includes(searchLower) ||
+      meds.includes(searchLower) ||
       r.status.toLowerCase().includes(searchLower) ||
-      r.data.toLowerCase().includes(searchLower) ||
-      r.careencia_fim.toLowerCase().includes(searchLower);
+      r.data.toLowerCase().includes(searchLower);
     
     const matchesStatus = filterStatus === 'Todos' || r.status === filterStatus;
 
     const matchesColumnFilters = 
-      (columnFilters.animal === '' || r.animal.toLowerCase().includes(columnFilters.animal.toLowerCase())) &&
+      (columnFilters.animal === '' || animalBrinco.includes(columnFilters.animal.toLowerCase())) &&
       (columnFilters.doenca === '' || r.doenca_motivo.toLowerCase().includes(columnFilters.doenca.toLowerCase())) &&
-      (columnFilters.medicamento === '' || r.medicamento.toLowerCase().includes(columnFilters.medicamento.toLowerCase())) &&
+      (columnFilters.medicamento === '' || meds.includes(columnFilters.medicamento.toLowerCase())) &&
       (columnFilters.data === '' || r.data.includes(columnFilters.data)) &&
-      (columnFilters.careencia === '' || r.careencia_fim.includes(columnFilters.careencia)) &&
+      (columnFilters.careencia === '' || (r.careencia_fim || '').includes(columnFilters.careencia)) &&
       (columnFilters.status === 'Todos' || r.status === columnFilters.status);
 
     return matchesSearch && matchesStatus && matchesColumnFilters;
@@ -215,7 +205,7 @@ export const Sanidade = () => {
                     { key: 'medicamento', type: 'text', placeholder: 'Filtrar...' },
                     { key: 'data', type: 'text', placeholder: 'Data...' },
                     { key: 'careencia', type: 'text', placeholder: 'Carência...' },
-                    { key: 'status', type: 'select', options: ['Pendente', 'Concluido', 'Alerta'] }
+                    { key: 'status', type: 'select', options: ['Concluído', 'Em Curso', 'Agendado'] }
                   ]}
                   values={columnFilters}
                   onChange={(key, value) => setColumnFilters(prev => ({ ...prev, [key]: value }))}
@@ -223,49 +213,55 @@ export const Sanidade = () => {
               )}
             </thead>
             <tbody>
-              {paginatedData.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <div className="animal-cell flex items-center gap-2">
-                      <strong className="text-slate-800">{item.animal}</strong>
-                      <span className="text-slate-400 text-xs font-medium">— {item.veterinario}</span>
-                    </div>
-                  </td>
-                  <td><span className="font-extrabold text-slate-700">{item.doenca_motivo}</span></td>
-                  <td><span className="text-emerald-600 font-extrabold">{item.medicamento}</span></td>
-                  <td><span className="font-bold text-slate-500">{new Date(item.data).toLocaleDateString('pt-BR')}</span></td>
-                  <td>
-                    <div className="careencia-info flex items-center gap-2">
-                      <span className={new Date(item.careencia_fim) > new Date() ? 'text-rose-600 font-black' : 'text-slate-500 font-bold'}>
-                        {new Date(item.careencia_fim).toLocaleDateString('pt-BR')}
+              {paginatedData.map((item) => {
+                const animalBrinco = item.animal || animais.find(a => a.id === item.animal_id)?.brinco || '-';
+                const medicineList = item.medicamentos?.map(m => m.nome).join(', ') || 'Nenhum';
+                const isCareencia = item.careencia_fim && new Date(item.careencia_fim) > new Date();
+                
+                return (
+                  <tr key={item.id}>
+                    <td>
+                      <div className="animal-cell flex items-center gap-2">
+                        <strong className="text-slate-800">{animalBrinco}</strong>
+                        <span className="text-slate-400 text-xs font-medium">— {item.tipo}</span>
+                      </div>
+                    </td>
+                    <td><span className="font-extrabold text-slate-700">{item.doenca_motivo}</span></td>
+                    <td><span className="text-emerald-600 font-extrabold">{medicineList}</span></td>
+                    <td><span className="font-bold text-slate-500">{new Date(item.data).toLocaleDateString('pt-BR')}</span></td>
+                    <td>
+                      <div className="careencia-info flex items-center gap-2">
+                        <span className={isCareencia ? 'text-rose-600 font-black' : 'text-slate-500 font-bold'}>
+                          {item.careencia_fim ? new Date(item.careencia_fim).toLocaleDateString('pt-BR') : '-'}
+                        </span>
+                        {isCareencia && (
+                          <div className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-[10px] font-black border border-rose-100 uppercase">
+                            {Math.ceil((new Date(item.careencia_fim!).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} dias
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`status-badge ${item.status === 'Concluído' ? 'concluido' : item.status === 'Em Curso' ? 'alerta' : 'pendente'}`}>
+                        {item.status}
                       </span>
-                      {new Date(item.careencia_fim) > new Date() && (
-                        <div className="bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full text-[10px] font-black border border-rose-100 uppercase">
-                          {Math.ceil((new Date(item.careencia_fim).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} dias
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`status-badge ${item.status.toLowerCase()}`}>
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="text-right">
-                    <div className="actions-cell">
-                      <button className="action-btn-global btn-view" title="Visualizar" onClick={() => handleOpenModal(item, true)}>
-                        <Eye size={18} strokeWidth={3} />
-                      </button>
-                      <button className="action-btn-global btn-edit" title="Editar" onClick={() => handleOpenModal(item)}>
-                        <Edit size={18} strokeWidth={3} />
-                      </button>
-                      <button className="action-btn-global btn-delete" title="Excluir" onClick={() => {}}>
-                        <Trash2 size={18} strokeWidth={3} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="text-right">
+                      <div className="actions-cell">
+                        <button className="action-btn-global btn-view" title="Visualizar" onClick={() => handleOpenModal(item, true)}>
+                          <Eye size={18} strokeWidth={3} />
+                        </button>
+                        <button className="action-btn-global btn-edit" title="Editar" onClick={() => handleOpenModal(item)}>
+                          <Edit size={18} strokeWidth={3} />
+                        </button>
+                        <button className="action-btn-global btn-delete" title="Excluir" onClick={() => dataService.deleteItem('registrosSanitarios', item.id)}>
+                          <Trash2 size={18} strokeWidth={3} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -294,43 +290,97 @@ export const Sanidade = () => {
         footer={
           <div className="flex gap-3">
             <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-            {!isViewMode && <button className="btn-premium-solid indigo">Salvar Lançamento</button>}
+            {!isViewMode && <button className="btn-premium-solid indigo" form="sanidade-form">Salvar Lançamento</button>}
           </div>
         }
       >
-        <div className="modal-body-content">
-          <div className="form-grid">
-            <div className="form-group col-6">
-              <label>Identificação do Animal</label>
-              <input type="text" defaultValue={selectedRegistro?.animal} disabled={isViewMode} placeholder="Ex: VAC-8820" />
-            </div>
-            <div className="form-group col-6">
-              <label>Doença / Motivo</label>
-              <input type="text" defaultValue={selectedRegistro?.doenca_motivo} disabled={isViewMode} placeholder="Ex: Pneumonia" />
-            </div>
-            <div className="form-group col-6">
-              <label>Data da Aplicação</label>
-              <input type="date" defaultValue={selectedRegistro?.data} disabled={isViewMode} />
-            </div>
-            <div className="form-group col-6">
-              <label>Fim do Período de Carência</label>
-              <input type="date" defaultValue={selectedRegistro?.careencia_fim} disabled={isViewMode} />
-            </div>
-            <div className="form-group col-12">
-              <label>Medicamento / Vacina</label>
-              <input type="text" defaultValue={selectedRegistro?.medicamento} disabled={isViewMode} placeholder="Ex: Terramicina 50mg" />
-            </div>
-            <div className="form-group col-12">
-              <label>Observações Veterinárias</label>
-              <textarea rows={3} defaultValue={selectedRegistro ? 'Animal em observação no piquete hospital.' : ''} disabled={isViewMode}></textarea>
-            </div>
-            <div className="form-group col-12">
-              <div className="info-box info">
-                <CheckCircle2 size={18} />
-                <p><strong>Atenção:</strong> Respeite rigorosamente o período de carência indicado pelo fabricante para garantir a segurança alimentar.</p>
+        <div className="modal-body-content p-6">
+          <form id="sanidade-form" onSubmit={async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            
+            const newRegistro: RegistroSanitarioType = {
+              ...selectedRegistro!,
+              id: selectedRegistro?.id || Math.random().toString(36).substr(2, 9),
+              animal_id: formData.get('animal_id') as string,
+              lote_id: formData.get('lote_id') as string,
+              tipo: formData.get('tipo') as any,
+              doenca_motivo: formData.get('doenca_motivo') as string,
+              data: formData.get('data') as string,
+              careencia_fim: formData.get('careencia_fim') as string,
+              status: formData.get('status') as any,
+              medicamentos: [
+                { id: '1', nome: formData.get('medicamento') as string, dose: '1ml', quantidade: 1 }
+              ],
+              tenant_id: 'default'
+            };
+
+            await dataService.saveItem('registrosSanitarios', newRegistro);
+            setIsModalOpen(false);
+          }}>
+            <div className="form-grid">
+              <div className="form-group col-6">
+                <label>Identificação do Animal</label>
+                <select name="animal_id" defaultValue={selectedRegistro?.animal_id} disabled={isViewMode} required>
+                    <option value="">Selecione...</option>
+                    {animais.map(a => (
+                        <option key={a.id} value={a.id}>{a.brinco} - {a.raca}</option>
+                    ))}
+                </select>
+              </div>
+              <div className="form-group col-6">
+                <label>Lote</label>
+                <select name="lote_id" defaultValue={selectedRegistro?.lote_id} disabled={isViewMode}>
+                    <option value="">Nenhum / Selecione...</option>
+                    {lotes.map(l => (
+                        <option key={l.id} value={l.id}>{l.nome}</option>
+                    ))}
+                </select>
+              </div>
+              <div className="form-group col-6">
+                <label>Doença / Motivo</label>
+                <input type="text" name="doenca_motivo" defaultValue={selectedRegistro?.doenca_motivo} disabled={isViewMode} placeholder="Ex: Pneumonia" required />
+              </div>
+              <div className="form-group col-6">
+                <label>Tipo de Registro</label>
+                <select name="tipo" defaultValue={selectedRegistro?.tipo || 'Tratamento'} disabled={isViewMode} required>
+                  <option value="Vacinação">Vacinação</option>
+                  <option value="Tratamento">Tratamento</option>
+                  <option value="Prevenção">Prevenção</option>
+                </select>
+              </div>
+              <div className="form-group col-4">
+                <label>Data da Aplicação</label>
+                <input type="date" name="data" defaultValue={selectedRegistro?.data || new Date().toLocaleDateString('en-CA')} disabled={isViewMode} required />
+              </div>
+              <div className="form-group col-4">
+                <label>Fim do Período de Carência</label>
+                <input type="date" name="careencia_fim" defaultValue={selectedRegistro?.careencia_fim} disabled={isViewMode} />
+              </div>
+              <div className="form-group col-4">
+                <label>Status</label>
+                <select name="status" defaultValue={selectedRegistro?.status || 'Concluído'} disabled={isViewMode} required>
+                  <option value="Concluído">Concluído</option>
+                  <option value="Em Curso">Em Curso</option>
+                  <option value="Agendado">Agendado</option>
+                </select>
+              </div>
+              <div className="form-group col-12">
+                <label>Medicamento / Vacina Principal</label>
+                <input type="text" name="medicamento" defaultValue={selectedRegistro?.medicamentos?.[0]?.nome} disabled={isViewMode} placeholder="Ex: Terramicina 50mg" required />
+              </div>
+              <div className="form-group col-12">
+                <label>Observações Veterinárias</label>
+                <textarea rows={3} name="obs" defaultValue={selectedRegistro ? 'Animal em observação no piquete hospital.' : ''} disabled={isViewMode}></textarea>
+              </div>
+              <div className="form-group col-12">
+                <div className="info-box info">
+                  <CheckCircle2 size={18} />
+                  <p><strong>Atenção:</strong> Respeite rigorosamente o período de carência indicado pelo fabricante para garantir a segurança alimentar.</p>
+                </div>
               </div>
             </div>
-          </div>
+          </form>
         </div>
       </StandardModal>
     </div>

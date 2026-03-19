@@ -30,59 +30,13 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Reproducao as ReproducaoType, Animal } from '../../types';
 import './Reproducao.css';
 
-interface InsumoUsado {
-  id: string;
-  nome: string;
-  quantidade: number;
-}
-
-interface ReproducaoSession {
-  id: string;
-  animal: string;
-  protocolo: string;
-  dataInicio: string;
-  previsaoDiagnostico: string;
-  status: 'Em Protocolo' | 'Prenhe' | 'Vazia' | 'Parto Previsto';
-  insumos: InsumoUsado[];
-}
-
-const mockSessions: ReproducaoSession[] = [
-  { 
-    id: '1', 
-    animal: 'VAC-8820', 
-    protocolo: 'IATF 3 Manejos', 
-    dataInicio: '2024-03-01', 
-    previsaoDiagnostico: '2024-04-01', 
-    status: 'Em Protocolo',
-    insumos: [
-      { id: '1', nome: 'D-Cloprostenol', quantidade: 2 },
-      { id: '2', nome: 'Sêmen Angus Black', quantidade: 1 }
-    ]
-  },
-  { 
-    id: '2', 
-    animal: 'VAC-4412', 
-    protocolo: 'Monta Natural', 
-    dataInicio: '2024-01-15', 
-    previsaoDiagnostico: '2024-02-15', 
-    status: 'Prenhe',
-    insumos: []
-  },
-  { 
-    id: '3', 
-    animal: 'VAC-9905', 
-    protocolo: 'IATF 3 Manejos', 
-    dataInicio: '2023-12-10', 
-    previsaoDiagnostico: '2024-01-10', 
-    status: 'Vazia',
-    insumos: [
-      { id: '1', nome: 'D-Cloprostenol', quantidade: 2 },
-      { id: '2', nome: 'Sêmen Nelore PO', quantidade: 1 }
-    ]
-  },
-];
+// Removed mockSessions
 
 import { DiagnosticoReproducao } from './DiagnosticoReproducao';
 
@@ -92,9 +46,14 @@ export const Reproducao = () => {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const [selectedSession, setSelectedSession] = useState<ReproducaoSession | null>(null);
+  const [selectedSession, setSelectedSession] = useState<ReproducaoType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
   const [activeTab, setActiveTab] = useState('geral');
+
+  // Live Queries
+  const reproducoes = useLiveQuery(() => db.reproducao.toArray()) || [];
+  const animais = useLiveQuery(() => db.animais.toArray()) || [];
+
   const [columnFilters, setColumnFilters] = useState({
     animal: '',
     protocolo: 'Todos',
@@ -104,7 +63,7 @@ export const Reproducao = () => {
     consumo: ''
   });
 
-  const handleOpenModal = (session: ReproducaoSession | null = null, viewOnly = false) => {
+  const handleOpenModal = (session: ReproducaoType | null = null, viewOnly = false) => {
     setSelectedSession(session);
     setIsViewMode(viewOnly);
     setIsModalOpen(true);
@@ -117,35 +76,37 @@ export const Reproducao = () => {
     setIsViewMode(false);
   };
 
-  const totalSessions = mockSessions.length;
-  const prenhes = mockSessions.filter(s => s.status === 'Prenhe').length;
+  const totalSessions = reproducoes.length;
+  const prenhes = reproducoes.filter(s => s.status === 'Prenhe').length;
   const taxaPrenhez = totalSessions > 0 ? ((prenhes / totalSessions) * 100).toFixed(0) : 0;
   
-  const iatfSessions = mockSessions.filter(s => s.protocolo.includes('IATF'));
+  const iatfSessions = reproducoes.filter(s => s.protocolo.includes('IATF'));
   const iatfPrenhes = iatfSessions.filter(s => s.status === 'Prenhe').length;
   const eficaciaIATF = iatfSessions.length > 0 ? ((iatfPrenhes / iatfSessions.length) * 100).toFixed(0) : 0;
   
-  const partosPrevistos = mockSessions.filter(s => s.status === 'Parto Previsto').length;
+  const partosPrevistos = reproducoes.filter(s => s.status === 'Parto Previsto').length;
 
-  const filteredData = mockSessions.filter(s => {
+  const filteredData = reproducoes.filter(s => {
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = s.animal.toLowerCase().includes(searchLower) || 
+    const animalBrinco = animais.find(a => a.id === s.animal_id)?.brinco.toLowerCase() || '';
+    
+    const matchesSearch = animalBrinco.includes(searchLower) || 
                          s.protocolo.toLowerCase().includes(searchLower) ||
                          s.status.toLowerCase().includes(searchLower) ||
                          s.dataInicio.toLowerCase().includes(searchLower) ||
                          s.previsaoDiagnostico.toLowerCase().includes(searchLower);
     const matchesColumnFilters = 
-      (columnFilters.animal === '' || s.animal.toLowerCase().includes(columnFilters.animal.toLowerCase())) &&
+      (columnFilters.animal === '' || animalBrinco.includes(columnFilters.animal.toLowerCase())) &&
       (columnFilters.protocolo === 'Todos' || s.protocolo === columnFilters.protocolo) &&
-      (columnFilters.inicio === '' || new Date(s.dataInicio).toLocaleDateString('pt-BR').includes(columnFilters.inicio)) &&
-      (columnFilters.dgPrevisto === '' || new Date(s.previsaoDiagnostico).toLocaleDateString('pt-BR').includes(columnFilters.dgPrevisto)) &&
+      (columnFilters.inicio === '' || s.dataInicio.includes(columnFilters.inicio)) &&
+      (columnFilters.dgPrevisto === '' || s.previsaoDiagnostico.includes(columnFilters.dgPrevisto)) &&
       (columnFilters.status === 'Todos' || s.status === columnFilters.status) &&
       (columnFilters.consumo === '' || s.insumos.some(ins => ins.nome.toLowerCase().includes(columnFilters.consumo.toLowerCase())));
 
     return matchesSearch && matchesColumnFilters;
   });
 
-  const protocolos = Array.from(new Set(mockSessions.map(s => s.protocolo)));
+  const protocolos = Array.from(new Set(reproducoes.map(s => s.protocolo)));
 
   const { 
     currentPage, 
@@ -289,17 +250,19 @@ export const Reproducao = () => {
               )}
             </thead>
             <tbody>
-              {paginatedData.map((session) => (
-                <tr key={session.id}>
-                  <td><span className="text-slate-800 font-black text-lg">{session.animal}</span></td>
-                  <td><span className="font-bold text-slate-600">{session.protocolo}</span></td>
-                  <td><span className="font-bold text-slate-500">{new Date(session.dataInicio).toLocaleDateString('pt-BR')}</span></td>
-                  <td><span className="font-black text-sky-600">{new Date(session.previsaoDiagnostico).toLocaleDateString('pt-BR')}</span></td>
-                  <td>
-                    <span className={`status-badge rep-${session.status.toLowerCase().replace(/\s+/g, '-')}`}>
-                      {session.status}
-                    </span>
-                  </td>
+              {paginatedData.map((session) => {
+                const animalBrinco = animais.find(a => a.id === session.animal_id)?.brinco || '-';
+                return (
+                  <tr key={session.id}>
+                    <td><span className="text-slate-800 font-black text-lg">{animalBrinco}</span></td>
+                    <td><span className="font-bold text-slate-600">{session.protocolo}</span></td>
+                    <td><span className="font-bold text-slate-500">{new Date(session.dataInicio).toLocaleDateString('pt-BR')}</span></td>
+                    <td><span className="font-black text-sky-600">{new Date(session.previsaoDiagnostico).toLocaleDateString('pt-BR')}</span></td>
+                    <td>
+                      <span className={`status-badge rep-${session.status.toLowerCase().replace(/\s+/g, '-')}`}>
+                        {session.status}
+                      </span>
+                    </td>
                   <td>
                     {session.insumos.length > 0 ? (
                       <div className="stock-link flex items-center gap-2">
@@ -324,7 +287,8 @@ export const Reproducao = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -388,7 +352,24 @@ export const Reproducao = () => {
         </div>
         
         <div className="modal-body scrollable">
-          <form id="reproducao-form" onSubmit={(e) => { e.preventDefault(); handleCloseModal(); }}>
+          <form id="reproducao-form" onSubmit={async (e) => { 
+            e.preventDefault(); 
+            const formData = new FormData(e.currentTarget);
+            const newReproducao: ReproducaoType = {
+              ...selectedSession!,
+              id: selectedSession?.id || Math.random().toString(36).substr(2, 9),
+              animal_id: formData.get('animal_id') as string,
+              protocolo: formData.get('protocolo') as string,
+              dataInicio: formData.get('dataInicio') as string,
+              previsaoDiagnostico: formData.get('previsaoDiagnostico') as string,
+              status: formData.get('status') as any,
+              insumos: selectedSession?.insumos || [],
+              tenant_id: 'default'
+            };
+
+            await dataService.saveItem('reproducao', newReproducao);
+            handleCloseModal(); 
+          }}>
             {activeTab === 'geral' && (
               <div className="form-sections-grid">
                 <div className="form-section">
@@ -397,14 +378,19 @@ export const Reproducao = () => {
                     <div className="form-group col-12">
                       <label>Animal (Matriz)</label>
                       <div className="input-with-icon">
-                        <input type="text" defaultValue={selectedSession?.animal} disabled={isViewMode} required placeholder="Ex: VAC-8820" />
+                        <select name="animal_id" defaultValue={selectedSession?.animal_id} disabled={isViewMode} required>
+                          <option value="">Selecione o animal...</option>
+                          {animais.map(a => (
+                            <option key={a.id} value={a.id}>{a.brinco} - {a.lote}</option>
+                          ))}
+                        </select>
                         <Hash size={18} className="field-icon" />
                       </div>
                     </div>
                     <div className="form-group col-6">
                       <label>Tipo de Protocolo</label>
                       <div className="input-with-icon">
-                        <select defaultValue={selectedSession?.protocolo} disabled={isViewMode}>
+                        <select name="protocolo" defaultValue={selectedSession?.protocolo} disabled={isViewMode}>
                           <option>IATF 3 Manejos</option>
                           <option>Monta Natural</option>
                           <option>Transferência de Embrião (TE)</option>
@@ -416,21 +402,21 @@ export const Reproducao = () => {
                     <div className="form-group col-6">
                       <label>Data de Início</label>
                       <div className="input-with-icon">
-                        <input type="date" defaultValue={selectedSession?.dataInicio} disabled={isViewMode} required />
+                        <input type="date" name="dataInicio" defaultValue={selectedSession?.dataInicio || new Date().toLocaleDateString('en-CA')} disabled={isViewMode} required />
                         <Calendar size={18} className="field-icon" />
                       </div>
                     </div>
                     <div className="form-group col-6">
                       <label>Previsão Diagnóstico (DG)</label>
                       <div className="input-with-icon">
-                        <input type="date" defaultValue={selectedSession?.previsaoDiagnostico} disabled={isViewMode} />
+                        <input type="date" name="previsaoDiagnostico" defaultValue={selectedSession?.previsaoDiagnostico} disabled={isViewMode} />
                         <Calendar size={18} className="field-icon" />
                       </div>
                     </div>
                     <div className="form-group col-6">
                       <label>Status Atual</label>
                       <div className="input-with-icon">
-                        <select defaultValue={selectedSession?.status} disabled={isViewMode}>
+                        <select name="status" defaultValue={selectedSession?.status} disabled={isViewMode}>
                           <option>Em Protocolo</option>
                           <option>Prenhe</option>
                           <option>Vazia</option>

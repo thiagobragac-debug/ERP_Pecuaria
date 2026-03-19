@@ -11,10 +11,26 @@ import {
   ChevronRight
 } from 'lucide-react';
 import './Estoque.css';
+import { useOfflineQuery } from '../../hooks/useOfflineSync';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { Insumo as InsumoType, MovimentacaoEstoque as MovimentacaoType } from '../../types';
 
 export const Estoque = () => {
   const location = useLocation();
   const isHubHome = location.pathname === '/estoque' || location.pathname === '/estoque/';
+
+  const isOnline = useOnlineStatus();
+  const { data: insumos = [] } = useOfflineQuery<InsumoType>(['insumos'], 'insumos');
+  const { data: movimentacoes = [] } = useOfflineQuery<MovimentacaoType>(['movimentacoes_estoque'], 'movimentacoes_estoque');
+
+  // Calculate stats
+  const valorTotal = insumos.reduce((acc, i) => acc + (i.estoqueAtual * i.valorUnitario), 0);
+  const alertasReposicao = insumos.filter(i => i.estoqueAtual <= i.estoqueMinimo).length;
+  
+  // Filter movements for current month
+  const now = new Date();
+  const firstDayMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const movMes = movimentacoes.filter(m => new Date(m.data) >= firstDayMonth).length;
 
   return (
     <div className="page-container fade-in">
@@ -30,13 +46,19 @@ export const Estoque = () => {
                 <p className="description">Visão central do almoxarifado, insumos e movimentações estratégicas.</p>
               </div>
             </div>
+            <div className="connectivity-section mr-4">
+              <div className={`online-badge ${isOnline ? 'online' : 'offline'}`}>
+                <ArrowLeftRight size={12} />
+                <span>{isOnline ? 'Online' : 'Offline'}</span>
+              </div>
+            </div>
           </div>
 
           <div className="summary-grid">
             <div className="summary-card card glass animate-slide-up">
               <div className="summary-info">
                 <span className="summary-label">Valor Total Imobilizado</span>
-                <span className="summary-value">R$ 142.500,00</span>
+                <span className="summary-value">R$ {valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 <span className="summary-subtext">Inventário atualizado</span>
               </div>
               <div className="summary-icon blue">
@@ -46,7 +68,7 @@ export const Estoque = () => {
             <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
               <div className="summary-info">
                 <span className="summary-label">Alertas de Reposição</span>
-                <span className="summary-value">08</span>
+                <span className="summary-value text-red">{alertasReposicao.toString().padStart(2, '0')}</span>
                 <span className="summary-trend down">
                   <AlertTriangle size={14} /> Requer Atenção
                 </span>
@@ -58,7 +80,7 @@ export const Estoque = () => {
             <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
                 <div className="summary-info">
                 <span className="summary-label">Movimentações (Mês)</span>
-                <span className="summary-value">124</span>
+                <span className="summary-value">{movMes}</span>
                 <span className="summary-subtext">Saídas vs Entradas</span>
                 </div>
                 <div className="summary-icon blue">

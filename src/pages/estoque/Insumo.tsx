@@ -37,8 +37,9 @@ import { usePagination } from '../../hooks/usePagination';
 import { INITIAL_CATEGORIES, INITIAL_UNIDADES } from '../../data/initialData';
 import { Categoria, Subcategoria, UnidadeMedida } from '../../types/definitions';
 
-import { MOCK_INSUMOS } from '../../data/inventoryData';
-import { Insumo as InsumoType } from '../../types/inventory';
+import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { Insumo as InsumoType } from '../../types';
 
 export const Insumo = () => {
   const insumoCategories = INITIAL_CATEGORIES.find((c: Categoria) => c.nome === 'Insumos')?.subcategorias || [];
@@ -58,6 +59,10 @@ export const Insumo = () => {
     status: 'Todos'
   });
   const [activeTab, setActiveTab] = useState<'geral' | 'saldos' | 'tecnico' | 'logistica' | 'historico'>('geral');
+  
+  const isOnline = useOnlineStatus();
+  const { data: insumos = [], isLoading } = useOfflineQuery<InsumoType>(['insumos'], 'insumos');
+  const saveInsumoMutation = useOfflineMutation<InsumoType>('insumos', [['insumos']]);
 
   const handleOpenModal = (insumo: InsumoType | null = null, viewOnly = false) => {
     setSelectedInsumo(insumo);
@@ -72,10 +77,10 @@ export const Insumo = () => {
     setIsViewMode(false);
   };
 
-  const totalEmEstoque = MOCK_INSUMOS.reduce((acc, item) => acc + (item.estoqueAtual * item.valorUnitario), 0);
-  const itensCriticos = MOCK_INSUMOS.filter(item => item.status === 'Crítico').length;
+  const totalEmEstoque = insumos.reduce((acc, item) => acc + (item.estoqueAtual * item.valorUnitario), 0);
+  const itensCriticos = insumos.filter(item => item.status === 'Crítico').length;
 
-  const filteredData = MOCK_INSUMOS.filter(item => {
+  const filteredData = insumos.filter(item => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = item.nome.toLowerCase().includes(searchLower) || 
       item.categoria.toLowerCase().includes(searchLower) ||
@@ -124,6 +129,12 @@ export const Insumo = () => {
             <p className="description">Inteligência de materiais, medicamentos e controle de estoque de segurança.</p>
           </div>
         </div>
+        <div className="connectivity-section mr-4">
+          <div className={`online-badge ${isOnline ? 'online' : 'offline'}`}>
+            <Activity size={12} />
+            <span>{isOnline ? 'Online' : 'Offline'}</span>
+          </div>
+        </div>
         <div className="action-buttons">
           <button className="btn-premium-outline h-11 px-6 gap-2">
             <FileText size={18} strokeWidth={3} />
@@ -162,7 +173,7 @@ export const Insumo = () => {
         <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="summary-info">
             <span className="summary-label">Volume de Insumos</span>
-            <span className="summary-value">{MOCK_INSUMOS.length}</span>
+            <span className="summary-value">{insumos.length}</span>
             <span className="summary-subtext desc">Mix de produtos ativo</span>
           </div>
           <div className="summary-icon indigo">
@@ -207,7 +218,7 @@ export const Insumo = () => {
                 <ColumnFilters
                   columns={[
                     { key: 'nome', type: 'text', placeholder: 'Filtrar...' },
-                    { key: 'categoria', type: 'select', options: [...new Set(MOCK_INSUMOS.map(i => i.categoria))] },
+                    { key: 'categoria', type: 'select', options: [...new Set(insumos.map((i: InsumoType) => i.categoria))] },
                     { key: 'estoque', type: 'text', placeholder: 'Qtd...' },
                     { key: 'minimo', type: 'text', placeholder: 'Mín...' },
                     { key: 'valor', type: 'text', placeholder: 'Valor...' },

@@ -16,11 +16,11 @@ import {
   DollarSign,
   AlertCircle
 } from 'lucide-react';
-import { TablePagination } from '../../components/TablePagination';
-import { TableFilters } from '../../components/TableFilters';
-import { usePagination } from '../../hooks/usePagination';
-import { ColumnFilters } from '../../components/ColumnFilters';
-import '../vendas/Vendas.css';
+import { TablePagination } from '../../../components/TablePagination';
+import { TableFilters } from '../../../components/TableFilters';
+import { usePagination } from '../../../hooks/usePagination';
+import { ColumnFilters } from '../../../components/ColumnFilters';
+import '../Vendas.css';
 
 interface Contrato {
   id: string;

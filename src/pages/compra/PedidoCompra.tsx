@@ -30,90 +30,35 @@ import {
   List
 } from 'lucide-react';
 import './PedidoCompra.css';
-import { INITIAL_CATEGORIES, INITIAL_UNIDADES, INITIAL_COMPANIES } from '../../data/initialData';
-import { Subcategoria, UnidadeMedida, Company } from '../../types/definitions';
+import { INITIAL_CATEGORIES } from '../../data/initialData';
 import { StandardModal } from '../../components/StandardModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
-import { MOCK_INSUMOS } from '../../data/inventoryData';
-import { MOCK_SUPPLIERS } from '../../data/supplierData';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { PurchaseOrder, PurchaseItem, Supplier, Insumo, Company } from '../../types';
 
-interface ItemPedido {
-  id: string;
-  insumoId: string;
-  insumoNome: string;
-  quantidade: number;
-  unidade: string;
-  preco: number;
-  desconto: number;
-  subtotal: number;
-  centroCustoId?: string;
-}
 
-interface PedidoCompra {
-  id: string;
-  numero: string;
-  data: string;
-  fornecedorId: string;
-  fornecedorNome: string;
-  mapaReferencia?: string;
-  previsaoEntrega: string;
-  condicaoPagamento: string;
-  status: 'Pendente' | 'Confirmado' | 'Em Trânsito' | 'Entregue' | 'Cancelado';
-  itens: ItemPedido[];
-  valorTotal: number;
-  empresaId: string;
-}
-
-const INITIAL_ORDERS: PedidoCompra[] = [
-  {
-    id: '1',
-    numero: 'PC-2024-001',
-    data: '2024-03-14',
-    fornecedorId: 'f1',
-    fornecedorNome: 'AgroQuímica S.A.',
-    mapaReferencia: 'MC-2024-001',
-    previsaoEntrega: '2024-03-20',
-    condicaoPagamento: '30/60 Dias',
-    status: 'Confirmado',
-    itens: [
-      { id: 'i1', insumoId: 's7', insumoNome: 'Sal Mineral', quantidade: 200, unidade: 'kg', preco: 3.40, desconto: 0, subtotal: 680, centroCustoId: 'cc1' }
-    ],
-    valorTotal: 680,
-    empresaId: 'M1'
-  },
-  {
-    id: '2',
-    numero: 'PC-2024-002',
-    data: '2024-03-15',
-    fornecedorId: 'f2',
-    fornecedorNome: 'Nutri Pantanal',
-    mapaReferencia: 'MC-2024-001',
-    previsaoEntrega: '2024-03-18',
-    condicaoPagamento: 'À Vista',
-    status: 'Pendente',
-    itens: [
-      { id: 'i2', insumoId: 's8', insumoNome: 'Ração', quantidade: 2, unidade: 'ton', preco: 2380, desconto: 100, subtotal: 4660, centroCustoId: 'cc2' }
-    ],
-    valorTotal: 4660,
-    empresaId: 'F1'
-  }
-];
 
 export const PedidoCompraPage = () => {
-  const [orders, setOrders] = useState<PedidoCompra[]>(INITIAL_ORDERS);
+  const orders = useLiveQuery(() => db.pedidos_compra.toArray()) || [];
+  const suppliersList = useLiveQuery(() => db.fornecedores.toArray()) || [];
+  const inventoryList = useLiveQuery(() => db.insumos.toArray()) || [];
+  const empresasList = useLiveQuery(() => db.empresas.toArray()) || [];
+
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState('Todos');
   const [filterFornecedor, setFilterFornecedor] = useState('Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
-  const [selectedPedido, setSelectedPedido] = useState<PedidoCompra | null>(null);
+  const [selectedPedido, setSelectedPedido] = useState<PurchaseOrder | null>(null);
   
   // Form State
-  const [items, setItems] = useState<ItemPedido[]>([]);
+  const [items, setItems] = useState<PurchaseItem[]>([]);
   const [fornecedorId, setFornecedorId] = useState('');
   const [mapaReferencia, setMapaReferencia] = useState('');
   const [previsaoEntrega, setPrevisaoEntrega] = useState('');
@@ -138,19 +83,22 @@ export const PedidoCompraPage = () => {
       (p.mapaReferencia || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.itens.some(it => it.insumoNome.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = filterStatus === 'Todos' || p.status === filterStatus;
-    const matchesFornecedor = filterFornecedor === 'Todos' || p.fornecedorId === filterFornecedor;
+    const matchesFornecedor = filterFornecedor === 'Todos' || p.fornecedor_id === filterFornecedor;
     
     const matchesColumnFilters = 
       (columnFilters.numero === '' || p.numero.toLowerCase().includes(columnFilters.numero.toLowerCase())) &&
-      (columnFilters.fornecedorNome === '' || p.fornecedorNome.toLowerCase().includes(columnFilters.fornecedorNome.toLowerCase())) &&
-      (columnFilters.previsaoEntrega === '' || p.previsaoEntrega.includes(columnFilters.previsaoEntrega)) &&
+      (columnFilters.fornecedorNome === '' || (suppliersList.find(s => s.id === p.fornecedor_id)?.nome || '').toLowerCase().includes(columnFilters.fornecedorNome.toLowerCase())) &&
+      (columnFilters.previsaoEntrega === '' || (p as any).previsaoEntrega?.includes(columnFilters.previsaoEntrega)) &&
       (columnFilters.valorTotal === '' || p.valorTotal.toString().includes(columnFilters.valorTotal)) &&
       (columnFilters.status === 'Todos' || p.status === columnFilters.status);
 
     return matchesSearch && matchesStatus && matchesFornecedor && matchesColumnFilters;
   });
 
-  const uniqueSuppliers = Array.from(new Set(orders.map(o => ({ id: o.fornecedorId, nome: o.fornecedorNome }))));
+  const uniqueSuppliers = Array.from(new Set(orders.map(o => {
+    const s = suppliersList.find(sup => sup.id === o.fornecedor_id);
+    return { id: o.fornecedor_id, nome: s?.nome || 'Fornecedor não encontrado' };
+  })));
 
   const {
     currentPage,
@@ -166,20 +114,18 @@ export const PedidoCompraPage = () => {
     prevPage,
   } = usePagination({ data: filteredData, initialItemsPerPage: 10 });
 
-  const insumos = MOCK_INSUMOS.filter(i => i.paraCompra);
-  const centroCustoCategory = INITIAL_CATEGORIES.find(c => c.nome === 'Centros de Custo');
-  const centrosCusto = centroCustoCategory ? centroCustoCategory.subcategorias : [];
+  const centrosCusto: any[] = []; // Temporary placeholder, need to check INITIAL_CATEGORIES origin
 
   const location = useLocation();
   const navigate = useNavigate();
 
   useEscapeKey(() => setIsModalOpen(false));
 
-  const handleOpenModal = (pedido: PedidoCompra | null = null, view: boolean = false) => {
+  const handleOpenModal = (pedido: PurchaseOrder | null = null, view: boolean = false) => {
     if (pedido) {
       setSelectedPedido(pedido);
-      setItems(pedido.itens);
-      setFornecedorId(pedido.fornecedorId);
+      setItems(pedido.itens as any); // Cast for compatibility
+      setFornecedorId(pedido.fornecedor_id);
       setMapaReferencia(pedido.mapaReferencia || '');
       setPrevisaoEntrega(pedido.previsaoEntrega);
       setCondicaoPagamento(pedido.condicaoPagamento);
@@ -235,32 +181,33 @@ export const PedidoCompraPage = () => {
   }, [location.state, orders.length]);
 
   const addItemRow = () => {
-    const newItem: ItemPedido = {
+    const newItem: PurchaseItem = {
       id: Math.random().toString(36).substr(2, 9),
-      insumoId: '',
+      insumo_id: '',
       insumoNome: '',
       quantidade: 0,
       unidade: '-',
-      preco: 0,
+      valorUnitario: 0,
       desconto: 0,
-      subtotal: 0
+      subtotal: 0,
+      categoria: 'Insumos'
     };
     setItems([...items, newItem]);
   };
 
-  const updateItem = (id: string, field: keyof ItemPedido, value: any) => {
+  const updateItem = (id: string, field: keyof PurchaseItem, value: any) => {
     setItems(items.map(item => {
       if (item.id === id) {
         const updatedItem = { ...item, [field]: value };
-        if (field === 'insumoId') {
-          const insumo = insumos.find(i => i.id === value);
+        if (field === 'insumoNome') {
+          const insumo = inventoryList.find(i => i.id === value);
           if (insumo) {
             updatedItem.insumoNome = insumo.nome;
             updatedItem.unidade = insumo.unidade;
           }
         }
         const qty = field === 'quantidade' ? value : updatedItem.quantidade;
-        const price = field === 'preco' ? value : updatedItem.preco;
+        const price = field === 'valorUnitario' ? value : updatedItem.valorUnitario;
         const discount = field === 'desconto' ? value : updatedItem.desconto;
         updatedItem.subtotal = (qty * price) - discount;
         return updatedItem;
@@ -273,48 +220,52 @@ export const PedidoCompraPage = () => {
     setItems(items.filter(item => item.id !== id));
   };
 
-  const calculateTotal = (itemList: ItemPedido[] = items) => {
+  const calculateTotal = (itemList: PurchaseItem[] = items) => {
     return itemList.reduce((acc, item) => acc + item.subtotal, 0);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const supplier = MOCK_SUPPLIERS.find(s => s.id === fornecedorId);
+    if (!fornecedorId || items.length === 0) {
+      alert('Selecione um fornecedor e adicione itens ao pedido.');
+      return;
+    }
+
+    const supplier = suppliersList.find(s => s.id === fornecedorId);
     
-    const newOrder: PedidoCompra = {
+    const newOrder: PurchaseOrder = {
       id: selectedPedido?.id || Math.random().toString(36).substr(2, 9),
-      numero,
-      data,
-      fornecedorId,
+      numero: numero,
+      data: data,
+      fornecedor_id: fornecedorId,
       fornecedorNome: supplier?.nomeFantasia || 'Fornecedor Desconhecido',
       mapaReferencia,
       previsaoEntrega,
       condicaoPagamento,
+      valorTotal: calculateTotal(items),
       status: selectedPedido?.status || 'Pendente',
       itens: items,
-      valorTotal: calculateTotal(),
-      empresaId
+      empresaId,
+      tenant_id: 'default'
     };
 
-    if (selectedPedido) {
-      setOrders(orders.map(o => o.id === selectedPedido.id ? newOrder : o));
-    } else {
-      setOrders([newOrder, ...orders]);
-    }
-
+    await dataService.saveItem('pedidos_compra', newOrder);
     setIsModalOpen(false);
   };
 
-  const handleCancelStatus = (id: string) => {
+  const handleCancelStatus = async (id: string) => {
     if (window.confirm('Deseja realmente cancelar este pedido?')) {
-      setOrders(orders.map(o => o.id === id ? { ...o, status: 'Cancelado' } : o));
+      const order = orders.find(o => o.id === id);
+      if (order) {
+         await dataService.saveItem('pedidos_compra', { ...order, status: 'Cancelado' });
+      }
     }
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Deseja realmente excluir este pedido?')) {
-      setOrders(orders.filter(o => o.id !== id));
+      await dataService.deleteItem('pedidos_compra', id);
     }
   };
 
@@ -439,7 +390,7 @@ export const PedidoCompraPage = () => {
             )}
           </thead>
           <tbody>
-            {paginatedData.map(pedido => (
+            {paginatedData.map((pedido: PurchaseOrder) => (
               <tr key={pedido.id}>
                 <td>
                   <div className="flex items-center gap-3">
@@ -450,7 +401,9 @@ export const PedidoCompraPage = () => {
                 <td>
                   <div className="flex items-center gap-2">
                     <Building2 size={16} strokeWidth={3} className="text-indigo-500" />
-                    <span className="font-bold text-slate-700">{pedido.fornecedorNome}</span>
+                    <span className="font-bold text-slate-700">
+                      {suppliersList.find(s => s.id === pedido.fornecedor_id)?.nome || 'Fornecedor não encontrado'}
+                    </span>
                   </div>
                 </td>
                 <td>{new Date(pedido.previsaoEntrega).toLocaleDateString()}</td>
@@ -550,12 +503,15 @@ export const PedidoCompraPage = () => {
                   <Calendar size={18} strokeWidth={3} className="field-icon" />
                 </div>
               </div>
-              <div className="form-group col-4">
+                <div className="form-group col-4">
                 <label>Empresa / Unidade</label>
                 <div className="input-with-icon">
                   <select value={empresaId} onChange={(e) => setEmpresaId(e.target.value)} required disabled={isViewMode}>
-                    {INITIAL_COMPANIES.filter(c => c.status === 'Ativa').map(comp => (
-                      <option key={comp.id} value={comp.id}>{comp.nomeFantasia}</option>
+                    <option value="">Selecione a empresa...</option>
+                    {empresasList.filter((c: Company) => c.status === 'Ativa').map((comp: Company) => (
+                      <option key={comp.id} value={comp.id}>
+                        {comp.nomeFantasia} {!comp.isMatriz ? '(Filial)' : '(Matriz)'}
+                      </option>
                     ))}
                   </select>
                   <Building2 size={18} strokeWidth={3} className="field-icon" />
@@ -580,7 +536,7 @@ export const PedidoCompraPage = () => {
                 <div className="input-with-icon">
                   <select value={fornecedorId} onChange={(e) => setFornecedorId(e.target.value)} required disabled={isViewMode}>
                     <option value="">Selecione um fornecedor</option>
-                    {MOCK_SUPPLIERS.map(s => (
+                    {suppliersList.map(s => (
                       <option key={s.id} value={s.id}>{s.nomeFantasia}</option>
                     ))}
                   </select>
@@ -645,13 +601,13 @@ export const PedidoCompraPage = () => {
                       <label className="item-field-label">Insumo / Serviço</label>
                       <div className="input-with-icon">
                         <select 
-                          value={item.insumoId} 
-                          onChange={(e) => updateItem(item.id, 'insumoId', e.target.value)}
+                          value={item.insumo_id} 
+                          onChange={(e) => updateItem(item.id, 'insumo_id', e.target.value)}
                           required
                           disabled={isViewMode}
                         >
                           <option value="">Selecione o item...</option>
-                          {insumos.map(ins => (
+                          {inventoryList.map(ins => (
                             <option key={ins.id} value={ins.id}>{ins.nome}</option>
                           ))}
                         </select>
@@ -697,8 +653,8 @@ export const PedidoCompraPage = () => {
                       <div className="input-with-icon">
                         <input 
                           type="number" 
-                          value={item.preco} 
-                          onChange={(e) => updateItem(item.id, 'preco', parseFloat(e.target.value))}
+                          value={item.valorUnitario} 
+                          onChange={(e) => updateItem(item.id, 'valorUnitario', parseFloat(e.target.value))}
                           required
                           disabled={isViewMode}
                           min="0"

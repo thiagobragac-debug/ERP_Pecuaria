@@ -104,15 +104,15 @@ export const TeamManagement = () => {
   };
 
   return (
-    <div className="team-container">
-      <header className="page-header">
-        <div className="header-title">
+    <div className="team-container page-container fade-in">
+      <div className="page-header-row">
+        <div className="title-section">
           <div className="icon-badge indigo">
             <Users size={32} strokeWidth={3} />
           </div>
           <div>
             <h1>Gestão de Equipe</h1>
-            <p className="text-slate-500 font-semibold mt-1">
+            <p className="description">
               Empresa: <span className="text-emerald-600 font-extrabold">{currentOrg?.nome}</span> • Organize seu time e permissões
             </p>
           </div>
@@ -124,7 +124,7 @@ export const TeamManagement = () => {
           <UserPlus size={20} strokeWidth={3} />
           <span>Convidar Membro</span>
         </button>
-      </header>
+      </div>
 
       <div className="members-stats">
         <div className="stat-card total">

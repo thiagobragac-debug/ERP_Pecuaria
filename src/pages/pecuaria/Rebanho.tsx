@@ -5,8 +5,9 @@ import './Rebanho.css';
 import { RelatoriosRebanho } from './RelatoriosRebanho';
 import { StandardModal } from '../../components/StandardModal';
 import { Animal, CustoLancamento, RegistroSanitario, Dieta } from '../../types';
-import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
-import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { financialService } from '../../services/financialService';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
@@ -54,16 +55,11 @@ export const Rebanho = () => {
   });
   const [costCalculationMode, setCostCalculationMode] = useState<'fixed' | 'proportional'>('proportional');
   const [showReports, setShowReports] = useState(false);
-  const isOnline = useOnlineStatus();
 
-  // Offline-first Queries
-  const { data: animais = [], isLoading: isLoadingAnimais } = useOfflineQuery<Animal>(['animais'], 'animais');
-  const { data: dietas = [] } = useOfflineQuery<Dieta>(['dietas'], 'dietas');
-  const { data: registrosSanitarios = [] } = useOfflineQuery<RegistroSanitario>(['registrosSanitarios'], 'registrosSanitarios');
-
-  // Offline-first Mutation
-  const saveAnimalMutation = useOfflineMutation<Animal>('animais', [['animais']]);
-  const deleteAnimalMutation = useOfflineMutation<Animal>('animais', [['animais']], 'delete');
+  // Live Queries
+  const animais = useLiveQuery(() => db.animais.toArray()) || [];
+  const dietas = useLiveQuery(() => db.dietas.toArray()) || [];
+  const registrosSanitarios = useLiveQuery(() => db.registrosSanitarios.toArray()) || [];
 
   useEscapeKey(() => {
     if (isModalOpen) handleCloseModal();
@@ -82,9 +78,9 @@ export const Rebanho = () => {
     setIsViewMode(false);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este animal?')) {
-       deleteAnimalMutation.mutate({ id } as Animal);
+       await dataService.deleteItem('animais', id);
     }
   };
 
@@ -164,10 +160,6 @@ export const Rebanho = () => {
             </div>
           </div>
           <div className="connectivity-section">
-            <div className={`online-badge ${isOnline ? 'online' : 'offline'}`}>
-              <Activity size={12} />
-              <span>{isOnline ? 'Online' : 'Trabalhando Offline'}</span>
-            </div>
           </div>
           <div className="action-buttons">
             <button className="btn-premium-solid indigo h-11 px-6 gap-2" onClick={() => handleOpenModal()}>
@@ -350,7 +342,7 @@ export const Rebanho = () => {
 
         <form 
           id="animal-form"
-          onSubmit={(e) => { 
+          onSubmit={async (e) => { 
             e.preventDefault(); 
             const formData = new FormData(e.currentTarget);
             const updatedAnimal: Animal = {
@@ -372,9 +364,10 @@ export const Rebanho = () => {
               custoConfinamento: selectedAnimal?.custoConfinamento || 0,
               custoOperacional: selectedAnimal?.custoOperacional || 0,
               statusEmAbate: selectedAnimal?.statusEmAbate || false,
-              historicoCustos: selectedAnimal?.historicoCustos || []
+              historicoCustos: selectedAnimal?.historicoCustos || [],
+              tenant_id: 'default'
             };
-            saveAnimalMutation.mutate(updatedAnimal);
+            await dataService.saveItem('animais', updatedAnimal);
             handleCloseModal(); 
           }}
         >

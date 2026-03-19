@@ -40,22 +40,45 @@ import {
   CreditCard,
   Zap
 } from 'lucide-react';
-import './Configuracoes.css';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { saasService } from '../../services/saasService';
+import { SaaSPlan, SaasSubscription, AppSettings } from '../../types';
 import { PricingCard } from '../../components/saas/PricingCard';
 import { SaaSPaymentModal } from '../../components/saas/SaaSPaymentModal';
 import { SubscriptionStatus } from '../../components/saas/SubscriptionStatus';
-import { saasService } from '../../services/saasService';
-import { SaaSPlan, SaasSubscription } from '../../types';
+import './Configuracoes.css';
 
 type SettingsTab = 'geral' | 'identidade' | 'seguranca' | 'notificacoes' | 'integracoes' | 'backup' | 'assinatura';
 
 export const Configuracoes: React.FC = () => {
+  const savedSettings = useLiveQuery(() => db.settings.get('global')) as AppSettings;
+  const [formData, setFormData] = useState<AppSettings>({
+    id: 'global',
+    farmName: 'Pecuária 4.0 Pro',
+    primaryColor: '#10b981',
+    language: 'pt-BR',
+    timezone: 'GMT-3',
+    notifications: {
+      email: true,
+      app: true,
+      whatsapp: true
+    }
+  });
+
+  React.useEffect(() => {
+    if (savedSettings) {
+      setFormData(savedSettings);
+    }
+  }, [savedSettings]);
+
   const [activeTab, setActiveTab] = useState<SettingsTab>('geral');
   const [showPassword, setShowPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [plans, setPlans] = useState<SaaSPlan[]>([]);
   const [currentSub, setCurrentSub] = useState<{ subscription: SaasSubscription, plan: SaaSPlan } | null>(null);
-   const [isLoadingSaaS, setIsLoadingSaaS] = useState(false);
+  const [isLoadingSaaS, setIsLoadingSaaS] = useState(false);
   const [selectedPlanForPix, setSelectedPlanForPix] = useState<SaaSPlan | null>(null);
   const [isPixModalOpen, setIsPixModalOpen] = useState(false);
 
@@ -78,12 +101,17 @@ export const Configuracoes: React.FC = () => {
     loadSaaS();
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setIsSaving(true);
-    setTimeout(() => {
-      setIsSaving(false);
+    try {
+      await dataService.saveItem('settings', formData);
       alert('Configurações salvas com sucesso!');
-    }, 1500);
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      alert('Erro ao salvar as configurações.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const SidebarItem: React.FC<{ tab: SettingsTab; icon: any; label: string }> = ({ tab, icon: Icon, label }) => (
@@ -144,14 +172,22 @@ export const Configuracoes: React.FC = () => {
               <div className="settings-grid">
                 <div className="settings-group">
                   <label>Nome do Sistema</label>
-                  <input type="text" defaultValue="Pecuária 4.0 Pro" placeholder="Ex: Meu ERP Agrícola" />
+                    <input 
+                      type="text" 
+                      value={formData.farmName} 
+                      onChange={(e) => setFormData({...formData, farmName: e.target.value})}
+                      placeholder="Ex: Meu ERP Agrícola" 
+                    />
                 </div>
                 <div className="settings-group">
                   <label>Fuso Horário</label>
-                  <select defaultValue="GMT-3">
-                    <option value="GMT-3">(GMT-03:00) Brasília, São Paulo</option>
-                    <option value="GMT-4">(GMT-04:00) Cuiabá, Manaus</option>
-                  </select>
+                    <select 
+                      value={formData.timezone}
+                      onChange={(e) => setFormData({...formData, timezone: e.target.value})}
+                    >
+                      <option value="GMT-3">(GMT-03:00) Brasília, São Paulo</option>
+                      <option value="GMT-4">(GMT-04:00) Cuiabá, Manaus</option>
+                    </select>
                 </div>
                 <div className="settings-group">
                   <label>Formato de Data</label>
@@ -482,8 +518,16 @@ export const Configuracoes: React.FC = () => {
                   </div>
                   <h4>E-mail</h4>
                   <span className="channel-status active">Conectado</span>
-                  <div className="custom-switch">
-                    <input type="checkbox" id="emailStatus" defaultChecked />
+                   <div className="custom-switch">
+                    <input 
+                      type="checkbox" 
+                      id="emailStatus" 
+                      checked={formData.notifications.email} 
+                      onChange={(e) => setFormData({
+                        ...formData, 
+                        notifications: { ...formData.notifications, email: e.target.checked }
+                      })}
+                    />
                     <label htmlFor="emailStatus"></label>
                   </div>
                 </div>

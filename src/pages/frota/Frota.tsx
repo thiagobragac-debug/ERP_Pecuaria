@@ -28,6 +28,10 @@ import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { INITIAL_COMPANIES } from '../../data/initialData';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { supabase } from '../../services/supabase';
 import './Frota.css';
 
 import { 
@@ -38,7 +42,7 @@ import {
 } from '../../data/fleetData';
 
 export const Frota: React.FC = () => {
-  const [assets, setAssets] = useState<Asset[]>(mockAssets);
+  const assets = useLiveQuery(() => db.ativos.toArray()) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState('Todos');
@@ -89,23 +93,36 @@ export const Frota: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.nome || !formData.categoria) {
       alert('Nome e Categoria são obrigatórios!');
       return;
     }
 
-    if (editingAsset) {
-      setAssets(prev => prev.map(a => a.id === editingAsset.id ? { ...a, ...formData } as Asset : a));
-    } else {
-      const newAsset: Asset = {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const tenant_id = user?.user_metadata?.tenant_id || 'default';
+
+      const finalAsset: Asset = {
+        ...(editingAsset || {}),
         ...formData,
-        id: Math.random().toString(36).substr(2, 9),
-        proximaRevisao: '-'
+        id: editingAsset?.id || Math.random().toString(36).substr(2, 9),
+        tenant_id,
+        proximaRevisao: formData.proximaRevisao || 'A definir'
       } as Asset;
-      setAssets(prev => [...prev, newAsset]);
+
+      await dataService.saveItem('ativos', finalAsset);
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving asset:', error);
+      alert('Erro ao salvar ativo');
     }
-    setIsModalOpen(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Deseja realmente excluir este ativo?')) {
+      await dataService.deleteItem('ativos', id);
+    }
   };
 
   const filteredAssets = assets.filter(a => {
@@ -185,7 +202,7 @@ export const Frota: React.FC = () => {
         <StatCard icon={Truck} label="Total Ativos" value={assets.length} color="indigo" delay="0s" subtext="Frota registrada" />
         <StatCard icon={CheckCircle2} label="Disponíveis" value={assets.filter(a => a.status === 'Operacional').length} color="indigo" delay="0.1s" subtext="Prontos para uso" />
         <StatCard icon={Wrench} label="Em Manutenção" value={assets.filter(a => a.status === 'Manutenção').length} color="orange" delay="0.2s" subtext="Parada técnica" />
-        <StatCard icon={AlertTriangle} label="Críticos" value="2" color="red" delay="0.3s" subtext="Revisão atrasada" />
+        <StatCard icon={AlertTriangle} label="Críticos" value={assets.filter(a => (a.proximaRevisao || '').toLowerCase().includes('atrasad')).length} color="red" delay="0.3s" subtext="Revisão atrasada" />
         <StatCard icon={DollarSign} label="Vlr. Imobilizado" value={`R$ ${(assets.reduce((acc, current) => acc + (current.financeiro?.valorCompra || 0), 0) / 1000000).toFixed(1)}M`} color="green" delay="0.4s" subtext="Capital em Ativos" />
       </div>
 
@@ -277,7 +294,7 @@ export const Frota: React.FC = () => {
                       <button className="action-btn-global btn-edit" title="Editar" onClick={() => handleOpenModal(asset)}>
                         <Edit2 size={18} strokeWidth={3} />
                       </button>
-                      <button className="action-btn-global btn-delete" title="Excluir" onClick={() => {}}>
+                      <button className="action-btn-global btn-delete" title="Excluir" onClick={() => handleDelete(asset.id)}>
                         <Trash2 size={18} strokeWidth={3} />
                       </button>
                     </div>

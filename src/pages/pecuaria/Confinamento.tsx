@@ -29,26 +29,13 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { usePagination } from '../../hooks/usePagination';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Confinamento as ConfinamentoType, Lote, Dieta } from '../../types';
 import './Confinamento.css';
 
-interface ConfinamentoEntry {
-  id: string;
-  lote: string;
-  curral: string;
-  qtdAnimais: number;
-  dataEntrada: string;
-  previsaoSaida: string;
-  diasNoCochos: number;
-  dieta: string;
-  imgAnterior: number; // Ingestão Matéria Seca
-  status: 'Em Engorda' | 'Finalizando' | 'Saída Programada';
-}
-
-const mockConfinamento: ConfinamentoEntry[] = [
-  { id: '1', lote: 'Lote 02 - Engorda Machos', curral: 'C-01', qtdAnimais: 85, dataEntrada: '2024-01-10', previsaoSaida: '2024-04-10', diasNoCochos: 63, dieta: 'Engorda Rápida V4', imgAnterior: 10.2, status: 'Em Engorda' },
-  { id: '2', lote: 'Novilhas Premium', curral: 'C-04', qtdAnimais: 42, dataEntrada: '2024-02-01', previsaoSaida: '2024-05-01', diasNoCochos: 41, dieta: 'Transição Elevada', imgAnterior: 8.5, status: 'Em Engorda' },
-  { id: '3', lote: 'Boi China 2024', curral: 'C-02', qtdAnimais: 120, dataEntrada: '2023-12-15', previsaoSaida: '2024-03-20', diasNoCochos: 89, dieta: 'Acabamento Top', imgAnterior: 11.8, status: 'Saída Programada' },
-];
+// Removed mockConfinamento
 
 import { MonitorCocho } from './MonitorCocho';
 
@@ -59,8 +46,14 @@ export const Confinamento = () => {
   const [filterStatus, setFilterStatus] = useState('Todos');
   const [filterCurral, setFilterCurral] = useState('Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedEntry, setSelectedEntry] = useState<ConfinamentoEntry | null>(null);
+  const [selectedEntry, setSelectedEntry] = useState<ConfinamentoType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
+
+  // Live Queries
+  const confinamentos = useLiveQuery(() => db.confinamento.toArray()) || [];
+  const lotes = useLiveQuery(() => db.lotes.toArray()) || [];
+  const dietas = useLiveQuery(() => db.dietas.toArray()) || [];
+
   const [columnFilters, setColumnFilters] = useState({
     curral: 'Todos',
     lote: '',
@@ -72,7 +65,7 @@ export const Confinamento = () => {
   });
   const [activeTab, setActiveTab] = useState('geral');
 
-  const handleOpenModal = (entry: ConfinamentoEntry | null = null, viewOnly = false) => {
+  const handleOpenModal = (entry: ConfinamentoType | null = null, viewOnly = false) => {
     setSelectedEntry(entry);
     setIsViewMode(viewOnly);
     setIsModalOpen(true);
@@ -85,14 +78,16 @@ export const Confinamento = () => {
     setIsViewMode(false);
   };
 
-  const ocupacaoTotal = mockConfinamento.reduce((acc, e) => acc + e.qtdAnimais, 0);
-  const imsMedia = mockConfinamento.length > 0
-    ? (mockConfinamento.reduce((acc, e) => acc + e.imgAnterior, 0) / mockConfinamento.length).toFixed(1)
+  const ocupacaoTotal = confinamentos.reduce((acc, e) => acc + e.qtdAnimais, 0);
+  const imsMedia = confinamentos.length > 0
+    ? (confinamentos.reduce((acc, e) => acc + e.imgAnterior, 0) / confinamentos.length).toFixed(1)
     : 0;
 
-  const filteredData = mockConfinamento.filter(entry => {
+  const filteredData = confinamentos.filter(entry => {
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = entry.lote.toLowerCase().includes(searchLower) || 
+    const loteNome = lotes.find(l => l.id === entry.lote_id)?.nome.toLowerCase() || '';
+    
+    const matchesSearch = loteNome.includes(searchLower) || 
                           entry.curral.toLowerCase().includes(searchLower) || 
                           entry.dieta.toLowerCase().includes(searchLower) ||
                           entry.status.toLowerCase().includes(searchLower) ||
@@ -106,10 +101,10 @@ export const Confinamento = () => {
 
     const matchesColumnFilters = 
       (columnFilters.curral === 'Todos' || entry.curral === columnFilters.curral) &&
-      (columnFilters.lote === '' || entry.lote.toLowerCase().includes(columnFilters.lote.toLowerCase())) &&
+      (columnFilters.lote === '' || loteNome.includes(columnFilters.lote.toLowerCase())) &&
       (columnFilters.animais === '' || entry.qtdAnimais.toString().includes(columnFilters.animais)) &&
-      (columnFilters.entrada === '' || entry.dataEntrada.toLowerCase().includes(columnFilters.entrada.toLowerCase())) &&
-      (columnFilters.saida === '' || entry.previsaoSaida.toLowerCase().includes(columnFilters.saida.toLowerCase())) &&
+      (columnFilters.entrada === '' || entry.dataEntrada.includes(columnFilters.entrada)) &&
+      (columnFilters.saida === '' || entry.previsaoSaida.includes(columnFilters.saida)) &&
       (columnFilters.dias === '' || entry.diasNoCochos.toString().includes(columnFilters.dias)) &&
       (columnFilters.status === 'Todos' || entry.status === columnFilters.status);
 
@@ -243,23 +238,25 @@ export const Confinamento = () => {
               )}
             </thead>
             <tbody>
-              {paginatedData.map((entry) => (
-                <tr key={entry.id}>
-                  <td><span className="curral-badge">{entry.curral}</span></td>
-                  <td className="font-bold">{entry.lote}</td>
-                  <td>{entry.qtdAnimais} cab.</td>
-                  <td>{new Date(entry.dataEntrada).toLocaleDateString('pt-BR')}</td>
-                  <td>{new Date(entry.previsaoSaida).toLocaleDateString('pt-BR')}</td>
-                  <td>
-                    <div className="days-progress">
-                      <Clock size={14} /> {entry.diasNoCochos} dias
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`status-badge ${entry.status === 'Saída Programada' ? 'warning' : 'active'}`}>
-                      {entry.status}
-                    </span>
-                  </td>
+              {paginatedData.map((entry) => {
+                const loteNome = lotes.find(l => l.id === entry.lote_id)?.nome || '-';
+                return (
+                  <tr key={entry.id}>
+                    <td><span className="curral-badge">{entry.curral}</span></td>
+                    <td className="font-bold">{loteNome}</td>
+                    <td>{entry.qtdAnimais} cab.</td>
+                    <td>{new Date(entry.dataEntrada).toLocaleDateString('pt-BR')}</td>
+                    <td>{new Date(entry.previsaoSaida).toLocaleDateString('pt-BR')}</td>
+                    <td>
+                      <div className="days-progress">
+                        <Clock size={14} /> {entry.diasNoCochos} dias
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`status-badge ${entry.status === 'Saída Programada' ? 'warning' : 'active'}`}>
+                        {entry.status}
+                      </span>
+                    </td>
                   <td className="text-right">
                     <div className="actions-cell">
                       <button className="action-btn-global btn-view" title="Visualizar" onClick={() => handleOpenModal(entry, true)}>
@@ -274,7 +271,8 @@ export const Confinamento = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -314,7 +312,37 @@ export const Confinamento = () => {
         </div>
         
         <div className="modal-body scrollable">
-          <form id="confinamento-form" onSubmit={(e) => { e.preventDefault(); handleCloseModal(); }}>
+          <form id="confinamento-form" onSubmit={async (e) => { 
+            e.preventDefault(); 
+            const formData = new FormData(e.currentTarget);
+            
+            const dataEntrada = formData.get('dataEntrada') as string;
+            const previsaoSaida = formData.get('previsaoSaida') as string;
+            
+            // Calculate days in feedlot
+            const start = new Date(dataEntrada);
+            const end = new Date();
+            const diffTime = Math.abs(end.getTime() - start.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            const newConfinamento: ConfinamentoType = {
+              ...selectedEntry!,
+              id: selectedEntry?.id || Math.random().toString(36).substr(2, 9),
+              lote_id: formData.get('lote_id') as string,
+              curral: formData.get('curral') as string,
+              qtdAnimais: parseInt(formData.get('qtdAnimais') as string),
+              dataEntrada: dataEntrada,
+              previsaoSaida: previsaoSaida,
+              diasNoCochos: diffDays,
+              dieta: formData.get('dieta') as string,
+              imgAnterior: parseFloat(formData.get('imgAnterior') as string),
+              status: formData.get('status') as any || 'Em Engorda',
+              tenant_id: 'default'
+            };
+
+            await dataService.saveItem('confinamento', newConfinamento);
+            handleCloseModal(); 
+          }}>
             <div className="form-sections-grid">
               {activeTab === 'geral' && (
                 <div className="form-section">
@@ -323,35 +351,40 @@ export const Confinamento = () => {
                     <div className="form-group col-12">
                       <label>Lote</label>
                       <div className="input-with-icon">
-                        <input type="text" defaultValue={selectedEntry?.lote} disabled={isViewMode} required placeholder="Selecione o lote..." />
+                        <select name="lote_id" defaultValue={selectedEntry?.lote_id} disabled={isViewMode} required>
+                          <option value="">Selecione o lote...</option>
+                          {lotes.map(l => (
+                            <option key={l.id} value={l.id}>{l.nome}</option>
+                          ))}
+                        </select>
                         <Layers size={18} className="field-icon" />
                       </div>
                     </div>
                     <div className="form-group col-6">
                       <label>Curral/Unidade</label>
                       <div className="input-with-icon">
-                        <input type="text" defaultValue={selectedEntry?.curral} disabled={isViewMode} required placeholder="Ex: C-01" />
+                        <input type="text" name="curral" defaultValue={selectedEntry?.curral} disabled={isViewMode} required placeholder="Ex: C-01" />
                         <Home size={18} className="field-icon" />
                       </div>
                     </div>
                     <div className="form-group col-6">
                       <label>Quantidade de Animais</label>
                       <div className="input-with-icon">
-                        <input type="number" defaultValue={selectedEntry?.qtdAnimais} disabled={isViewMode} required />
+                        <input type="number" name="qtdAnimais" defaultValue={selectedEntry?.qtdAnimais} disabled={isViewMode} required />
                         <Hash size={18} className="field-icon" />
                       </div>
                     </div>
                     <div className="form-group col-6">
                       <label>Data de Entrada</label>
                       <div className="input-with-icon">
-                        <input type="date" defaultValue={selectedEntry?.dataEntrada} disabled={isViewMode} required />
+                        <input type="date" name="dataEntrada" defaultValue={selectedEntry?.dataEntrada || new Date().toLocaleDateString('en-CA')} disabled={isViewMode} required />
                         <Calendar size={18} className="field-icon" />
                       </div>
                     </div>
                     <div className="form-group col-6">
                       <label>Previsão de Saída (Abate)</label>
                       <div className="input-with-icon">
-                        <input type="date" defaultValue={selectedEntry?.previsaoSaida} disabled={isViewMode} required />
+                        <input type="date" name="previsaoSaida" defaultValue={selectedEntry?.previsaoSaida} disabled={isViewMode} required />
                         <Calendar size={18} className="field-icon" />
                       </div>
                     </div>
@@ -366,11 +399,19 @@ export const Confinamento = () => {
                     <div className="form-group col-12">
                       <label>Dieta Atual</label>
                       <div className="input-with-icon">
-                        <select defaultValue={selectedEntry?.dieta} disabled={isViewMode}>
-                          <option>Adaptação Fase 1</option>
-                          <option>Engorda Rápida V4</option>
-                          <option>Transição Elevada</option>
-                          <option>Acabamento Top</option>
+                        <select name="dieta" defaultValue={selectedEntry?.dieta} disabled={isViewMode}>
+                          <option value="">Selecione a dieta...</option>
+                          {dietas.map(d => (
+                            <option key={d.id} value={d.nome}>{d.nome}</option>
+                          ))}
+                          {!dietas.length && (
+                            <>
+                              <option>Adaptação Fase 1</option>
+                              <option>Engorda Rápida V4</option>
+                              <option>Transição Elevada</option>
+                              <option>Acabamento Top</option>
+                            </>
+                          )}
                         </select>
                         <Utensils size={18} className="field-icon" />
                       </div>
@@ -378,7 +419,7 @@ export const Confinamento = () => {
                     <div className="form-group col-6">
                       <label>IMS Planejada (kg/cab/dia)</label>
                       <div className="input-with-icon">
-                        <input type="number" step="0.1" defaultValue={selectedEntry?.imgAnterior} disabled={isViewMode} />
+                        <input type="number" name="imgAnterior" step="0.1" defaultValue={selectedEntry?.imgAnterior} disabled={isViewMode} />
                         <Activity size={18} className="field-icon" />
                       </div>
                     </div>

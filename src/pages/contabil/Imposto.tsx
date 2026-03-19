@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   ShieldCheck, 
   Search, 
@@ -13,31 +13,30 @@ import {
   ChevronRight,
   FileText
 } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { TaxApuracao } from '../../types';
+import { StandardModal } from '../../components/StandardModal';
 import { TablePagination } from '../../components/TablePagination';
 import { usePagination } from '../../hooks/usePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
+import { dataService } from '../../services/dataService';
 import './PlanoContas.css';
 
-interface Apuracao {
-  id: string;
-  imposto: string;
-  periodo: string;
-  valor: number;
-  vencimento: string;
-  status: 'Pago' | 'Pendente' | 'Vencido';
-}
-
-const mockApuracoes: Apuracao[] = [
-  { id: '1', imposto: 'Funrural (Fev/24)', periodo: '01/02/2024 - 29/02/2024', valor: 12450.00, vencimento: '2024-03-20', status: 'Pendente' },
-  { id: '2', imposto: 'ICMS Comercialização', periodo: '01/02/2024 - 29/02/2024', valor: 8900.50, vencimento: '2024-03-15', status: 'Pago' },
-  { id: '3', imposto: 'IRRF S/ NF', periodo: 'Março/24', valor: 1200.00, vencimento: '2024-04-10', status: 'Pendente' },
-];
-
 export const Imposto = () => {
+  const apuracoes = useLiveQuery(() => db.apuracoes_impostos.toArray()) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState('Todos');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState<Partial<TaxApuracao>>({
+    imposto: 'Funrural',
+    periodo: '',
+    valor: 0,
+    vencimento: new Date().toISOString().split('T')[0],
+    status: 'Pendente'
+  });
   const [columnFilters, setColumnFilters] = useState({
     imposto: '',
     periodo: '',
@@ -46,25 +45,41 @@ export const Imposto = () => {
     status: 'Todos'
   });
 
-  const filteredApuracoes = mockApuracoes.filter(a => {
-    const matchesSearch = 
-      a.imposto.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredApuracoes = useMemo(() => {
+    return (apuracoes || []).filter((a: TaxApuracao) => {
+    const matchesSearch =
+      a.imposto.toLowerCase().includes(searchTerm.toLowerCase()) ||
       a.periodo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       a.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
       a.valor.toString().includes(searchTerm) ||
       a.vencimento.includes(searchTerm);
-    
+
     const matchesStatus = filterStatus === 'Todos' || a.status === filterStatus;
 
-    const matchesColumnFilters = 
+    const matchesColumnFilters =
       (columnFilters.imposto === '' || a.imposto.toLowerCase().includes(columnFilters.imposto.toLowerCase())) &&
       (columnFilters.periodo === '' || a.periodo.toLowerCase().includes(columnFilters.periodo.toLowerCase())) &&
       (columnFilters.valor === '' || a.valor.toString().includes(columnFilters.valor)) &&
       (columnFilters.vencimento === '' || a.vencimento.includes(columnFilters.vencimento)) &&
       (columnFilters.status === 'Todos' || a.status === columnFilters.status);
 
-    return matchesSearch && matchesStatus && matchesColumnFilters;
-  });
+      return matchesSearch && matchesStatus && matchesColumnFilters;
+    });
+  }, [apuracoes, searchTerm, filterStatus, columnFilters]);
+
+  const summary = useMemo(() => {
+    const funrural = filteredApuracoes.filter((a: TaxApuracao) => a.imposto.toLowerCase().includes('funrural')).reduce((acc: number, current: TaxApuracao) => acc + current.valor, 0);
+    const aPagar = filteredApuracoes.filter((a: TaxApuracao) => a.status === 'Pendente').reduce((acc: number, current: TaxApuracao) => acc + current.valor, 0);
+    const totalPago = filteredApuracoes.filter((a: TaxApuracao) => a.status === 'Pago').reduce((acc: number, current: TaxApuracao) => acc + current.valor, 0);
+    const alertas = filteredApuracoes.filter((a: TaxApuracao) => a.status === 'Vencido').length;
+
+    return {
+      funrural,
+      aPagar,
+      totalPago,
+      alertas
+    };
+  }, [apuracoes]);
 
   const {
     currentPage,
@@ -97,7 +112,7 @@ export const Imposto = () => {
             <Calendar size={18} strokeWidth={3} />
             <span>Cronograma Fiscal</span>
           </button>
-          <button className="btn-premium-solid indigo" onClick={() => {}}>
+          <button className="btn-premium-solid indigo" onClick={() => setIsModalOpen(true)}>
             <Calculator size={18} strokeWidth={3} />
             <span>Nova Apuração</span>
           </button>
@@ -108,7 +123,7 @@ export const Imposto = () => {
         <div className="summary-card glass animate-slide-up">
           <div className="summary-info">
             <span className="summary-label">Provisão Funrural</span>
-            <span className="summary-value">R$ 45.8k</span>
+            <span className="summary-value">R$ {(summary.funrural / 1000).toFixed(1)}k</span>
             <span className="summary-subtext">Acumulado no ano</span>
           </div>
           <div className="summary-icon indigo">
@@ -118,7 +133,7 @@ export const Imposto = () => {
         <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="summary-info">
             <span className="summary-label">A Pagar (Mês)</span>
-            <span className="summary-value text-orange">R$ 13.6k</span>
+            <span className="summary-value text-orange">R$ {(summary.aPagar / 1000).toFixed(1)}k</span>
             <span className="summary-subtext">Vencimento próximo</span>
           </div>
           <div className="summary-icon orange">
@@ -127,8 +142,8 @@ export const Imposto = () => {
         </div>
         <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="summary-info">
-            <span className="summary-label">Total Pago (2024)</span>
-            <span className="summary-value text-emerald">R$ 124.2k</span>
+            <span className="summary-label">Total Pago (Geral)</span>
+            <span className="summary-value text-emerald">R$ {(summary.totalPago / 1000).toFixed(1)}k</span>
             <span className="summary-subtext">Obrigações quitadas</span>
           </div>
           <div className="summary-icon green">
@@ -138,7 +153,7 @@ export const Imposto = () => {
         <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <div className="summary-info">
             <span className="summary-label">Alertas Fiscais</span>
-            <span className="summary-value text-red">02</span>
+            <span className="summary-value text-red">{summary.alertas.toString().padStart(2, '0')}</span>
             <span className="summary-subtext">Pendências detectadas</span>
           </div>
           <div className="summary-icon red">
@@ -240,6 +255,73 @@ export const Imposto = () => {
           </div>
         </div>
       </div>
+      <StandardModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Nova Apuração de Imposto"
+        subtitle="Calcule e gere guias de impostos incidentes sobre a operação"
+        icon={Calculator}
+        size="md"
+        footer={
+          <div className="flex gap-3">
+            <button className="btn-premium-outline px-8" onClick={() => setIsModalOpen(false)}>Cancelar</button>
+            <button 
+              className="btn-premium-solid indigo px-8" 
+              onClick={() => {
+                dataService.saveItem('apuracoes_impostos', { 
+                  ...formData, 
+                  id: Math.random().toString(36).substr(2, 9),
+                  tenant_id: 'default' 
+                });
+                setIsModalOpen(false);
+              }}
+            >
+              Confirmar Apuração
+            </button>
+          </div>
+        }
+      >
+        <div className="form-grid">
+          <div className="form-group col-12">
+            <label>Imposto / Guia</label>
+            <select 
+              value={formData.imposto} 
+              onChange={(e) => setFormData({...formData, imposto: e.target.value})}
+            >
+              <option value="Funrural">Funrural</option>
+              <option value="SENAR">SENAR</option>
+              <option value="ICMS">ICMS</option>
+              <option value="IRRF">IRRF</option>
+              <option value="ITR">ITR</option>
+            </select>
+          </div>
+          <div className="form-group col-12">
+            <label>Competência (Mês/Ano)</label>
+            <input 
+              type="text" 
+              placeholder="Ex: 03/2026" 
+              value={formData.periodo}
+              onChange={(e) => setFormData({...formData, periodo: e.target.value})}
+            />
+          </div>
+          <div className="form-group col-6">
+            <label>Valor Apurado</label>
+            <input 
+              type="number" 
+              value={formData.valor}
+              onChange={(e) => setFormData({...formData, valor: Number(e.target.value)})}
+            />
+          </div>
+          <div className="form-group col-6">
+            <label>Data de Vencimento</label>
+            <input 
+              type="date" 
+              value={formData.vencimento}
+              onChange={(e) => setFormData({...formData, vencimento: e.target.value})}
+            />
+          </div>
+        </div>
+      </StandardModal>
     </div>
   );
 };

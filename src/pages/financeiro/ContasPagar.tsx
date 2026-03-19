@@ -34,60 +34,13 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { usePagination } from '../../hooks/usePagination';
+import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { Transacao, BankAccount, Supplier } from '../../types';
 import './ContasPagar.css';
 import './Settlement.css';
 
-interface ContaPagar {
-  id: string;
-  descricao: string;
-  fornecedorId: string;
-  fornecedorNome: string;
-  valor: number;
-  dataVencimento: string;
-  dataPagamento?: string;
-  status: 'Pendente' | 'Pago' | 'Atrasado';
-  categoria: string;
-  empresaId: string;
-  formaPagamento?: string;
-}
-
-const mockContas: ContaPagar[] = [
-  {
-    id: '1',
-    descricao: 'Compra de Insumos - NF 1234',
-    fornecedorId: 'F1',
-    fornecedorNome: 'AgroQuímica Brasil S.A.',
-    valor: 5500.00,
-    dataVencimento: '2024-03-25',
-    status: 'Pendente',
-    categoria: 'Insumos',
-    empresaId: 'M1'
-  },
-  {
-    id: '2',
-    descricao: 'Manutenção de Trator - OS 445',
-    fornecedorId: 'F3',
-    fornecedorNome: 'Mecânica Diesel Sul',
-    valor: 1200.00,
-    dataVencimento: '2024-03-10',
-    status: 'Atrasado',
-    categoria: 'Manutenção',
-    empresaId: 'M1'
-  },
-  {
-    id: '3',
-    descricao: 'Energia Elétrica - Março/24',
-    fornecedorId: 'F4',
-    fornecedorNome: 'Equatorial Energia',
-    valor: 850.40,
-    dataVencimento: '2024-03-05',
-    dataPagamento: '2024-03-05',
-    status: 'Pago',
-    categoria: 'Utilidades',
-    empresaId: 'F1',
-    formaPagamento: 'Boleto'
-  }
-];
+// Legacy mocks removed
 
 export const ContasPagar = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -96,7 +49,7 @@ export const ContasPagar = () => {
   const [filterCategoria, setFilterCategoria] = useState('Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSettlementOpen, setIsSettlementOpen] = useState(false);
-  const [selectedConta, setSelectedConta] = useState<ContaPagar | null>(null);
+  const [selectedConta, setSelectedConta] = useState<Transacao | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [columnFilters, setColumnFilters] = useState({
@@ -123,28 +76,43 @@ export const ContasPagar = () => {
   const [empresaId, setEmpresaId] = useState('M1');
   const [status, setStatus] = useState<'Pendente' | 'Pago' | 'Atrasado'>('Pendente');
 
-  const filteredData = mockContas.filter(c => {
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = c.fornecedorNome.toLowerCase().includes(searchLower) || 
-                         c.descricao.toLowerCase().includes(searchLower) ||
-                         c.categoria.toLowerCase().includes(searchLower) ||
-                         c.valor.toString().includes(searchLower) ||
-                         c.status.toLowerCase().includes(searchLower) ||
-                         c.dataVencimento.toLowerCase().includes(searchLower);
-    const matchesStatus = filterStatus === 'Todos' || c.status === filterStatus;
-    const matchesCategoria = filterCategoria === 'Todos' || c.categoria === filterCategoria;
-    
-    const matchesColumnFilters = 
-      (columnFilters.descricao === '' || c.descricao.toLowerCase().includes(columnFilters.descricao.toLowerCase())) &&
-      (columnFilters.fornecedor === 'Todos' || c.fornecedorNome === columnFilters.fornecedor) &&
-      (columnFilters.dataVenc === '' || c.dataVencimento.includes(columnFilters.dataVenc)) &&
-      (columnFilters.valor === '' || c.valor.toString().includes(columnFilters.valor)) &&
-      (columnFilters.status === 'Todos' || c.status === columnFilters.status);
+  const isOnline = useOnlineStatus();
+  const { data: allTransactions = [], isLoading } = useOfflineQuery<Transacao>(['transacoes'], 'transacoes');
+  const { data: banks = [] } = useOfflineQuery<BankAccount>(['bancos'], 'bancos');
+  const { data: suppliers = [] } = useOfflineQuery<Supplier>(['fornecedores'], 'fornecedores');
 
-    return matchesSearch && matchesStatus && matchesCategoria && matchesColumnFilters;
-  });
+  const saveMutation = useOfflineMutation<Transacao>('transacoes', [['transacoes']]);
+  const deleteMutation = useOfflineMutation<Transacao>('transacoes', [['transacoes']], 'delete');
 
-  const categorias = Array.from(new Set(mockContas.map(c => c.categoria)));
+  const contasPagar = useMemo(() => 
+    allTransactions.filter(t => t.tipo === 'out'),
+  [allTransactions]);
+
+  const filteredData = useMemo(() => {
+    return contasPagar.filter(c => {
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = (c.fornecedor_id?.toLowerCase().includes(searchLower) || false) || 
+                           c.desc.toLowerCase().includes(searchLower) ||
+                           c.categoria.toLowerCase().includes(searchLower) ||
+                           c.valor.toString().includes(searchLower) ||
+                           c.status.toLowerCase().includes(searchLower) ||
+                           (c.vencimento?.toLowerCase().includes(searchLower) || false);
+      const matchesStatus = filterStatus === 'Todos' || c.status === filterStatus;
+      const matchesCategoria = filterCategoria === 'Todos' || c.categoria === filterCategoria;
+      
+      const matchesColumnFilters = 
+        (columnFilters.descricao === '' || c.desc.toLowerCase().includes(columnFilters.descricao.toLowerCase())) &&
+        (columnFilters.dataVenc === '' || (c.vencimento?.includes(columnFilters.dataVenc) || false)) &&
+        (columnFilters.valor === '' || c.valor.toString().includes(columnFilters.valor)) &&
+        (columnFilters.status === 'Todos' || c.status === columnFilters.status);
+
+      return matchesSearch && matchesStatus && matchesCategoria && matchesColumnFilters;
+    });
+  }, [contasPagar, searchTerm, filterStatus, filterCategoria, columnFilters]);
+
+  const categorias = useMemo(() => 
+    Array.from(new Set(contasPagar.map(c => c.categoria))),
+  [contasPagar]);
 
   const { 
     currentPage, 
@@ -160,6 +128,21 @@ export const ContasPagar = () => {
     totalItems 
   } = usePagination({ data: filteredData, initialItemsPerPage: 10 });
 
+  const summaryData = useMemo(() => {
+    const pending = contasPagar.filter(c => c.status === 'Pendente');
+    const overdue = contasPagar.filter(c => c.status === 'Atrasado');
+    const paid = contasPagar.filter(c => c.status === 'Pago');
+    
+    return {
+      pendingTotal: pending.reduce((acc, c) => acc + c.valor, 0),
+      pendingCount: pending.length,
+      overdueTotal: overdue.reduce((acc, c) => acc + c.valor, 0),
+      overdueCount: overdue.length,
+      paidTotal: paid.reduce((acc, c) => acc + c.valor, 0),
+      paidCount: paid.length
+    };
+  }, [contasPagar]);
+
   useEscapeKey(() => {
     setIsModalOpen(false);
     setIsSettlementOpen(false);
@@ -170,25 +153,25 @@ export const ContasPagar = () => {
   };
 
   const getSelectedTotal = () => {
-    return mockContas
+    return contasPagar
       .filter(c => selectedIds.includes(c.id))
       .reduce((acc, curr) => acc + curr.valor, 0);
   };
 
   const getSettlementItems = () => {
-    return mockContas.filter(c => selectedIds.includes(c.id));
+    return contasPagar.filter(c => selectedIds.includes(c.id));
   };
 
-  const handleOpenModal = (conta: ContaPagar | null = null, view = false) => {
+  const handleOpenModal = (conta: Transacao | null = null, view = false) => {
     if (conta) {
       setSelectedConta(conta);
-      setDescricao(conta.descricao);
-      setFornecedorId(conta.fornecedorId);
+      setDescricao(conta.desc);
+      setFornecedorId(conta.fornecedor_id || '');
       setValor(conta.valor);
-      setDataVencimento(conta.dataVencimento);
+      setDataVencimento(conta.vencimento || '');
       setCategoria(conta.categoria);
-      setEmpresaId(conta.empresaId);
-      setStatus(conta.status);
+      setEmpresaId('M1'); // Default for now
+      setStatus(conta.status as any);
       setIsViewMode(view);
     } else {
       setSelectedConta(null);
@@ -232,9 +215,9 @@ export const ContasPagar = () => {
         <div className="summary-card pending animate-slide-up">
           <div className="summary-info">
             <span className="summary-label">Total em Aberto</span>
-            <span className="summary-value">R$ 6.350,40</span>
+            <span className="summary-value">R$ {summaryData.pendingTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             <p className="mt-3 text-amber-600 font-bold flex items-center gap-2">
-              <Clock size={16} strokeWidth={3} /> 02 contas pendentes
+              <Clock size={16} strokeWidth={3} /> {summaryData.pendingCount.toString().padStart(2, '0')} contas pendentes
             </p>
           </div>
           <div className="summary-icon">
@@ -245,9 +228,9 @@ export const ContasPagar = () => {
         <div className="summary-card overdue animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="summary-info">
             <span className="summary-label">Vencidas / Urgente</span>
-            <span className="summary-value">R$ 1.200,00</span>
+            <span className="summary-value">R$ {summaryData.overdueTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             <p className="mt-3 text-red-600 font-black flex items-center gap-2">
-              <AlertCircle size={16} strokeWidth={3} /> Ação imediata necessária
+              <AlertCircle size={16} strokeWidth={3} /> {summaryData.overdueCount > 0 ? 'Ação imediata necessária' : 'Tudo em dia'}
             </p>
           </div>
           <div className="summary-icon">
@@ -257,10 +240,10 @@ export const ContasPagar = () => {
 
         <div className="summary-card paid animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="summary-info">
-            <span className="summary-label">Pagos (Mês)</span>
-            <span className="summary-value">R$ 850,40</span>
+            <span className="summary-label">Pagos (Total)</span>
+            <span className="summary-value">R$ {summaryData.paidTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             <p className="mt-3 text-emerald-600 font-bold flex items-center gap-2">
-              <CheckCircle2 size={16} strokeWidth={3} /> 01 conta liquidada
+              <CheckCircle2 size={16} strokeWidth={3} /> {summaryData.paidCount.toString().padStart(2, '0')} contas liquidadas
             </p>
           </div>
           <div className="summary-icon">
@@ -282,9 +265,9 @@ export const ContasPagar = () => {
           <thead>
             <tr>
               <th className="checkbox-cell" style={{ width: '80px' }}>
-                <div className={`custom-checkbox ${selectedIds.length > 0 && selectedIds.length === mockContas.filter(c => c.status !== 'Pago').length ? 'active' : ''}`}
+                <div className={`custom-checkbox ${selectedIds.length > 0 && selectedIds.length === contasPagar.filter(c => c.status !== 'Pago').length ? 'active' : ''}`}
                      style={{ width: '28px', height: '28px', borderRadius: '8px', border: '2px solid #e2e8f0', background: selectedIds.length > 0 ? '#10b981' : 'transparent' }}
-                     onClick={() => setSelectedIds(selectedIds.length === 0 ? mockContas.filter(c => c.status !== 'Pago').map(c => c.id) : [])}>
+                     onClick={() => setSelectedIds(selectedIds.length === 0 ? contasPagar.filter(c => c.status !== 'Pago').map(c => c.id) : [])}>
                   {selectedIds.length > 0 && <Check size={18} strokeWidth={4} className="text-white" />}
                 </div>
               </th>
@@ -300,7 +283,7 @@ export const ContasPagar = () => {
                   showActionsPadding={true}
                   columns={[
                     { key: 'descricao', type: 'text', placeholder: 'Filtrar...' },
-                    { key: 'fornecedor', type: 'select', options: Array.from(new Set(mockContas.map(c => c.fornecedorNome))) },
+                    { key: 'fornecedor', type: 'select', options: Array.from(new Set(suppliers.map(s => s.nomeFantasia))) },
                     { key: 'dataVenc', type: 'text', placeholder: 'Data...' },
                     { key: 'valor', type: 'text', placeholder: 'Valor...' },
                     { key: 'status', type: 'select', options: ['Pendente', 'Pago', 'Atrasado'] }
@@ -311,64 +294,69 @@ export const ContasPagar = () => {
               )}
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {paginatedData.map((conta) => (
-              <tr key={conta.id} className={selectedIds.includes(conta.id) ? 'selected' : ''}>
-                <td className="checkbox-cell">
-                  {conta.status !== 'Pago' && (
-                    <div className={`custom-checkbox ${selectedIds.includes(conta.id) ? 'active' : ''}`}
-                         style={{ width: '28px', height: '28px', borderRadius: '8px', border: '2px solid #e2e8f0', background: selectedIds.includes(conta.id) ? '#10b981' : 'transparent' }}
-                         onClick={() => toggleSelect(conta.id)}>
-                      {selectedIds.includes(conta.id) && <Check size={18} strokeWidth={4} className="text-white" />}
+            {paginatedData.map((conta) => {
+              const fornecedor = suppliers.find(s => s.id === conta.fornecedor_id);
+              const fornecedorNome = fornecedor?.nomeFantasia || conta.fornecedor_id || 'N/A';
+              
+              return (
+                <tr key={conta.id} className={selectedIds.includes(conta.id) ? 'selected' : ''}>
+                  <td className="checkbox-cell">
+                    {conta.status !== 'Pago' && (
+                      <div className={`custom-checkbox ${selectedIds.includes(conta.id) ? 'active' : ''}`}
+                           style={{ width: '28px', height: '28px', borderRadius: '8px', border: '2px solid #e2e8f0', background: selectedIds.includes(conta.id) ? '#10b981' : 'transparent' }}
+                           onClick={() => toggleSelect(conta.id)}>
+                        {selectedIds.includes(conta.id) && <Check size={18} strokeWidth={4} className="text-white" />}
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <div className="flex items-center gap-2 py-2">
+                      <span className="font-extrabold text-slate-800 text-lg leading-tight">{conta.desc}</span>
+                      <span className="text-slate-300 font-medium">—</span>
+                      <span className="text-[10px] bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full font-black uppercase tracking-wider whitespace-nowrap border border-emerald-100/50">
+                        {conta.categoria}
+                      </span>
                     </div>
-                  )}
-                </td>
-                <td>
-                  <div className="flex items-center gap-2 py-2">
-                    <span className="font-extrabold text-slate-800 text-lg leading-tight">{conta.descricao}</span>
-                    <span className="text-slate-300 font-medium">—</span>
-                    <span className="text-[10px] bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full font-black uppercase tracking-wider whitespace-nowrap border border-emerald-100/50">
-                      {conta.categoria}
+                  </td>
+                  <td>
+                    <div className="solicitante-cell">
+                      <div className="avatar-circle indigo">
+                        {fornecedorNome.charAt(0)}
+                      </div>
+                      <span className="font-bold text-slate-700">{fornecedorNome}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className={`flex items-center gap-3 font-black ${conta.status === 'Atrasado' ? 'text-red-600' : 'text-slate-500'}`}>
+                      <Calendar size={18} strokeWidth={3} />
+                      {conta.vencimento ? new Date(conta.vencimento).toLocaleDateString('pt-BR') : '-'}
+                    </div>
+                  </td>
+                  <td>
+                    <span className="font-black text-slate-800 text-xl">R$ {conta.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  </td>
+                  <td>
+                    <span className={`status-badge ${conta.status.toLowerCase()}`}>
+                      {conta.status === 'Pago' ? <CheckCircle2 size={16} strokeWidth={3} /> : (conta.status === 'Atrasado' ? <AlertCircle size={16} strokeWidth={3} /> : <Clock size={16} strokeWidth={3} />)}
+                      {conta.status === 'Atrasado' ? 'Vencida' : conta.status}
                     </span>
-                  </div>
-                </td>
-                <td>
-                  <div className="solicitante-cell">
-                    <div className="avatar-circle indigo">
-                      {conta.fornecedorNome.charAt(0)}
+                  </td>
+                  <td className="text-center">
+                    <div className="actions-cell">
+                      <button className="action-btn-global btn-view" onClick={() => handleOpenModal(conta as any, true)} title="Ver Detalhes">
+                        <Eye size={18} strokeWidth={3} />
+                      </button>
+                      <button className="action-btn-global btn-edit" onClick={() => handleOpenModal(conta as any)} title="Editar">
+                        <Edit size={18} strokeWidth={3} />
+                      </button>
+                      <button className="action-btn-global btn-delete" title="Excluir" onClick={() => deleteMutation.mutate(conta)}>
+                        <Trash2 size={18} strokeWidth={3} />
+                      </button>
                     </div>
-                    <span className="font-bold text-slate-700">{conta.fornecedorNome}</span>
-                  </div>
-                </td>
-                <td>
-                  <div className={`flex items-center gap-3 font-black ${conta.status === 'Atrasado' ? 'text-red-600' : 'text-slate-500'}`}>
-                    <Calendar size={18} strokeWidth={3} />
-                    {new Date(conta.dataVencimento).toLocaleDateString('pt-BR')}
-                  </div>
-                </td>
-                <td>
-                  <span className="font-black text-slate-800 text-xl">R$ {conta.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                </td>
-                <td>
-                  <span className={`status-badge ${conta.status.toLowerCase()}`}>
-                    {conta.status === 'Pago' ? <CheckCircle2 size={16} strokeWidth={3} /> : (conta.status === 'Atrasado' ? <AlertCircle size={16} strokeWidth={3} /> : <Clock size={16} strokeWidth={3} />)}
-                    {conta.status === 'Atrasado' ? 'Vencida' : conta.status}
-                  </span>
-                </td>
-                <td className="text-center">
-                  <div className="actions-cell">
-                    <button className="action-btn-global btn-view" onClick={() => handleOpenModal(conta, true)} title="Ver Detalhes">
-                      <Eye size={18} strokeWidth={3} />
-                    </button>
-                    <button className="action-btn-global btn-edit" onClick={() => handleOpenModal(conta)} title="Editar">
-                      <Edit size={18} strokeWidth={3} />
-                    </button>
-                    <button className="action-btn-global btn-delete" title="Excluir">
-                      <Trash2 size={18} strokeWidth={3} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
         <TablePagination
@@ -411,7 +399,25 @@ export const ContasPagar = () => {
           <div className="footer-actions flex gap-3">
             <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
             {!isViewMode && (
-              <button className="btn-premium-solid indigo" onClick={() => setIsModalOpen(false)}>
+              <button 
+                className="btn-premium-solid indigo" 
+                onClick={() => {
+                   const payload: Transacao = {
+                     id: selectedConta?.id || Math.random().toString(36).substr(2, 9),
+                     desc: descricao,
+                     valor,
+                     data: selectedConta?.data || new Date().toISOString().split('T')[0],
+                     vencimento: dataVencimento,
+                     tipo: 'out',
+                     status: status as any,
+                     categoria,
+                     fornecedor_id: fornecedorId,
+                     tenant_id: 'default'
+                   };
+                   saveMutation.mutate(payload);
+                   setIsModalOpen(false);
+                }}
+              >
                 <CheckCircle2 size={18} strokeWidth={3} />
                 <span>{selectedConta ? 'Salvar Alterações' : 'Registrar Conta'}</span>
               </button>
@@ -438,7 +444,7 @@ export const ContasPagar = () => {
                 <label>Fornecedor</label>
                 <select value={fornecedorId} onChange={(e) => setFornecedorId(e.target.value)} disabled={isViewMode}>
                   <option value="">Selecione o fornecedor...</option>
-                  {MOCK_SUPPLIERS.map(s => (
+                  {suppliers.map(s => (
                     <option key={s.id} value={s.id}>{s.nomeFantasia}</option>
                   ))}
                 </select>
@@ -497,7 +503,7 @@ export const ContasPagar = () => {
               {isViewMode && selectedConta?.status === 'Pago' && (
                 <div className="form-group col-6">
                   <label>Data de Pagamento</label>
-                  <input type="text" value={new Date(selectedConta.dataPagamento!).toLocaleDateString()} disabled />
+                  <input type="text" value={selectedConta.data ? new Date(selectedConta.data).toLocaleDateString() : '-'} disabled />
                 </div>
               )}
             </div>
@@ -516,6 +522,16 @@ export const ContasPagar = () => {
           <div className="footer-actions flex gap-3">
             <button className="btn-premium-outline" onClick={() => setIsSettlementOpen(false)}>Cancelar</button>
             <button className="btn-premium-solid indigo" onClick={() => {
+              const selectedItems = getSettlementItems();
+              selectedItems.forEach(item => {
+                saveMutation.mutate({
+                  ...item,
+                  status: 'Pago',
+                  data: settlementDate,
+                  banco_id: bankAccountId,
+                  forma_pagamento: paymentMethod
+                });
+              });
               setIsSettlementOpen(false);
               setSelectedIds([]);
             }}>
@@ -532,7 +548,7 @@ export const ContasPagar = () => {
             <div className="items-list">
               {getSettlementItems().map(item => (
                 <div key={item.id} className="mini-item">
-                  <span>{item.descricao}</span>
+                  <span>{item.desc}</span>
                   <span className="val">R$ {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
               ))}
@@ -547,7 +563,7 @@ export const ContasPagar = () => {
             <div className="form-group col-6">
               <label>Conta Bancária (Origem)</label>
               <select value={bankAccountId} onChange={(e) => setBankAccountId(e.target.value)}>
-                {MOCK_BANKS.map(b => (
+                {banks.map(b => (
                   <option key={b.id} value={b.id}>{b.banco} - Saldo: R${b.saldo.toLocaleString('pt-BR')}</option>
                 ))}
               </select>

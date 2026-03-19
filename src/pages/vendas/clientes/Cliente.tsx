@@ -30,121 +30,27 @@ import {
   Tag,
   SearchCode
 } from 'lucide-react';
-import { StandardModal } from '../../components/StandardModal';
-import { TablePagination } from '../../components/TablePagination';
-import { TableFilters } from '../../components/TableFilters';
-import { usePagination } from '../../hooks/usePagination';
-import { ColumnFilters } from '../../components/ColumnFilters';
+import { StandardModal } from '../../../components/StandardModal';
+import { TablePagination } from '../../../components/TablePagination';
+import { TableFilters } from '../../../components/TableFilters';
+import { usePagination } from '../../../hooks/usePagination';
+import { ColumnFilters } from '../../../components/ColumnFilters';
+import { db } from '../../../services/db';
+import { dataService } from '../../../services/dataService';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Cliente as ClienteType } from '../../../types';
 
-interface Client {
-  id: string;
-  nome: string;
-  nomeFantasia: string;
-  documento: string; // CPF or CNPJ
-  inscricaoEstadual: string;
-  regimeTributario: string;
-  // Address fields
-  tipoLogradouro: string;
-  logradouro: string;
-  numero: string;
-  complemento: string;
-  bairro: string;
-  cidade: string;
-  estado: string;
-  pais: string;
-  cep: string;
-  // Contact
-  telefone: string;
-  email: string;
-  responsavel: string;
-  // Commercial
-  limiteCredito: number;
-  condicaoPagamento: string;
-  cnae?: string;
-  status: 'Ativo' | 'Inativo' | 'Bloqueado';
-}
 
-export const mockClients: Client[] = [
-  {
-    id: 'C1',
-    nome: 'Frigorífico Boi Gordo LTDA',
-    nomeFantasia: 'Boi Gordo',
-    documento: '40.521.162/0001-14',
-    inscricaoEstadual: '123.456.789-0',
-    regimeTributario: 'Lucro Real',
-    tipoLogradouro: 'Avenida',
-    logradouro: 'Industrial',
-    numero: '500',
-    complemento: 'Lote 12',
-    bairro: 'Distrito Industrial',
-    cidade: 'Cuiabá',
-    estado: 'MT',
-    pais: 'Brasil',
-    cep: '78000-000',
-    telefone: '(65) 3661-0000',
-    email: 'comercial@boigordo.com.br',
-    responsavel: 'João Silva',
-    limiteCredito: 500000,
-    condicaoPagamento: '30/60 dias',
-    status: 'Ativo'
-  },
-  {
-    id: 'C2',
-    nome: 'José da Silva Sauro',
-    nomeFantasia: 'Fazenda Sereno',
-    documento: '123.456.789-00',
-    inscricaoEstadual: 'Isento',
-    regimeTributario: 'Produtor Rural',
-    tipoLogradouro: 'Rodovia',
-    logradouro: 'BR-163',
-    numero: 'KM 12',
-    complemento: '',
-    bairro: 'Zona Rural',
-    cidade: 'Sinop',
-    estado: 'MT',
-    pais: 'Brasil',
-    cep: '78550-000',
-    telefone: '(66) 99988-7766',
-    email: 'jose.sauro@email.com',
-    responsavel: 'José Sauro',
-    limiteCredito: 50000,
-    condicaoPagamento: 'À Vista',
-    status: 'Ativo'
-  },
-  {
-    id: 'C3',
-    nome: 'Agro Jaciara S.A.',
-    nomeFantasia: 'Agro Jaciara',
-    documento: '09.876.543/0001-21',
-    inscricaoEstadual: '987.654.321-0',
-    regimeTributario: 'Lucro Presumido',
-    tipoLogradouro: 'Rua',
-    logradouro: 'Tupinambás',
-    numero: '10',
-    complemento: '',
-    bairro: 'Centro',
-    cidade: 'Jaciara',
-    estado: 'MT',
-    pais: 'Brasil',
-    cep: '78820-000',
-    telefone: '(66) 3461-1234',
-    email: 'contato@agrojaciara.com.br',
-    responsavel: 'Marcos Oliveira',
-    limiteCredito: 250000,
-    condicaoPagamento: '45 dias',
-    status: 'Inativo'
-  }
-];
 
 import './Cliente.css';
 
 export const Cliente: React.FC = () => {
-  const [clients, setClients] = useState<Client[]>(mockClients);
+  const clientes = useLiveQuery(() => db.clientes.toArray()) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'geral' | 'fiscal' | 'endereco' | 'contato' | 'comercial'>('geral');
-  const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [editingClient, setEditingClient] = useState<ClienteType | null>(null);
   const [isLoadingCnpj, setIsLoadingCnpj] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
 
@@ -159,9 +65,9 @@ export const Cliente: React.FC = () => {
     status: 'Todos'
   });
 
-  const [formData, setFormData] = useState<Partial<Client>>({});
+  const [formData, setFormData] = useState<Partial<ClienteType>>({});
 
-  const handleOpenModal = (client?: Client, viewOnly = false) => {
+  const handleOpenModal = (client?: ClienteType, viewOnly = false) => {
     setIsViewMode(viewOnly);
     if (client) {
       setEditingClient(client);
@@ -175,6 +81,8 @@ export const Cliente: React.FC = () => {
         tipoLogradouro: 'Rua',
         estado: 'MT',
         pais: 'Brasil',
+        cPais: '1058',
+        cMun: '',
         status: 'Ativo',
         limiteCredito: 0,
         condicaoPagamento: 'À Vista'
@@ -184,7 +92,7 @@ export const Cliente: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleInputChange = (field: keyof Client, value: any) => {
+  const handleInputChange = (field: keyof ClienteType, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -212,9 +120,11 @@ export const Cliente: React.FC = () => {
         bairro: data.bairro || prev.bairro,
         cidade: data.municipio || prev.cidade,
         estado: data.uf || prev.estado,
+        cMun: data.ibge || prev.cMun,
         email: data.email || data.e_mail || prev.email,
         telefone: data.ddd_telefone_1 ? `(${data.ddd_telefone_1.substring(0,2)}) ${data.ddd_telefone_1.substring(2)}` : prev.telefone,
         pais: 'Brasil',
+        cPais: '1058',
         cnae: data.cnae_fiscal ? `${String(data.cnae_fiscal).replace(/(\d{4})(\d{1})(\d{2})/, '$1-$2/$3')} - ${data.cnae_fiscal_descricao}` : prev.cnae
       }));
     } catch (error: any) {
@@ -224,42 +134,41 @@ export const Cliente: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.nome || !formData.documento) {
       alert('Nome/Razão Social e CPF/CNPJ são obrigatórios');
       return;
     }
 
-    if (editingClient) {
-      setClients(prev => prev.map(c => c.id === editingClient.id ? { ...c, ...formData } as Client : c));
-    } else {
-      const newClient: Client = {
-        ...formData,
-        id: Math.random().toString(36).substr(2, 9),
-      } as Client;
-      setClients(prev => [...prev, newClient]);
-    }
+    const updatedClient: ClienteType = {
+      ...(editingClient || {}),
+      ...formData,
+      id: editingClient?.id || Math.random().toString(36).substr(2, 9),
+      tenant_id: 'default'
+    } as ClienteType;
+
+    await dataService.saveItem('clientes', updatedClient);
     setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (window.confirm(`Deseja realmente excluir o cliente "${name}"?`)) {
-      setClients(prev => prev.filter(c => c.id !== id));
+      await dataService.deleteItem('clientes', id);
     }
   };
 
-  const filteredClients = clients.filter(c => {
+  const filteredClients = clientes.filter(c => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = 
       c.nome.toLowerCase().includes(searchLower) || 
       c.documento.includes(searchTerm) ||
-      c.nomeFantasia.toLowerCase().includes(searchLower) ||
-      c.cidade.toLowerCase().includes(searchLower) ||
-      c.estado.toLowerCase().includes(searchLower) ||
+      c.nomeFantasia?.toLowerCase().includes(searchLower) ||
+      c.cidade?.toLowerCase().includes(searchLower) ||
+      c.estado?.toLowerCase().includes(searchLower) ||
       (c.email && c.email.toLowerCase().includes(searchLower)) ||
       (c.telefone && c.telefone.toLowerCase().includes(searchLower)) ||
       (c.responsavel && c.responsavel.toLowerCase().includes(searchLower)) ||
-      c.regimeTributario.toLowerCase().includes(searchLower) ||
+      c.regimeTributario?.toLowerCase().includes(searchLower) ||
       c.status.toLowerCase().includes(searchLower) ||
       c.limiteCredito.toString().includes(searchLower);
     const matchesStatus = filterStatus === 'Todos' || !filterStatus ? true : c.status === filterStatus;
@@ -268,7 +177,7 @@ export const Cliente: React.FC = () => {
     return matchesSearch && matchesStatus && matchesRegime;
   });
 
-  const regimes = Array.from(new Set(clients.map(c => c.regimeTributario)));
+  const regimes = Array.from(new Set(clientes.map(c => c.regimeTributario)));
 
   const {
     currentPage,
@@ -285,9 +194,9 @@ export const Cliente: React.FC = () => {
   } = usePagination({ data: filteredClients, initialItemsPerPage: 10 });
 
   // KPIs
-  const totalClients = clients.length;
-  const activeClients = clients.filter(c => c.status === 'Ativo').length;
-  const totalLimit = clients.reduce((acc, current) => acc + current.limiteCredito, 0);
+  const totalClients = clientes.length;
+  const activeClients = clientes.filter(c => c.status === 'Ativo').length;
+  const totalLimit = clientes.reduce((acc, current) => acc + current.limiteCredito, 0);
   const avgLimit = totalClients > 0 ? totalLimit / totalClients : 0;
 
   return (
@@ -554,6 +463,18 @@ export const Cliente: React.FC = () => {
                   <label>UF</label>
                   <input type="text" value={formData.estado || ''} onChange={(e) => handleInputChange('estado', e.target.value)} placeholder="UF" disabled={isViewMode} />
                 </div>
+                <div className="form-group col-4">
+                  <label>Cód. Município (IBGE)</label>
+                  <input type="text" value={formData.cMun || ''} onChange={(e) => handleInputChange('cMun', e.target.value)} placeholder="Ex: 5103403" disabled={isViewMode} />
+                </div>
+                <div className="form-group col-4">
+                  <label>País</label>
+                  <input type="text" value={formData.pais || 'Brasil'} onChange={(e) => handleInputChange('pais', e.target.value)} placeholder="Brasil" disabled={isViewMode} />
+                </div>
+                <div className="form-group col-4">
+                  <label>Cód. País</label>
+                  <input type="text" value={formData.cPais || '1058'} onChange={(e) => handleInputChange('cPais', e.target.value)} placeholder="1058" disabled={isViewMode} />
+                </div>
               </div>
             </div>
           )}
@@ -622,6 +543,14 @@ export const Cliente: React.FC = () => {
                     <option value="Lucro Presumido">Lucro Presumido</option>
                     <option value="Lucro Real">Lucro Real</option>
                     <option value="Produtor Rural">Produtor Rural</option>
+                  </select>
+                </div>
+                <div className="form-group col-4">
+                  <label>Indicador IE Destinatário</label>
+                  <select value={formData.indIEDest || '9'} onChange={(e) => handleInputChange('indIEDest', e.target.value)} disabled={isViewMode}>
+                    <option value="1">1 - Contribuinte ICMS</option>
+                    <option value="2">2 - Contribuinte Isento</option>
+                    <option value="9">9 - Não Contribuinte</option>
                   </select>
                 </div>
                 <div className="form-group col-12">

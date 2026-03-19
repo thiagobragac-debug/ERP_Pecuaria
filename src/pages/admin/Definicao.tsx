@@ -31,11 +31,12 @@ import {
 } from 'lucide-react';
 import { StandardModal } from '../../components/StandardModal';
 import './Definicao.css';
-import { Subcategoria, Categoria, UnidadeMedida, Company } from '../../types/definitions';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { Subcategoria, Categoria, UnidadeMedida, Company, AccountingAccount } from '../../types';
 import { TablePagination } from '../../components/TablePagination';
 import { usePagination } from '../../hooks/usePagination';
-import { INITIAL_CATEGORIES, INITIAL_UNIDADES, INITIAL_COMPANIES } from '../../data/initialData';
-import { mockContas, Conta } from '../contabil/PlanoContas';
 import { saasService } from '../../services/saasService';
 
 type DefinicaoTab = 'categorias' | 'unidades' | 'parametros' | 'tabelas' | 'pagamentos';
@@ -65,9 +66,12 @@ export const Definicao: React.FC = () => {
   const [modalType, setModalType] = useState<'categoria' | 'subcategoria' | 'unidade'>('categoria');
   const [editingItem, setEditingItem] = useState<any>(null);
   const [formData, setFormData] = useState({ nome: '', descricao: '', sigla: '', tipo: 'Peso', empresaCnpj: '', contaContabilId: '' });
-  const [categories, setCategories] = useState<Categoria[]>(INITIAL_CATEGORIES);
+  // Data from Dexie
+  const categories = useLiveQuery(() => db.categorias_definicao.toArray()) || [];
+  const unidades = useLiveQuery(() => db.unidades_medida.toArray()) || [];
+  const planoContas = useLiveQuery(() => db.plano_contas.toArray()) || [];
+  const companies = useLiveQuery(() => db.empresas.toArray()) || [];
 
-  const [unidades, setUnidades] = useState<UnidadeMedida[]>(INITIAL_UNIDADES);
   const [paymentConfig, setPaymentConfig] = useState<any>({
     pix: { is_active: true, pix_key: '', merchant_name: '', merchant_city: '' },
     card: { is_active: false, checkout_url: '' },
@@ -235,7 +239,7 @@ export const Definicao: React.FC = () => {
   const handleSave = () => {
     if (modalType === 'categoria') {
         if (editingItem) {
-            setCategories(categories.map((c: Categoria) => c.id === editingItem.id ? { ...c, nome: formData.nome } : c));
+            dataService.saveItem('categorias_definicao', { ...editingItem, nome: formData.nome });
         } else {
             const newCat: Categoria = {
                 id: Math.random().toString(36).substr(2, 9),
@@ -244,7 +248,7 @@ export const Definicao: React.FC = () => {
                 subcategoriasCount: 0,
                 subcategorias: []
             };
-            setCategories([...categories, newCat]);
+            dataService.saveItem('categorias_definicao', newCat);
         }
     } else if (modalType === 'subcategoria' && selectedCategory) {
         if (editingItem) {
@@ -252,7 +256,7 @@ export const Definicao: React.FC = () => {
                 s.id === editingItem.id ? { ...s, ...formData } : s
             );
             const updatedCat = { ...selectedCategory, subcategorias: updatedSub };
-            setCategories(categories.map((c: Categoria) => c.id === selectedCategory.id ? updatedCat : c));
+            dataService.saveItem('categorias_definicao', updatedCat);
             setSelectedCategory(updatedCat);
         } else {
             const newSub: Subcategoria = {
@@ -266,14 +270,14 @@ export const Definicao: React.FC = () => {
             const updatedCat = { 
                 ...selectedCategory, 
                 subcategorias: [...selectedCategory.subcategorias, newSub],
-                subcategoriasCount: selectedCategory.subcategoriasCount + 1
+                subcategoriasCount: (selectedCategory.subcategoriasCount || 0) + 1
             };
-            setCategories(categories.map((c: Categoria) => c.id === selectedCategory.id ? updatedCat : c));
+            dataService.saveItem('categorias_definicao', updatedCat);
             setSelectedCategory(updatedCat);
         }
     } else if (modalType === 'unidade') {
         if (editingItem) {
-            setUnidades(unidades.map((u: UnidadeMedida) => u.id === editingItem.id ? { ...u, nome: formData.nome, sigla: formData.sigla, tipo: formData.tipo } : u));
+            dataService.saveItem('unidades_medida', { ...editingItem, nome: formData.nome, sigla: formData.sigla, tipo: formData.tipo });
         } else {
             const newUnit: UnidadeMedida = {
                 id: Math.random().toString(36).substr(2, 9),
@@ -281,7 +285,7 @@ export const Definicao: React.FC = () => {
                 nome: formData.nome,
                 tipo: formData.tipo
             };
-            setUnidades([...unidades, newUnit]);
+            dataService.saveItem('unidades_medida', newUnit);
         }
     }
     setIsModalOpen(false);
@@ -295,14 +299,14 @@ export const Definicao: React.FC = () => {
         subcategorias: updatedSub,
         subcategoriasCount: updatedSub.length
     };
-    setCategories(categories.map((c: Categoria) => c.id === selectedCategory.id ? updatedCat : c));
+    dataService.saveItem('categorias_definicao', updatedCat);
     setSelectedCategory(updatedCat);
   };
 
   const handleDeleteCategory = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (window.confirm('Tem certeza que deseja excluir esta categoria e todas as suas subcategorias?')) {
-        setCategories(categories.filter((c: Categoria) => c.id !== id));
+        dataService.deleteItem('categorias_definicao', id);
     }
   };
 
@@ -313,7 +317,7 @@ export const Definicao: React.FC = () => {
 
   const handleDeleteUnit = (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta unidade de medida?')) {
-        setUnidades(unidades.filter((u: UnidadeMedida) => u.id !== id));
+        dataService.deleteItem('unidades_medida', id);
     }
   };
 
@@ -462,7 +466,7 @@ export const Definicao: React.FC = () => {
                                         </span>
                                         {sub.contaContabilId && (
                                             <div className="account-link-badge">
-                                                <small>Conta: {mockContas.find(c => c.id === sub.contaContabilId)?.nome}</small>
+                                                <small>Conta: {planoContas.find(c => c.id === sub.contaContabilId)?.nome}</small>
                                             </div>
                                         )}
                                     </td>
@@ -978,9 +982,9 @@ export const Definicao: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, empresaCnpj: e.target.value })}
                   >
                     <option value="">Selecione a empresa...</option>
-                    {INITIAL_COMPANIES
-                      .filter(c => c.status === 'Ativa')
-                      .map(company => (
+                    {companies
+                      .filter((c: Company) => c.status === 'Ativa')
+                      .map((company: Company) => (
                         <option key={company.id} value={company.cnpj}>
                           {company.nomeFantasia || company.razaoSocial} ({company.cnpj})
                         </option>
@@ -998,12 +1002,12 @@ export const Definicao: React.FC = () => {
                     required
                   >
                     <option value="">Selecione a conta analítica...</option>
-                    {mockContas
-                      .filter(c => {
+                    {planoContas
+                      .filter((c: AccountingAccount) => {
                         if (selectedCategory?.nome === 'Locais de Estoque') return c.flagEstoque && c.tipo === 'Analítica';
                         return (c.codigo.startsWith('5') || c.codigo.startsWith('6')) && c.tipo === 'Analítica';
                       })
-                      .map(account => (
+                      .map((account: AccountingAccount) => (
                         <option key={account.id} value={account.id}>
                           {account.codigo} - {account.nome}
                         </option>

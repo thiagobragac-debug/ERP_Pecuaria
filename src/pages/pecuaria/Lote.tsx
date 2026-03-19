@@ -17,7 +17,9 @@ import {
   ArrowDownRight,
   MoreHorizontal,
   X,
-  Users
+  Users,
+  Activity, 
+  Info
 } from 'lucide-react';
 import React, { useState } from 'react';
 import './Lote.css';
@@ -26,33 +28,26 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { usePagination } from '../../hooks/usePagination';
+import { Lote as LoteType } from '../../types';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { useLiveQuery } from 'dexie-react-hooks';
 
-interface Lote {
-  id: string;
-  nome: string;
-  categoria: string;
-  pasto: string;
-  qtdAnimais: number;
-  pesoMedio: number;
-  dataCriacao: string;
-  status: 'Ativo' | 'Encerrado' | 'Vendido';
-  cor: string;
-}
-
-const mockLotes: Lote[] = [
-  { id: '1', nome: 'Lote 01 - Recria Nelore', categoria: 'Recria', pasto: 'Pasto das Flores', qtdAnimais: 120, pesoMedio: 285.5, dataCriacao: '2023-11-10', status: 'Ativo', cor: '#2E7D32' },
-  { id: '2', nome: 'Lote 02 - Engorda Machos', categoria: 'Engorda', pasto: 'Confinamento A', qtdAnimais: 85, pesoMedio: 452.2, dataCriacao: '2023-12-05', status: 'Ativo', cor: '#1565C0' },
-  { id: '3', nome: 'Lote 03 - Novilhas Reprod.', categoria: 'Reprodução', pasto: 'Pasto Velho', qtdAnimais: 42, pesoMedio: 380.0, dataCriacao: '2024-01-15', status: 'Ativo', cor: '#C62828' },
-  { id: '4', nome: 'Lote Piloto Angus', categoria: 'Teste', pasto: 'Piquete 04', qtdAnimais: 12, pesoMedio: 310.4, dataCriacao: '2024-02-01', status: 'Ativo', cor: '#FF8F00' },
-];
-
-export const Lote = () => {
+export const LotePage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedLote, setSelectedLote] = useState<Lote | null>(null);
+  const [selectedLote, setSelectedLote] = useState<LoteType | null>(null);
   const [activeTab, setActiveTab] = useState<'geral' | 'sanidade' | 'nutricao'>('geral');
   const [isViewMode, setIsViewMode] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+
+  // Live Queries
+  const lotes = useLiveQuery(() => db.lotes.toArray()) || [];
+  const animais = useLiveQuery(() => db.animais.toArray()) || [];
+  const pastos = useLiveQuery(() => db.pastos.toArray()) || [];
+  const registros = useLiveQuery(() => db.registrosSanitarios.toArray()) || [];
+  const dietas = useLiveQuery(() => db.dietas.toArray()) || [];
+
   const [filterStatus, setFilterStatus] = useState('Todos');
   const [filterCategoria, setFilterCategoria] = useState('Todas');
   const [columnFilters, setColumnFilters] = useState({
@@ -65,7 +60,7 @@ export const Lote = () => {
     status: 'Todos'
   });
 
-  const handleOpenModal = (lote: Lote | null = null, viewOnly = false) => {
+  const handleOpenModal = (lote: LoteType | null = null, viewOnly = false) => {
     setSelectedLote(lote);
     setIsViewMode(viewOnly);
     setActiveTab('geral');
@@ -78,28 +73,25 @@ export const Lote = () => {
     setIsViewMode(false);
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Tem certeza que deseja remover este lote? A remoção do lote pode afetar o vínculo dos animais.')) {
-      alert(`Lote ${id} removido (Simulação)`);
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Tem certeza que deseja remover este lote?')) {
+       await dataService.deleteItem('lotes', id);
     }
   };
 
-  const totalLotes = mockLotes.length;
-  const lotesAtivos = mockLotes.filter(l => l.status === 'Ativo').length;
-  const totalAnimais = mockLotes.reduce((acc, l) => acc + l.qtdAnimais, 0);
+  const totalLotes = lotes.length;
+  const lotesAtivos = lotes.filter(l => l.status === 'Ativo').length;
+  const totalAnimais = lotes.reduce((acc, l) => acc + (l.qtdAnimais || 0), 0);
   const pesoMedioGlobal = totalAnimais > 0 
-    ? (mockLotes.reduce((acc, l) => acc + (l.pesoMedio * l.qtdAnimais), 0) / totalAnimais).toFixed(1) 
+    ? (lotes.reduce((acc, l) => acc + ((l.pesoMedio || 0) * (l.qtdAnimais || 0)), 0) / totalAnimais).toFixed(1) 
     : 0;
 
-  const filteredData = mockLotes.filter(l => {
+  const filteredData = lotes.filter(l => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = l.nome.toLowerCase().includes(searchLower) || 
-                          l.pasto.toLowerCase().includes(searchLower) || 
-                          l.categoria.toLowerCase().includes(searchLower) ||
-                          l.status.toLowerCase().includes(searchLower) ||
-                          l.qtdAnimais.toString().includes(searchLower) ||
-                          l.pesoMedio.toString().includes(searchLower) ||
-                          l.dataCriacao.toLowerCase().includes(searchLower);
+                          (l.pasto?.toLowerCase().includes(searchLower) || false) || 
+                          (l.categoria?.toLowerCase().includes(searchLower) || false) ||
+                          l.status.toLowerCase().includes(searchLower);
     
     const matchesStatus = filterStatus === 'Todos' || l.status === filterStatus;
     const matchesCategoria = filterCategoria === 'Todas' || l.categoria === filterCategoria;
@@ -107,9 +99,7 @@ export const Lote = () => {
     const matchesColumnFilters = 
       (columnFilters.nome === '' || l.nome.toLowerCase().includes(columnFilters.nome.toLowerCase())) &&
       (columnFilters.categoria === 'Todas' || l.categoria === columnFilters.categoria) &&
-      (columnFilters.pasto === '' || l.pasto.toLowerCase().includes(columnFilters.pasto.toLowerCase())) &&
-      (columnFilters.qtd === '' || l.qtdAnimais.toString().includes(columnFilters.qtd)) &&
-      (columnFilters.peso === '' || l.pesoMedio.toString().includes(columnFilters.peso)) &&
+      (columnFilters.pasto === '' || (l.pasto?.toLowerCase().includes(columnFilters.pasto.toLowerCase()) || false)) &&
       (columnFilters.status === 'Todos' || l.status === columnFilters.status);
 
     return matchesSearch && matchesStatus && matchesCategoria && matchesColumnFilters;
@@ -140,6 +130,8 @@ export const Lote = () => {
             <h1>Gestão de Lotes</h1>
             <p className="description">Agrupamento e manejo coletivo de animais.</p>
           </div>
+        </div>
+        <div className="connectivity-section mr-4">
         </div>
         <div className="action-buttons">
           <button className="btn-premium-outline h-11 px-6 gap-2">
@@ -196,10 +188,19 @@ export const Lote = () => {
         <div className="summary-card animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <div className="summary-info">
             <span className="summary-label">Eficiência Pasto</span>
-            <span className="summary-value">82<small className="text-xl text-slate-400">%</small></span>
-            <p className="mt-4 text-amber-600 font-extrabold flex items-center gap-2">
-              <MapPin size={18} strokeWidth={2.5} /> Lotação ideal
-            </p>
+            {(() => {
+                const totalCapacidade = pastos.reduce((acc: number, p: any) => acc + (p.capacidade_ua || 0), 0);
+                const animNoPasto = animais.filter((a: any) => a.pasto_id && a.status === 'Ativo').length;
+                const eficiencia = totalCapacidade > 0 ? Math.round((animNoPasto / totalCapacidade) * 100) : 0;
+                return (
+                  <>
+                    <span className="summary-value">{eficiencia}<small className="text-xl text-slate-400">%</small></span>
+                    <p className="mt-4 text-amber-600 font-extrabold flex items-center gap-2">
+                        <MapPin size={18} strokeWidth={2.5} /> {eficiencia > 100 ? 'Superlotação' : 'Lotação ideal'}
+                    </p>
+                  </>
+                );
+            })()}
           </div>
           <div className="summary-icon" style={{ background: 'rgba(245, 158, 11, 0.1)' }}>
             <ArrowUpRight size={36} strokeWidth={3} color="#f59e0b" />
@@ -262,14 +263,14 @@ export const Lote = () => {
                   </td>
                   <td>
                     <div className="icon-text flex items-center gap-2">
-                      <MapPin size={16} className="text-emerald-600" /> <span className="font-bold text-slate-500">{lote.pasto}</span>
+                      <MapPin size={16} className="text-emerald-600" /> <span className="font-bold text-slate-500">{lote.pasto || '-'}</span>
                     </div>
                   </td>
-                  <td><span className="font-black text-slate-800 text-lg">{lote.qtdAnimais} <small className="text-xs text-slate-500">cab.</small></span></td>
-                  <td><span className="font-black text-emerald-600 text-lg">{lote.pesoMedio} <small className="text-xs text-slate-500">kg</small></span></td>
+                  <td><span className="font-black text-slate-800 text-lg">{lote.qtdAnimais || 0} <small className="text-xs text-slate-500">cab.</small></span></td>
+                  <td><span className="font-black text-emerald-600 text-lg">{lote.pesoMedio || 0} <small className="text-xs text-slate-500">kg</small></span></td>
                   <td>
                     <div className="icon-text text-slate-500 font-bold">
-                      {new Date(lote.dataCriacao).toLocaleDateString('pt-BR')}
+                      {lote.dataCriacao ? new Date(lote.dataCriacao).toLocaleDateString('pt-BR') : '-'}
                     </div>
                   </td>
                   <td>
@@ -330,7 +331,25 @@ export const Lote = () => {
         </div>
             
             <div className="modal-body scrollable">
-              <form id="lote-form" onSubmit={(e) => { e.preventDefault(); alert('Lote salvo! (Simulação)'); handleCloseModal(); }}>
+              <form id="lote-form" onSubmit={async (e) => { 
+                e.preventDefault(); 
+                const formData = new FormData(e.currentTarget);
+                const updatedLote: LoteType = {
+                  ...selectedLote!,
+                  id: selectedLote?.id || Math.random().toString(36).substr(2, 9),
+                  nome: formData.get('nome') as string,
+                  categoria: formData.get('categoria') as string,
+                  pasto: formData.get('pasto') as string,
+                  dataCriacao: formData.get('dataCriacao') as string,
+                  cor: formData.get('cor') as string,
+                  status: formData.get('status') as any || 'Ativo',
+                  tenant_id: 'default',
+                  qtdAnimais: selectedLote?.qtdAnimais || 0,
+                  pesoMedio: selectedLote?.pesoMedio || 0
+                };
+                await dataService.saveItem('lotes', updatedLote);
+                handleCloseModal(); 
+              }}>
                 <div className="form-sections-grid">
                   {activeTab === 'geral' && (
                     <div className="form-section">
@@ -338,14 +357,14 @@ export const Lote = () => {
                         <div className="form-group col-12">
                           <label>Nome do Lote</label>
                           <div className="input-with-icon">
-                            <input type="text" defaultValue={selectedLote?.nome} placeholder="Ex: Lote 05 - Engorda" required disabled={isViewMode} />
+                            <input type="text" name="nome" defaultValue={selectedLote?.nome} placeholder="Ex: Lote 05 - Engorda" required disabled={isViewMode} />
                             <Layers size={18} className="field-icon" />
                           </div>
                         </div>
                         <div className="form-group col-6">
                           <label>Categoria</label>
                           <div className="input-with-icon">
-                            <select defaultValue={selectedLote?.categoria || 'Recria'} required disabled={isViewMode}>
+                            <select name="categoria" defaultValue={selectedLote?.categoria || 'Recria'} required disabled={isViewMode}>
                               <option value="Recria">Recria</option>
                               <option value="Engorda">Engorda</option>
                               <option value="Reprodução">Reprodução</option>
@@ -356,14 +375,14 @@ export const Lote = () => {
                         <div className="form-group col-6">
                           <label>Pasto/Piquete</label>
                           <div className="input-with-icon">
-                            <input type="text" defaultValue={selectedLote?.pasto} placeholder="Ex: Pasto das Flores" required disabled={isViewMode} />
+                            <input type="text" name="pasto" defaultValue={selectedLote?.pasto} placeholder="Ex: Pasto das Flores" required disabled={isViewMode} />
                             <MapPin size={18} className="field-icon" />
                           </div>
                         </div>
                         <div className="form-group col-4">
                           <label>Data Início</label>
                           <div className="input-with-icon">
-                            <input type="date" defaultValue={selectedLote?.dataCriacao} required disabled={isViewMode} />
+                            <input type="date" name="dataCriacao" defaultValue={selectedLote?.dataCriacao || new Date().toLocaleDateString('en-CA')} required disabled={isViewMode} />
                             <Calendar size={18} className="field-icon" />
                           </div>
                         </div>
@@ -382,7 +401,7 @@ export const Lote = () => {
                         <div className="form-group col-4">
                           <label>Cor Identificadora</label>
                           <div className="input-with-icon">
-                            <input type="color" defaultValue={selectedLote?.cor || '#2E7D32'} required disabled={isViewMode} style={{ paddingLeft: '3rem', height: '45px' }} />
+                            <input type="color" name="cor" defaultValue={selectedLote?.cor || '#2E7D32'} required disabled={isViewMode} style={{ paddingLeft: '3rem', height: '45px' }} />
                             <div className="field-icon" style={{ left: '1rem' }}><div style={{ width: '18px', height: '18px', borderRadius: '4px', backgroundColor: selectedLote?.cor || '#2E7D32', border: '1px solid rgba(0,0,0,0.1)' }}></div></div>
                           </div>
                         </div>
@@ -409,73 +428,111 @@ export const Lote = () => {
                   {activeTab === 'sanidade' && (
                     <div className="form-section">
                       <h4>Monitoramento Sanitário</h4>
-                      <div className="lot-section-dashboard mb-24">
-                        <div className="dash-card">
-                          <span className="label">Ocorrências Ativas</span>
-                          <span className="value">01</span>
-                        </div>
-                        <div className="dash-card warning">
-                          <span className="label">Em Carência</span>
-                          <span className="value">12 dias</span>
-                        </div>
-                      </div>
-                      
-                      <div className="embedded-history">
-                        <h4>Histórico Sanitário do Lote</h4>
-                        <table className="mini-table">
-                          <thead>
-                            <tr>
-                              <th>Data</th>
-                              <th>Tipo</th>
-                              <th>Motivo</th>
-                              <th>Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td>10/03/2024</td>
-                              <td><span className="pill-small">Vacinação</span></td>
-                              <td>Brucelose</td>
-                              <td><span className="status-dot green"></span> Concluído</td>
-                            </tr>
-                            <tr>
-                              <td>01/02/2024</td>
-                              <td><span className="pill-small">Prevenção</span></td>
-                              <td>Vermifugação</td>
-                              <td><span className="status-dot green"></span> Concluído</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
+                      {(() => {
+                        const lotRegistros = registros.filter((r: any) => r.lote_id === selectedLote?.id || r.loteId === selectedLote?.id);
+                        const activeOccurrences = lotRegistros.filter((r: any) => r.status !== 'Concluído').length;
+                        
+                        const now = new Date();
+                        const carenciaRecords = lotRegistros.filter((r: any) => r.careencia_fim && new Date(r.careencia_fim) > now);
+                        const maxCarenciaDate = carenciaRecords.length > 0 
+                          ? new Date(Math.max(...carenciaRecords.map((r: any) => new Date(r.careencia_fim).getTime())))
+                          : null;
+                        
+                        const daysRemaining = maxCarenciaDate 
+                          ? Math.ceil((maxCarenciaDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+                          : 0;
+
+                        return (
+                          <>
+                            <div className="lot-section-dashboard mb-24">
+                              <div className="dash-card">
+                                <span className="label">Ocorrências Ativas</span>
+                                <span className="value">{activeOccurrences.toString().padStart(2, '0')}</span>
+                              </div>
+                              <div className={`dash-card ${daysRemaining > 0 ? 'warning' : ''}`}>
+                                <span className="label">Em Carência</span>
+                                <span className="value">{daysRemaining > 0 ? `${daysRemaining} dias` : 'Nenhuma'}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="embedded-history">
+                              <h4>Histórico Sanitário do Lote</h4>
+                              <table className="mini-table">
+                                <thead>
+                                  <tr>
+                                    <th>Data</th>
+                                    <th>Tipo</th>
+                                    <th>Motivo</th>
+                                    <th>Status</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {lotRegistros.length > 0 ? lotRegistros.slice(0, 5).map((reg: any) => (
+                                    <tr key={reg.id}>
+                                      <td>{new Date(reg.data).toLocaleDateString('pt-BR')}</td>
+                                      <td><span className="pill-small">{reg.tipo}</span></td>
+                                      <td>{reg.doenca_motivo}</td>
+                                      <td>
+                                        <span className={`status-dot ${reg.status === 'Concluído' ? 'green' : 'yellow'}`}></span> 
+                                        {reg.status}
+                                      </td>
+                                    </tr>
+                                  )) : (
+                                    <tr>
+                                      <td colSpan={4} className="text-center py-4 text-slate-400">Nenhum registro encontrado</td>
+                                    </tr>
+                                  )}
+                                </tbody>
+                              </table>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
 
                   {activeTab === 'nutricao' && (
                     <div className="form-section">
                       <h4>Estratégia Nutricional</h4>
-                      <div className="lot-section-dashboard mb-24">
-                        <div className="dash-card indigo">
-                          <span className="label">Dieta Atual</span>
-                          <span className="value">Acabamento V2</span>
-                        </div>
-                        <div className="dash-card">
-                          <span className="label">Custo/Cab/Dia</span>
-                          <span className="value">R$ 12,80</span>
-                        </div>
-                      </div>
-                      
-                      <div className="embedded-history">
-                        <h4>Logs de Trato (Últimos 7 dias)</h4>
-                        <div className="feeding-mini-chart">
-                          <div className="bar" style={{ height: '80%' }}><span>10</span></div>
-                          <div className="bar" style={{ height: '85%' }}><span>11</span></div>
-                          <div className="bar" style={{ height: '100%' }}><span>12</span></div>
-                          <div className="bar" style={{ height: '90%' }}><span>13</span></div>
-                          <div className="bar" style={{ height: '95%' }}><span>14</span></div>
-                          <div className="bar current" style={{ height: '10%' }}><span>15</span></div>
-                        </div>
-                        <p className="chart-caption">Consumo em kg/cab vs Meta (CMS)</p>
-                      </div>
+                      {(() => {
+                        const lotDieta = dietas.find((d: any) => d.loteId === selectedLote?.id || d.lote_id === selectedLote?.id);
+                        const historico = lotDieta?.historicoTrato || [];
+                        const last7Days = historico.slice(-7);
+
+                        return (
+                          <>
+                            <div className="lot-section-dashboard mb-24">
+                              <div className="dash-card indigo">
+                                <span className="label">Dieta Atual</span>
+                                <span className="value">{lotDieta?.nome || 'Não definida'}</span>
+                              </div>
+                              <div className="dash-card">
+                                <span className="label">Custo/Cab/Dia</span>
+                                <span className="value">R$ {(lotDieta?.custoPorCab || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="embedded-history">
+                              <h4>Logs de Trato (Últimos registros)</h4>
+                              <div className="feeding-mini-chart">
+                                {last7Days.length > 0 ? last7Days.map((trato: any, idx: number) => {
+                                    const percentage = Math.min(100, (trato.quantidadeEntregue / (lotDieta?.cmsProjetado || 1)) * 100);
+                                    return (
+                                        <div key={trato.id} className={`bar ${idx === last7Days.length - 1 ? 'current' : ''}`} style={{ height: `${percentage}%` }}>
+                                            <span>{new Date(trato.data).getDate()}</span>
+                                        </div>
+                                    );
+                                }) : (
+                                    <div className="flex items-center justify-center w-full h-full text-slate-400">
+                                        Sem histórico de trato
+                                    </div>
+                                )}
+                              </div>
+                              <p className="chart-caption">Consumo em kg/cab vs Meta (CMS)</p>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -485,4 +542,6 @@ export const Lote = () => {
     </div>
   );
 };
+
+export const Lote = LotePage;
 

@@ -37,8 +37,9 @@ import { Dieta, Ingrediente, LogTrato, Animal } from '../../types';
 
 
 import { AnaliseCustoNutricao } from './AnaliseCustoNutricao';
-import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
-import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { financialService } from '../../services/financialService';
 
 export const Nutricao = () => {
@@ -58,14 +59,10 @@ export const Nutricao = () => {
   });
   const [activeTab, setActiveTab] = useState<'geral' | 'composicao' | 'eficiencia' | 'detalhamento'>('geral');
   const [costCalculationMode, setCostCalculationMode] = useState<'fixed' | 'proportional'>('proportional');
-  const isOnline = useOnlineStatus();
 
-  // Offline-first Queries
-  const { data: dietas = [], isLoading: isLoadingDietas } = useOfflineQuery<Dieta>(['dietas'], 'dietas');
-  const { data: animais = [] } = useOfflineQuery<Animal>(['animais'], 'animais');
-
-  // Offline-first Mutation
-  const saveDietaMutation = useOfflineMutation<Dieta>('dietas', [['dietas']]);
+  // Live Queries
+  const dietas = useLiveQuery(() => db.dietas.toArray()) || [];
+  const animais = useLiveQuery(() => db.animais.toArray()) || [];
 
   const handleOpenModal = (dieta: Dieta | null = null, viewOnly = false) => {
     setSelectedDieta(dieta);
@@ -141,10 +138,6 @@ export const Nutricao = () => {
           </div>
         </div>
         <div className="action-buttons flex items-center gap-6">
-          <div className={`online-badge flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest ${isOnline ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200'}`}>
-            <Activity size={18} strokeWidth={3} className={isOnline ? 'animate-pulse' : ''} />
-            <span>{isOnline ? 'Cloud Sync' : 'Offline Mode'}</span>
-          </div>
           <button className="btn-premium-outline h-11 px-6 gap-2" onClick={() => setView('analise')}>
             <TrendingUp size={20} strokeWidth={3} />
             <span>Análise de Custos</span>
@@ -321,21 +314,25 @@ export const Nutricao = () => {
           )}
         </div>
             
-              <form id="diet-form" onSubmit={(e) => { 
-                e.preventDefault(); 
-                const formData = new FormData(e.currentTarget);
-                const updatedDieta: Dieta = {
-                  ...selectedDieta!,
-                  id: selectedDieta?.id || Math.random().toString(36).substr(2, 9),
-                  nome: formData.get('nome') as string,
-                  categoria: formData.get('categoria') as string,
-                  cmsProjetado: Number(formData.get('cmsProjetado')),
-                  status: formData.get('status') as any,
-                  loteId: formData.get('loteId') as string,
-                };
-                saveDietaMutation.mutate(updatedDieta);
-                handleCloseModal(); 
-              }}>
+                <form id="diet-form" onSubmit={async (e) => { 
+                  e.preventDefault(); 
+                  const formData = new FormData(e.currentTarget);
+                  const updatedDieta: Dieta = {
+                    ...selectedDieta!,
+                    id: selectedDieta?.id || Math.random().toString(36).substr(2, 9),
+                    nome: formData.get('nome') as string,
+                    categoria: formData.get('categoria') as string,
+                    cmsProjetado: Number(formData.get('cmsProjetado')),
+                    status: formData.get('status') as any,
+                    loteId: formData.get('loteId') as string,
+                    ingredientes: selectedDieta?.ingredientes || [],
+                    historicoTrato: selectedDieta?.historicoTrato || [],
+                    custoPorCab: selectedDieta?.custoPorCab || 0,
+                    tenant_id: 'default'
+                  };
+                  await dataService.saveItem('dietas', updatedDieta);
+                  handleCloseModal(); 
+                }}>
                 {activeTab === 'geral' && (
                   <div className="form-grid">
                     <div className="form-group col-12">

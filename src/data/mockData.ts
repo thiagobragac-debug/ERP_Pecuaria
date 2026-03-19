@@ -2,13 +2,13 @@
 import { Animal, RegistroSanitario, Dieta, Lote, Pasto } from '../types';
 
 export const mockLotes: Lote[] = [
-  { id: '1', nome: 'Lote 01 - Recria Nelore', tenant_id: 'default' },
-  { id: '2', nome: 'Lote 02 - Engorda Machos', tenant_id: 'default' },
+  { id: '1', nome: 'Lote 01 - Recria Nelore', status: 'Ativo', tenant_id: 'default' },
+  { id: '2', nome: 'Lote 02 - Engorda Machos', status: 'Ativo', tenant_id: 'default' },
 ];
 
 export const mockPastos: Pasto[] = [
-  { id: '1', nome: 'Pasto Formoso', area_ha: 50, capacidade_ua: 80, tenant_id: 'default' },
-  { id: '2', nome: 'Piquete 04', area_ha: 15, capacidade_ua: 30, tenant_id: 'default' },
+  { id: '1', nome: 'Pasto Formoso', area_ha: 50, capacidade_ua: 80, tenant_id: 'default', status: 'Ocupado' },
+  { id: '2', nome: 'Piquete 04', area_ha: 15, capacidade_ua: 30, tenant_id: 'default', status: 'Ocupado' },
 ];
 
 export const mockAnimals: Animal[] = [

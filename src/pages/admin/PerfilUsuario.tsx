@@ -22,19 +22,17 @@ import {
   ShieldCheck,
   Lock
 } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { AccessRole } from '../../types';
 import { StandardModal } from '../../components/StandardModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
 import './PerfilUsuario.css';
 
-interface Perfil {
-  id: string;
-  nome: string;
-  descricao: string;
-  permissoes: Record<string, 'nenhum' | 'visualizar' | 'total'>;
-}
-
+// Modulos definition moved outside component
 const modulosSistema = [
   { id: 'dashboard', nome: 'Dashboard', icon: LayoutDashboard },
   { id: 'admin', nome: 'Administração', icon: Users },
@@ -47,40 +45,11 @@ const modulosSistema = [
   { id: 'contabil', nome: 'Contábil & Fiscal', icon: FileText },
 ];
 
-const mockPerfis: Perfil[] = [
-  { 
-    id: '1', 
-    nome: 'Administrador', 
-    descricao: 'Acesso total a todos os módulos do sistema.', 
-    permissoes: modulosSistema.reduce((acc, m) => ({ ...acc, [m.id]: 'total' }), {})
-  },
-  { 
-    id: '2', 
-    nome: 'Gerente de Pecuária', 
-    descricao: 'Gestão de rebanho, nutrição e sanidade.', 
-    permissoes: {
-      dashboard: 'total',
-      pecuaria: 'total',
-      estoque: 'visualizar'
-    }
-  },
-  { 
-    id: '3', 
-    nome: 'Auxiliar Administrativo', 
-    descricao: 'Lançamentos financeiros e consultas básicas.', 
-    permissoes: {
-      dashboard: 'visualizar',
-      financeiro: 'total',
-      contabil: 'visualizar'
-    }
-  },
-];
-
 export const PerfilUsuario: React.FC = () => {
-  const [perfis, setPerfis] = useState<Perfil[]>(mockPerfis);
+  const perfis = useLiveQuery(() => db.access_roles.toArray()) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingPerfil, setEditingPerfil] = useState<Perfil | null>(null);
+  const [editingPerfil, setEditingPerfil] = useState<AccessRole | null>(null);
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -88,7 +57,7 @@ export const PerfilUsuario: React.FC = () => {
     permissoes: {} as Record<string, 'nenhum' | 'visualizar' | 'total'>
   });
 
-  const handleOpenModal = (perfil?: Perfil) => {
+  const handleOpenModal = (perfil?: AccessRole) => {
     if (perfil) {
       setEditingPerfil(perfil);
       setFormData({
@@ -107,6 +76,24 @@ export const PerfilUsuario: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  const handleSave = async () => {
+    if (!formData.nome) return;
+
+    const newPerfil = {
+      ...formData,
+      id: editingPerfil?.id || Math.random().toString(36).substr(2, 9),
+    };
+
+    await dataService.saveItem('access_roles', newPerfil);
+    setIsModalOpen(false);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (window.confirm(`Deseja realmente excluir o perfil "${name}"?`)) {
+      await dataService.deleteItem('access_roles', id);
+    }
+  };
+
   const setPermission = (moduloId: string, level: 'nenhum' | 'visualizar' | 'total') => {
     setFormData((prev: any) => ({
       ...prev,
@@ -117,7 +104,7 @@ export const PerfilUsuario: React.FC = () => {
     }));
   };
 
-  const filteredPerfis = perfis.filter((p: Perfil) => 
+  const filteredPerfis = perfis.filter((p: AccessRole) => 
     p.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.descricao.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -165,7 +152,7 @@ export const PerfilUsuario: React.FC = () => {
         </div>
 
         <div className="profiles-list">
-          {paginatedPerfis.map((perfil: Perfil, i: number) => (
+          {paginatedPerfis.map((perfil: AccessRole, i: number) => (
             <div key={perfil.id} className="profile-row-premium animate-slide-up" style={{ animationDelay: `${i * 0.05}s` }}>
               <div className="profile-info-cell">
                 <div className="profile-avatar-premium">
@@ -181,7 +168,7 @@ export const PerfilUsuario: React.FC = () => {
                 <button className="action-btn-global btn-edit" onClick={() => handleOpenModal(perfil)}>
                   <Edit2 size={16} strokeWidth={3} />
                 </button>
-                <button className="action-btn-global btn-delete">
+                <button className="action-btn-global btn-delete" onClick={() => handleDelete(perfil.id, perfil.nome)}>
                   <Trash2 size={16} strokeWidth={3} />
                 </button>
               </div>
@@ -284,7 +271,7 @@ export const PerfilUsuario: React.FC = () => {
         </div>
         <div className="modal-footer-premium flex gap-3">
           <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-          <button className="btn-premium-solid indigo" onClick={() => setIsModalOpen(false)}>
+          <button className="btn-premium-solid indigo" onClick={handleSave}>
             <ShieldCheck size={18} strokeWidth={3} />
             <span>Salvar Perfil</span>
           </button>

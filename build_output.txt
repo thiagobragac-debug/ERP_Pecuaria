@@ -1,0 +1,13 @@
+﻿
+> Pecuaria 4.0@0.0.0 build
+> tsc && vite build
+
+src/data/mockData.ts(10,3): error TS2741: Property 'status' is missing in type '{ id: string; nome: string; area_ha: number; capacidade_ua: number; tenant_id: string; }' but required in type 'Pasto'.
+src/data/mockData.ts(11,3): error TS2741: Property 'status' is missing in type '{ id: string; nome: string; area_ha: number; capacidade_ua: number; tenant_id: string; }' but required in type 'Pasto'.
+src/pages/frota/Abastecimento.tsx(59,53): error TS2554: Expected 1 arguments, but got 2.
+src/pages/frota/Manutencao.tsx(420,60): error TS18048: 'os.prioridade' is possibly 'undefined'.
+src/pages/frota/Manutencao.tsx(426,57): error TS18048: 'os.responsavel' is possibly 'undefined'.
+src/pages/vendas/NotasSaida.tsx(30,10): error TS2305: Module '"./Cliente"' has no exported member 'mockClients'.
+src/services/seed.ts(14,3): error TS2739: Type '{ id: string; nome: string; email: string; telefone: string; documento: string; status: "Ativo"; tenant_id: string; }' is missing the following properties from type 'Cliente': nomeFantasia, limiteCredito
+src/services/seed.ts(15,3): error TS2739: Type '{ id: string; nome: string; email: string; telefone: string; documento: string; status: "Ativo"; tenant_id: string; }' is missing the following properties from type 'Cliente': nomeFantasia, limiteCredito
+src/services/seed.ts(16,3): error TS2739: Type '{ id: string; nome: string; email: string; telefone: string; documento: string; status: "Ativo"; tenant_id: string; }' is missing the following properties from type 'Cliente': nomeFantasia, limiteCredito

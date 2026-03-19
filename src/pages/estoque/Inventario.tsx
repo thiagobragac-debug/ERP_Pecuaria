@@ -35,61 +35,10 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
+import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { SessaoInventario as SessaoType, ItemInventario as ItemType, Insumo as InsumoType } from '../../types';
 
-interface ItemInventario {
-  id: string;
-  insumo: string;
-  estoqueSistema: number;
-  estoqueFisico: number;
-  unidade: string;
-  divergencia: number;
-  valorDivergencia: number;
-}
-
-interface SessaoInventario {
-  id: string;
-  referencia: string;
-  dataInicio: string;
-  dataFim: string | null;
-  responsavel: string;
-  local: string;
-  itensContados: number;
-  acuracidade: number; // Porcentagem de precisão
-  status: 'Em Aberto' | 'Finalizado' | 'Cancelado';
-  dados: ItemInventario[];
-}
-
-const mockSessoes: SessaoInventario[] = [
-  { 
-    id: '1', 
-    referencia: 'Balancete Trimestral Q1', 
-    dataInicio: '2024-03-01T08:00:00', 
-    dataFim: '2024-03-05T17:00:00', 
-    responsavel: 'João Silva',
-    local: 'Depósito Central',
-    itensContados: 45,
-    acuracidade: 98.5,
-    status: 'Finalizado',
-    dados: [
-        { id: '1', insumo: 'Milho Grão', estoqueSistema: 10000, estoqueFisico: 10000, unidade: 'kg', divergencia: 0, valorDivergencia: 0 },
-        { id: '2', insumo: 'Sal Mineral 80', estoqueSistema: 50, estoqueFisico: 48, unidade: 'sc', divergencia: -2, valorDivergencia: -160 }
-    ]
-  },
-  { 
-    id: '2', 
-    referencia: 'Auditoria Farmácia (Mensal)', 
-    dataInicio: '2024-03-10T14:30:00', 
-    dataFim: null, 
-    responsavel: 'Dra. Ana Paula',
-    local: 'Farmácia Veterinária',
-    itensContados: 12,
-    acuracidade: 0,
-    status: 'Em Aberto',
-    dados: [
-        { id: '3', insumo: 'Vacina Aftosa', estoqueSistema: 120, estoqueFisico: 0, unidade: 'doses', divergencia: 0, valorDivergencia: 0 }
-    ]
-  },
-];
 
 export const Inventario = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,77 +52,21 @@ export const Inventario = () => {
     status: 'Todos'
   });
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedSessao, setSelectedSessao] = useState<SessaoInventario | null>(null);
+  const [selectedSessao, setSelectedSessao] = useState<SessaoType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
   const [activeTab, setActiveTab] = useState('geral');
-  
-  // State for the active inventory session
-  const [countingItems, setCountingItems] = useState<ItemInventario[]>([]);
+  const [countingItems, setCountingItems] = useState<ItemType[]>([]);
   const [selectedLocal, setSelectedLocal] = useState('Todos os Locais');
 
-  // Mock data for stock by location
-  const mockStockByLocation: Record<string, Record<string, number>> = {
-    'Depósito Central': { '1': 1000, '2': 5, '3': 2, '5': 200, '6': 500 },
-    'Farmácia Veterinária': { '2': 10, '4': 50 },
-    'Galpão de Nutrição': { '1': 200, '3': 0.5, '5': 100, '6': 300 }
-  };
-
-  // Mock available inputs for selection (matching Insumo.tsx)
-  const mockAvailableInsumos = [
-    { 
-      id: '1', 
-      nome: 'Sal Mineral 80 - Engorda', 
-      unidade: 'kg', 
-      valorUnitario: 3.55,
-      estoquePorLocal: { 'Depósito Central': 1000, 'Galpão de Nutrição': 200 },
-      custoMedioPorLocal: { 'Depósito Central': 3.50, 'Galpão de Nutrição': 3.80 }
-    },
-    { 
-      id: '2', 
-      nome: 'Vacina Aftosa 50ml', 
-      unidade: 'frasco', 
-      valorUnitario: 85.0,
-      estoquePorLocal: { 'Farmácia Veterinária': 15 },
-      custoMedioPorLocal: { 'Farmácia Veterinária': 85.0 }
-    },
-    { 
-      id: '3', 
-      nome: 'Farelo de Soja (Proteico)', 
-      unidade: 'ton', 
-      valorUnitario: 2420.0,
-      estoquePorLocal: { 'Depósito Central': 1.5, 'Galpão de Nutrição': 1.0 },
-      custoMedioPorLocal: { 'Depósito Central': 2400.0, 'Galpão de Nutrição': 2450.0 }
-    },
-    { 
-      id: '4', 
-      nome: 'Ivermectina 1%', 
-      unidade: 'frasco', 
-      valorUnitario: 118.0,
-      estoquePorLocal: { 'Farmácia Veterinária': 50 },
-      custoMedioPorLocal: { 'Farmácia Veterinária': 118.0 }
-    },
-    { 
-      id: '5', 
-      nome: 'Ureia Pecuária', 
-      unidade: 'kg', 
-      valorUnitario: 2.8,
-      estoquePorLocal: { 'Depósito Central': 200, 'Galpão de Nutrição': 100 },
-      custoMedioPorLocal: { 'Depósito Central': 2.7, 'Galpão de Nutrição': 3.0 }
-    },
-    { 
-      id: '6', 
-      nome: 'Suplemento Mineral Vaca Seca', 
-      unidade: 'kg', 
-      valorUnitario: 4.2,
-      estoquePorLocal: { 'Depósito Central': 500, 'Galpão de Nutrição': 300 },
-      custoMedioPorLocal: { 'Depósito Central': 4.1, 'Galpão de Nutrição': 4.3 }
-    },
-  ];
+  const isOnline = useOnlineStatus();
+  const { data: sessoes = [], isLoading: loadingSessoes } = useOfflineQuery<SessaoType>(['sessoes_inventario'], 'sessoes_inventario');
+  const { data: insumos = [], isLoading: loadingInsumos } = useOfflineQuery<InsumoType>(['insumos'], 'insumos');
+  const saveSessaoMutation = useOfflineMutation<SessaoType>('sessoes_inventario', [['sessoes_inventario']]);
 
   const [isSearchingItem, setIsSearchingItem] = useState(false);
   const [itemSearchTerm, setItemSearchTerm] = useState('');
 
-  const handleOpenModal = (sessao: SessaoInventario | null = null, viewOnly = false) => {
+  const handleOpenModal = (sessao: SessaoType | null = null, viewOnly = false) => {
     setSelectedSessao(sessao);
     setIsViewMode(viewOnly);
     setIsSearchingItem(false);
@@ -206,7 +99,7 @@ export const Inventario = () => {
       if (item.id === id) {
         const divergence = physical - item.estoqueSistema;
         // Find specific cost for this location or use global
-        const insumo = mockAvailableInsumos.find(i => i.nome === item.insumo);
+        const insumo = insumos.find(i => i.nome === item.insumo);
         const unitaryPrice = (selectedLocal !== 'Todos os Locais' && insumo?.custoMedioPorLocal)
             ? (insumo.custoMedioPorLocal as any)[selectedLocal] || insumo.valorUnitario
             : insumo?.valorUnitario || 80;
@@ -228,13 +121,13 @@ export const Inventario = () => {
 
     if (selectedLocal === 'Todos os Locais') {
       // Sum balances across all locations for this simulation
-      relevantItems = mockAvailableInsumos.map(insumo => {
-        const totalStock = Object.values(insumo.estoquePorLocal).reduce((sum, val) => sum + (val as number), 0);
+      relevantItems = insumos.map(insumo => {
+        const totalStock = Object.values(insumo.estoquePorLocal).reduce((sum: number, val) => sum + (val as number), 0);
         return { ...insumo, estoqueAtual: totalStock };
       });
     } else {
       // Filter only items that have stock in this specific location
-      relevantItems = mockAvailableInsumos
+      relevantItems = insumos
         .filter(insumo => (insumo.estoquePorLocal as any)[selectedLocal] !== undefined)
         .map(insumo => ({ 
             ...insumo, 
@@ -243,7 +136,7 @@ export const Inventario = () => {
         }));
     }
 
-    const systemItems: ItemInventario[] = relevantItems.map(insumo => ({
+    const systemItems: ItemType[] = relevantItems.map(insumo => ({
       id: insumo.id,
       insumo: insumo.nome,
       estoqueSistema: insumo.estoqueAtual,
@@ -255,7 +148,7 @@ export const Inventario = () => {
     setCountingItems(systemItems);
   };
 
-  const selectItemForInventory = (insumo: any) => {
+  const selectItemForInventory = (insumo: InsumoType) => {
     // Check if already in list
     if (countingItems.some(item => item.insumo === insumo.nome)) {
       setIsSearchingItem(false);
@@ -264,10 +157,10 @@ export const Inventario = () => {
     }
 
     const itemStock = selectedLocal === 'Todos os Locais' 
-      ? Object.values(mockStockByLocation).reduce((sum, loc) => sum + (loc[insumo.id] || 0), 0)
-      : (mockStockByLocation[selectedLocal as keyof typeof mockStockByLocation]?.[insumo.id] || 0);
+      ? Object.values(insumo.estoquePorLocal).reduce((sum: number, val) => sum + (val as number), 0)
+      : (insumo.estoquePorLocal as any)[selectedLocal] || 0;
 
-    const newItem: ItemInventario = {
+    const newItem: ItemType = {
       id: Math.random().toString(36).substr(2, 9),
       insumo: insumo.nome,
       estoqueSistema: itemStock,
@@ -281,18 +174,18 @@ export const Inventario = () => {
     setItemSearchTerm('');
   };
 
-  const finalizados = mockSessoes.filter(s => s.status === 'Finalizado');
+  const finalizados = sessoes.filter(s => s.status === 'Finalizado');
   const acuracidadeMedia = finalizados.length > 0
     ? (finalizados.reduce((acc, s) => acc + s.acuracidade, 0) / finalizados.length).toFixed(1)
     : 0;
   
-  const pendentes = mockSessoes.filter(s => s.status === 'Em Aberto').length;
+  const pendentes = sessoes.filter(s => s.status === 'Em Aberto').length;
   
   const ultimoFechamento = finalizados.length > 0
     ? new Date(finalizados[0].dataFim!).toLocaleDateString('pt-BR')
     : '-';
 
-  const filteredData = mockSessoes.filter(s => {
+  const filteredData = sessoes.filter(s => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = s.referencia.toLowerCase().includes(searchLower) || 
                          s.responsavel.toLowerCase().includes(searchLower) ||
@@ -327,12 +220,12 @@ export const Inventario = () => {
   const totalAdjustment = countingItems.reduce((acc, item) => acc + item.valorDivergencia, 0);
   const totalInventoryItems = countingItems.length;
 
-  const searchResults = mockAvailableInsumos.filter(i => 
+  const searchResults = insumos.filter(i => 
     i.nome.toLowerCase().includes(itemSearchTerm.toLowerCase())
   ).map(insumo => {
     const itemStock = selectedLocal === 'Todos os Locais' 
-      ? Object.values(mockStockByLocation).reduce((sum, loc) => sum + (loc[insumo.id] || 0), 0)
-      : (mockStockByLocation[selectedLocal as keyof typeof mockStockByLocation]?.[insumo.id] || 0);
+      ? Object.values(insumo.estoquePorLocal).reduce((sum: number, val) => sum + (val as number), 0)
+      : (insumo.estoquePorLocal as any)[selectedLocal] || 0;
     return { ...insumo, estoqueAtual: itemStock };
   });
 

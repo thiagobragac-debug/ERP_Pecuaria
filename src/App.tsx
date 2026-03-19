@@ -38,19 +38,20 @@ import { FluxoCaixa } from './pages/financeiro/FluxoCaixa';
 import { Bancos } from './pages/financeiro/Bancos';
 import { Conciliacao } from './pages/financeiro/Conciliacao';
 import { Vendas } from './pages/vendas/Vendas';
-import { PedidosVenda } from './pages/vendas/PedidosVenda';
-import { Contratos } from './pages/vendas/Contratos';
-import { Cliente } from './pages/vendas/Cliente';
+import { PedidosVenda } from './pages/vendas/pedidos/PedidosVenda';
+import { Contratos } from './pages/vendas/contratos/Contratos';
+import { Cliente } from './pages/vendas/clientes/Cliente';
+import { Oportunidades } from './pages/vendas/oportunidades/Oportunidades';
 import { Compra } from './pages/compra/Compra';
 import { Fornecedor } from './pages/compra/Fornecedor';
-import { SolicitacaoCompra } from './pages/compra/SolicitacaoCompra';
+import { SolicitacaoCompraPage } from './pages/compra/SolicitacaoCompra';
 import { MapaCotacaoPage } from './pages/compra/MapaCotacao';
 import { PedidoCompraPage } from './pages/compra/PedidoCompra';
 import { RelatoriosRebanho } from './pages/pecuaria/RelatoriosRebanho';
-import { NotasEntrada } from './pages/compra/NotasEntrada';
+import { NotasEntradaPage } from './pages/compra/NotasEntrada';
 import { ContasPagar } from './pages/financeiro/ContasPagar';
 import { ContasReceber } from './pages/financeiro/ContasReceber';
-import { NotasSaida } from './pages/vendas/NotasSaida';
+import { NotasSaida } from './pages/vendas/notas/NotasSaida';
 import { AlertasCareencia } from './pages/pecuaria/AlertasCareencia';
 import { AnaliseCustoNutricao } from './pages/pecuaria/AnaliseCustoNutricao';
 import { PlaceholderPage } from './pages/PlaceholderPage';
@@ -158,6 +159,7 @@ function App() {
             <Route path="pecuaria/lotes" element={<Lote />} />
             <Route path="pecuaria/pastos" element={<Pasto />} />
             <Route path="pecuaria/pesagens" element={<Pesagem />} />
+            <Route path="pecuaria/pesagem" element={<Pesagem />} />
             <Route path="pecuaria/confinamento" element={<Confinamento />} />
             <Route path="pecuaria/reproducao" element={<Reproducao />} />
             <Route path="pecuaria/nutricao" element={<Nutricao />} />
@@ -173,16 +175,17 @@ function App() {
             <Route path="maquinas/abastecimento" element={<Abastecimento />} />
             <Route path="compras" element={<Compra />}>
               <Route path="fornecedores" element={<Fornecedor />} />
-              <Route path="solicitacoes" element={<SolicitacaoCompra />} />
+              <Route path="solicitacoes" element={<SolicitacaoCompraPage />} />
               <Route path="cotacoes" element={<MapaCotacaoPage />} />
               <Route path="pedidos" element={<PedidoCompraPage />} />
-              <Route path="notas-entrada" element={<NotasEntrada />} />
+              <Route path="notas-entrada" element={<NotasEntradaPage />} />
             </Route>
             <Route path="vendas" element={<Vendas />}>
               <Route path="clientes" element={<Cliente />} />
               <Route path="pedidos" element={<PedidosVenda />} />
-              <Route path="notas-saida" element={<NotasSaida />} />
+              <Route path="notas-fiscais" element={<NotasSaida />} />
               <Route path="contratos" element={<Contratos />} />
+              <Route path="oportunidades" element={<Oportunidades />} />
             </Route>
             
             <Route path="estoque" element={<Estoque />}>

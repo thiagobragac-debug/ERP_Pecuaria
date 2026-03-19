@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   FileText, 
   Search, 
@@ -13,34 +13,33 @@ import {
   ArrowDownLeft,
   Plus
 } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { AccountingEntry } from '../../types';
+import { StandardModal } from '../../components/StandardModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
-import './PlanoContas.css'; // Reusing general accounting styles
-
-interface Lancamento {
-  id: string;
-  data: string;
-  descricao: string;
-  categoria: string;
-  tipo: 'Entrada' | 'Saída';
-  valor: number;
-  conta: string;
-}
-
-const mockLancamentos: Lancamento[] = [
-  { id: '1', data: '2024-03-15', descricao: 'Venda de Gado - Lote 12', categoria: 'Receita Operacional', tipo: 'Entrada', valor: 45200.00, conta: 'Banco do Brasil' },
-  { id: '2', data: '2024-03-14', descricao: 'Compra de Insumos - Nutribase', categoria: 'Custo Produção', tipo: 'Saída', valor: 12500.00, conta: 'Itaú Rural' },
-  { id: '3', data: '2024-03-12', descricao: 'Energia Elétrica - Sede', categoria: 'Despesa Indireta', tipo: 'Saída', valor: 850.40, conta: 'Banco do Brasil' },
-  { id: '4', data: '2024-03-10', descricao: 'Adiantamento Frete', categoria: 'Logística', tipo: 'Saída', valor: 2200.00, conta: 'Dinheiro/Caixa' },
-];
+import { dataService } from '../../services/dataService';
+import './PlanoContas.css';
+ // Reusing general accounting styles
 
 export const LivroCaixa = () => {
+  const lancamentos = useLiveQuery(() => db.lancamentos_contabeis.toArray()) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterTipo, setFilterTipo] = useState('Todos');
   const [filterCategoria, setFilterCategoria] = useState('Todos');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState<Partial<AccountingEntry>>({
+    data: new Date().toISOString().split('T')[0],
+    descricao: '',
+    categoria: 'Receita Operacional',
+    tipo: 'Entrada',
+    valor: 0,
+    conta: ''
+  });
   const [columnFilters, setColumnFilters] = useState({
     data: '',
     descricao: '',
@@ -49,7 +48,8 @@ export const LivroCaixa = () => {
     valor: ''
   });
 
-  const filteredLancamentos = mockLancamentos.filter(l => {
+  const filteredLancamentos = useMemo(() => {
+    return (lancamentos || []).filter((l: AccountingEntry) => {
     const matchesSearch = 
       l.descricao.toLowerCase().includes(searchTerm.toLowerCase()) || 
       l.categoria.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -68,8 +68,15 @@ export const LivroCaixa = () => {
       (columnFilters.conta === '' || l.conta.toLowerCase().includes(columnFilters.conta.toLowerCase())) &&
       (columnFilters.valor === '' || l.valor.toString().includes(columnFilters.valor));
 
-    return matchesSearch && matchesTipo && matchesCategoria && matchesColumnFilters;
-  });
+      return matchesSearch && matchesTipo && matchesCategoria && matchesColumnFilters;
+    });
+  }, [lancamentos, searchTerm, filterTipo, filterCategoria, columnFilters]);
+
+  const summary = useMemo(() => {
+    const entradas = filteredLancamentos.filter((l: AccountingEntry) => l.tipo === 'Entrada').reduce((acc: number, current: AccountingEntry) => acc + current.valor, 0);
+    const saidas = filteredLancamentos.filter((l: AccountingEntry) => l.tipo === 'Saída').reduce((acc: number, current: AccountingEntry) => acc + current.valor, 0);
+    return { entradas, saidas, saldo: entradas - saidas, totalCount: filteredLancamentos.length };
+  }, [filteredLancamentos]);
 
   const {
     currentPage,
@@ -102,7 +109,7 @@ export const LivroCaixa = () => {
             <Download size={18} strokeWidth={3} />
             <span>Exportar LCDPR</span>
           </button>
-          <button className="btn-premium-solid indigo">
+          <button className="btn-premium-solid indigo" onClick={() => setIsModalOpen(true)}>
             <Plus size={18} strokeWidth={3} />
             <span>Novo Lançamento</span>
           </button>
@@ -113,8 +120,8 @@ export const LivroCaixa = () => {
         <div className="summary-card glass animate-slide-up">
           <div className="summary-info">
             <span className="summary-label">Entradas (Mês)</span>
-            <span className="summary-value text-emerald">R$ 158.4k</span>
-            <span className="summary-trend up"><TrendingUp size={14} /> +8%</span>
+            <span className="summary-value text-emerald">R$ {(summary.entradas / 1000).toFixed(1)}k</span>
+            <span className="summary-trend up"><TrendingUp size={14} /> +0%</span>
           </div>
           <div className="summary-icon green">
             <ArrowUpRight size={28} />
@@ -123,8 +130,8 @@ export const LivroCaixa = () => {
         <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="summary-info">
             <span className="summary-label">Saídas (Mês)</span>
-            <span className="summary-value text-red">R$ 92.1k</span>
-            <span className="summary-trend down"><TrendingDown size={14} /> -3%</span>
+            <span className="summary-value text-red">R$ {(summary.saidas / 1000).toFixed(1)}k</span>
+            <span className="summary-trend down"><TrendingDown size={14} /> -0%</span>
           </div>
           <div className="summary-icon red">
             <ArrowDownLeft size={28} />
@@ -133,7 +140,7 @@ export const LivroCaixa = () => {
         <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="summary-info">
             <span className="summary-label">Saldo Acumulado</span>
-            <span className="summary-value">R$ 66.3k</span>
+            <span className="summary-value">R$ {(summary.saldo / 1000).toFixed(1)}k</span>
             <span className="summary-subtext">Disponibilidade atual</span>
           </div>
           <div className="summary-icon blue">
@@ -143,7 +150,7 @@ export const LivroCaixa = () => {
         <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <div className="summary-info">
             <span className="summary-label">Lançamentos</span>
-            <span className="summary-value">124</span>
+            <span className="summary-value">{summary.totalCount}</span>
             <span className="summary-subtext">No período selecionado</span>
           </div>
           <div className="summary-icon indigo">
@@ -226,6 +233,92 @@ export const LivroCaixa = () => {
           label="registros"
         />
       </div>
+      <StandardModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Novo Lançamento Contábil"
+        subtitle="Escrituração manual para o Livro Caixa Digital"
+        icon={BookOpen}
+        size="md"
+        footer={
+          <div className="flex gap-3">
+            <button className="btn-premium-outline px-8" onClick={() => setIsModalOpen(false)}>Cancelar</button>
+            <button 
+              className="btn-premium-solid indigo px-8" 
+              onClick={() => {
+                dataService.saveItem('lancamentos_contabeis', { 
+                  ...formData, 
+                  id: Math.random().toString(36).substr(2, 9),
+                  tenant_id: 'default' 
+                });
+                setIsModalOpen(false);
+              }}
+            >
+              Confirmar Lançamento
+            </button>
+          </div>
+        }
+      >
+        <div className="form-grid">
+          <div className="form-group col-6">
+            <label>Data</label>
+            <input 
+              type="date" 
+              value={formData.data}
+              onChange={(e) => setFormData({...formData, data: e.target.value})}
+            />
+          </div>
+          <div className="form-group col-6">
+            <label>Tipo</label>
+            <select 
+              value={formData.tipo}
+              onChange={(e) => setFormData({...formData, tipo: e.target.value as 'Entrada' | 'Saída'})}
+            >
+              <option value="Entrada">Entrada (Receita)</option>
+              <option value="Saída">Saída (Despesa)</option>
+            </select>
+          </div>
+          <div className="form-group col-12">
+            <label>Descrição</label>
+            <input 
+              type="text" 
+              placeholder="Ex: Venda de gado conforme NF..." 
+              value={formData.descricao}
+              onChange={(e) => setFormData({...formData, descricao: e.target.value})}
+            />
+          </div>
+          <div className="form-group col-12">
+            <label>Categoria</label>
+            <select 
+              value={formData.categoria}
+              onChange={(e) => setFormData({...formData, categoria: e.target.value})}
+            >
+              <option value="Receita Operacional">Receita Operacional</option>
+              <option value="Custo Produção">Custo Produção</option>
+              <option value="Despesa Indireta">Despesa Indireta</option>
+              <option value="Logística">Logística</option>
+              <option value="Investimento">Investimento</option>
+            </select>
+          </div>
+          <div className="form-group col-6">
+            <label>Conta / Banco</label>
+            <input 
+              type="text" 
+              placeholder="Ex: Banco do Brasil" 
+              value={formData.conta}
+              onChange={(e) => setFormData({...formData, conta: e.target.value})}
+            />
+          </div>
+          <div className="form-group col-6">
+            <label>Valor (R$)</label>
+            <input 
+              type="number" 
+              value={formData.valor}
+              onChange={(e) => setFormData({...formData, valor: Number(e.target.value)})}
+            />
+          </div>
+        </div>
+      </StandardModal>
     </div>
   );
 };

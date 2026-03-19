@@ -15,51 +15,22 @@ import {
   AlertCircle,
   Filter
 } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { AccountingAccount } from '../../types';
+import { StandardModal } from '../../components/StandardModal';
 import { TableFilters } from '../../components/TableFilters';
 import './PlanoContas.css';
 
-export interface Conta {
-  id: string;
-  codigo: string;
-  nome: string;
-  nivel: number;
-  tipo: 'Sintética' | 'Analítica';
-  flagCaixa: boolean;
-  flagEstoque: boolean;
-  flagControle: boolean;
-  paiId: string | null;
-  expanded?: boolean;
-}
-
-export const mockContas: Conta[] = [
-  { id: '1', codigo: '1', nome: 'Ativo', nivel: 1, tipo: 'Sintética', flagCaixa: false, flagEstoque: false, flagControle: true, paiId: null, expanded: true },
-  { id: '2', codigo: '1.1', nome: 'Ativo Circulante', nivel: 2, tipo: 'Sintética', flagCaixa: false, flagEstoque: false, flagControle: true, paiId: '1', expanded: true },
-  { id: '3', codigo: '1.1.01', nome: 'Disponibilidades', nivel: 3, tipo: 'Sintética', flagCaixa: false, flagEstoque: false, flagControle: true, paiId: '2', expanded: true },
-  { id: '4', codigo: '1.1.01.01', nome: 'Bancos Conta Movimento', nivel: 4, tipo: 'Sintética', flagCaixa: false, flagEstoque: false, flagControle: true, paiId: '3', expanded: true },
-  { id: '5', codigo: '1.1.01.01.0001', nome: 'Banco do Brasil - CC', nivel: 5, tipo: 'Analítica', flagCaixa: true, flagEstoque: false, flagControle: false, paiId: '4' },
-  { id: '6', codigo: '1.1.01.01.0002', nome: 'Itaú Unibanco - CC', nivel: 5, tipo: 'Analítica', flagCaixa: true, flagEstoque: false, flagControle: false, paiId: '4' },
-  { id: '7', codigo: '1.1.02', nome: 'Estoques', nivel: 3, tipo: 'Sintética', flagCaixa: false, flagEstoque: true, flagControle: true, paiId: '2', expanded: true },
-  { id: '8', codigo: '1.1.02.01', nome: 'Estoque de Insumos', nivel: 4, tipo: 'Sintética', flagCaixa: false, flagEstoque: true, flagControle: true, paiId: '7', expanded: true },
-  { id: '9', codigo: '1.1.02.01.0001', nome: 'Produtos e Insumos Secos', nivel: 5, tipo: 'Analítica', flagCaixa: false, flagEstoque: true, flagControle: false, paiId: '8' },
-  { id: '10', codigo: '2', nome: 'Passivo', nivel: 1, tipo: 'Sintética', flagCaixa: false, flagEstoque: false, flagControle: true, paiId: null },
-  { id: '11', codigo: '3', nome: 'Patrimônio Líquido', nivel: 1, tipo: 'Sintética', flagCaixa: false, flagEstoque: false, flagControle: true, paiId: null },
-  { id: '12', codigo: '5', nome: 'Custos de Produção', nivel: 1, tipo: 'Sintética', flagCaixa: false, flagEstoque: false, flagControle: true, paiId: null, expanded: true },
-  { id: '13', codigo: '5.1', nome: 'Custos Diretos', nivel: 2, tipo: 'Sintética', flagCaixa: false, flagEstoque: false, flagControle: true, paiId: '12', expanded: true },
-  { id: '14', codigo: '5.1.01', nome: 'Nutrição Animal', nivel: 3, tipo: 'Analítica', flagCaixa: false, flagEstoque: false, flagControle: false, paiId: '13' },
-  { id: '15', codigo: '5.1.02', nome: 'Mão de Obra Direta', nivel: 3, tipo: 'Analítica', flagCaixa: false, flagEstoque: false, flagControle: false, paiId: '13' },
-  { id: '16', codigo: '6', nome: 'Despesas Operacionais', nivel: 1, tipo: 'Sintética', flagCaixa: false, flagEstoque: false, flagControle: true, paiId: null, expanded: true },
-  { id: '17', codigo: '6.1', nome: 'Despesas Administrativas', nivel: 2, tipo: 'Sintética', flagCaixa: false, flagEstoque: false, flagControle: true, paiId: '16', expanded: true },
-  { id: '18', codigo: '6.1.01', nome: 'Energia e Água', nivel: 3, tipo: 'Analítica', flagCaixa: false, flagEstoque: false, flagControle: false, paiId: '17' },
-];
-
 export const PlanoContas: React.FC = () => {
-  const [contas, setContas] = useState<Conta[]>(mockContas);
+  const contas = useLiveQuery(() => db.plano_contas.toArray()) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterTipo, setFilterTipo] = useState('Todos');
   const [filterNatureza, setFilterNatureza] = useState('Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingConta, setEditingConta] = useState<Conta | null>(null);
+  const [editingConta, setEditingConta] = useState<AccountingAccount | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
   const [columnFilters, setColumnFilters] = useState({
     nome: '',
@@ -82,7 +53,7 @@ export const PlanoContas: React.FC = () => {
     nivel: 1
   });
 
-  const handleOpenModal = (conta?: Conta, viewOnly: boolean = false) => {
+  const handleOpenModal = (conta?: AccountingAccount, viewOnly: boolean = false) => {
     if (conta) {
       setEditingConta(conta);
       setFormData({
@@ -130,40 +101,34 @@ export const PlanoContas: React.FC = () => {
     const calculatedNivel = getLevelFromCode(formData.codigo);
     const calculatedTipo = (calculatedNivel === 5 ? 'Analítica' : 'Sintética') as 'Sintética' | 'Analítica';
 
-    const accountData = {
+    const accountData: AccountingAccount = {
       ...formData,
+      id: editingConta ? editingConta.id : Date.now().toString(),
       nivel: calculatedNivel,
       tipo: calculatedTipo
     };
 
-    if (editingConta) {
-      setContas(prev => prev.map(c => c.id === editingConta.id ? { ...c, ...accountData } : c));
-    } else {
-      const newAccount: Conta = {
-        ...accountData,
-        id: (Date.now()).toString(),
-      };
-      setContas(prev => [...prev, newAccount]);
-    }
+    dataService.saveItem('plano_contas', accountData);
     setIsModalOpen(false);
   };
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (window.confirm('Tem certeza que deseja excluir esta conta?')) {
-      setContas(prev => prev.filter(c => c.id !== id));
+      dataService.deleteItem('plano_contas', id);
     }
   };
 
   const toggleExpand = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setContas(prev => prev.map(c => 
-      c.id === id ? { ...c, expanded: !c.expanded } : c
-    ));
+    const conta = contas.find(c => c.id === id);
+    if (conta) {
+      dataService.saveItem('plano_contas', { ...conta, expanded: !conta.expanded });
+    }
   };
 
   const getVisibleContas = () => {
-    const visible: Conta[] = [];
+    const visible: AccountingAccount[] = [];
     const addChildren = (paiId: string | null) => {
       const children = contas.filter(c => c.paiId === paiId);
       children.forEach(child => {
@@ -175,7 +140,7 @@ export const PlanoContas: React.FC = () => {
     };
     addChildren(null);
 
-    return visible.filter(c => {
+    return visible.filter((c: AccountingAccount) => {
       const matchesSearch = 
         c.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
         c.codigo.includes(searchTerm) ||
@@ -317,7 +282,7 @@ export const PlanoContas: React.FC = () => {
               <div 
                 key={conta.id} 
                 className={`account-row level-${conta.nivel} ${conta.tipo === 'Analítica' ? 'analitica' : ''}`}
-                style={{ paddingLeft: `${(conta.nivel - 1) * 44 + 24}px` }}
+                style={{ paddingLeft: `${((conta.nivel || 1) - 1) * 44 + 24}px` }}
               >
                 <div className="account-info">
                   {hasChildren ? (
@@ -375,124 +340,130 @@ export const PlanoContas: React.FC = () => {
         </div>
       </div>
 
-      {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h2>{isViewMode ? 'Visualizar Conta' : editingConta ? 'Editar Conta' : 'Nova Conta Contábil'}</h2>
-              <button className="btn-close" onClick={() => setIsModalOpen(false)}>
-                <X size={24} />
+      <StandardModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={isViewMode ? 'Visualizar Conta' : editingConta ? 'Editar Conta' : 'Nova Conta Contábil'}
+        subtitle="Gerencie a estrutura hierárquica do plano de contas"
+        icon={FileText}
+        size="lg"
+        footer={
+          <div className="flex gap-3">
+            <button className="btn-premium-outline px-8" onClick={() => setIsModalOpen(false)}>
+              {isViewMode ? 'Fechar' : 'Cancelar'}
+            </button>
+            {!isViewMode && (
+              <button className="btn-premium-solid indigo px-8" onClick={handleSave}>
+                <span>{editingConta ? 'Salvar Alterações' : 'Salvar Conta'}</span>
               </button>
-            </div>
-            
-            <div className="modal-body">
-              <form className="form-grid" onSubmit={(e) => e.preventDefault()}>
-                <div className="form-group">
-                  <label>Código Estrutural</label>
-                  <input 
-                    type="text" 
-                    placeholder="#.#.##.##.####" 
-                    value={formData.codigo}
-                    onChange={(e) => {
-                      const newCode = e.target.value;
-                      const newLevel = getLevelFromCode(newCode);
-                      setFormData({
-                        ...formData, 
-                        codigo: newCode,
-                        nivel: newLevel,
-                        tipo: newLevel === 5 ? 'Analítica' : 'Sintética'
-                      });
-                    }}
-                    disabled={isViewMode}
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Tipo de Conta</label>
-                  <select 
-                    value={formData.tipo}
-                    disabled={true}
-                    className="bg-gray-50"
-                  >
-                    <option value="Sintética">Sintética (Grupo)</option>
-                    <option value="Analítica">Analítica (Lançamento)</option>
-                  </select>
-                  <span className="text-xs text-green-700 italic mt-1">
-                    * Definido automaticamente pelo nível ({formData.nivel})
-                  </span>
-                </div>
+            )}
+          </div>
+        }
+      >
+        <form className="form-grid" onSubmit={(e) => e.preventDefault()}>
+          <div className="form-group mb-4">
+            <label>Código Estrutural</label>
+            <input 
+              type="text" 
+              placeholder="#.#.##.##.####" 
+              value={formData.codigo}
+              onChange={(e) => {
+                const newCode = e.target.value;
+                const newLevel = getLevelFromCode(newCode);
+                setFormData({
+                  ...formData, 
+                  codigo: newCode,
+                  nivel: newLevel,
+                  tipo: newLevel === 5 ? 'Analítica' : 'Sintética'
+                });
+              }}
+              disabled={isViewMode}
+            />
+          </div>
+          
+          <div className="form-group mb-4">
+            <label>Tipo de Conta</label>
+            <select 
+              value={formData.tipo}
+              disabled={true}
+              className="bg-gray-50 cursor-not-allowed"
+            >
+              <option value="Sintética">Sintética (Grupo)</option>
+              <option value="Analítica">Analítica (Lançamento)</option>
+            </select>
+            <span className="text-xs text-blue-600 font-semibold mt-1 block">
+              * Definido automaticamente pelo nível ({formData.nivel})
+            </span>
+          </div>
 
-                <div className="form-group full-width">
-                  <label>Nome da Conta</label>
-                  <input 
-                    type="text" 
-                    placeholder="Ex: Banco do Brasil - Safra" 
-                    value={formData.nome}
-                    onChange={(e) => setFormData({...formData, nome: e.target.value})}
-                    disabled={isViewMode}
-                  />
+          <div className="form-group col-12 mb-4">
+            <label>Nome da Conta</label>
+            <input 
+              type="text" 
+              placeholder="Ex: Banco do Brasil - Safra" 
+              value={formData.nome || ''}
+              onChange={(e) => setFormData({...formData, nome: e.target.value})}
+              disabled={isViewMode}
+            />
+          </div>
+
+          <div className="form-group mb-4">
+            <label>Conta Pai</label>
+            <select 
+              value={formData.paiId || ''}
+              onChange={(e) => setFormData({...formData, paiId: e.target.value || null})}
+              disabled={isViewMode}
+            >
+              <option value="">Nenhuma</option>
+              {contas.filter(c => c.tipo === 'Sintética' && c.id !== formData.id).map(c => (
+                <option key={c.id} value={c.id}>{c.codigo} - {c.nome}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group mb-4">
+            <label>Natureza</label>
+            <select disabled={isViewMode}>
+              <option>Devedora</option>
+              <option>Credora</option>
+            </select>
+          </div>
+
+          <div className="col-12 mt-4">
+            <div className="flex gap-6 items-center flex-wrap">
+              <div 
+                className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${formData.flagControle ? 'border-indigo-500 bg-indigo-50' : 'border-slate-100'} ${isViewMode ? 'opacity-70 pointer-events-none' : ''}`}
+                onClick={() => setFormData({...formData, flagControle: !formData.flagControle})}
+              >
+                <div className={`w-5 h-5 rounded-md flex items-center justify-center border-2 ${formData.flagControle ? 'bg-indigo-500 border-indigo-500' : 'border-slate-300'}`}>
+                  {formData.flagControle && <Check size={14} color="white" strokeWidth={4} />}
                 </div>
-
-                <div className="form-group">
-                  <label>Conta Pai</label>
-                  <select 
-                    value={formData.paiId || ''}
-                    onChange={(e) => setFormData({...formData, paiId: e.target.value || null})}
-                    disabled={isViewMode}
-                  >
-                    <option value="">Nenhuma</option>
-                    {contas.filter(c => c.tipo === 'Sintética' && c.id !== formData.id).map(c => (
-                      <option key={c.id} value={c.id}>{c.codigo} - {c.nome}</option>
-                    ))}
-                  </select>
+                <span className="font-bold text-slate-700">Conta Controle</span>
+              </div>
+              
+              <div 
+                className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${formData.flagCaixa ? 'border-emerald-500 bg-emerald-50' : 'border-slate-100'} ${isViewMode ? 'opacity-70 pointer-events-none' : ''}`}
+                onClick={() => setFormData({...formData, flagCaixa: !formData.flagCaixa})}
+              >
+                <div className={`w-5 h-5 rounded-md flex items-center justify-center border-2 ${formData.flagCaixa ? 'bg-emerald-500 border-emerald-500' : 'border-slate-300'}`}>
+                  {formData.flagCaixa && <Check size={14} color="white" strokeWidth={4} />}
                 </div>
+                <span className="font-bold text-slate-700">Caixa/Banco</span>
+              </div>
 
-                <div className="form-group">
-                  <label>Natureza</label>
-                  <select disabled={isViewMode}>
-                    <option>Devedora</option>
-                    <option>Credora</option>
-                  </select>
+              <div 
+                className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer ${formData.flagEstoque ? 'border-blue-500 bg-blue-50' : 'border-slate-100'} ${isViewMode ? 'opacity-70 pointer-events-none' : ''}`}
+                onClick={() => setFormData({...formData, flagEstoque: !formData.flagEstoque})}
+              >
+                <div className={`w-5 h-5 rounded-md flex items-center justify-center border-2 ${formData.flagEstoque ? 'bg-blue-500 border-blue-500' : 'border-slate-300'}`}>
+                  {formData.flagEstoque && <Check size={14} color="white" strokeWidth={4} />}
                 </div>
-
-                <div className="flags-section">
-                  <div className={`flag-item ${isViewMode ? 'disabled' : ''}`} onClick={() => !isViewMode && setFormData({...formData, flagControle: !formData.flagControle})}>
-                    <div className={`checkbox-custom ${formData.flagControle ? 'checked' : ''}`}>
-                      {formData.flagControle && <Check size={14} color="white" />}
-                    </div>
-                    <span>Conta Controle</span>
-                  </div>
-                  
-                  <div className={`flag-item ${isViewMode ? 'disabled' : ''}`} onClick={() => !isViewMode && setFormData({...formData, flagCaixa: !formData.flagCaixa})}>
-                    <div className={`checkbox-custom ${formData.flagCaixa ? 'checked' : ''}`}>
-                      {formData.flagCaixa && <Check size={14} color="white" />}
-                    </div>
-                    <span>Caixa/Banco</span>
-                  </div>
-
-                  <div className={`flag-item ${isViewMode ? 'disabled' : ''}`} onClick={() => !isViewMode && setFormData({...formData, flagEstoque: !formData.flagEstoque})}>
-                    <div className={`checkbox-custom ${formData.flagEstoque ? 'checked' : ''}`}>
-                      {formData.flagEstoque && <Check size={14} color="white" />}
-                    </div>
-                    <span>Estoque</span>
-                  </div>
-                </div>
-              </form>
-            </div>
-
-            <div className="modal-footer flex gap-3">
-              <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
-                {isViewMode ? 'Fechar' : 'Cancelar'}
-              </button>
-              {!isViewMode && (
-                <button className="btn-premium-solid indigo" onClick={handleSave}>
-                  <span>{editingConta ? 'Salvar Alterações' : 'Salvar Conta'}</span>
-                </button>
-              )}
+                <span className="font-bold text-slate-700">Estoque</span>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        </form>
+      </StandardModal>
     </div>
   );
 };

@@ -29,6 +29,11 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { supabase } from '../../services/supabase';
+import { Asset, Insumo, Manutencao as ManutencaoType } from '../../types';
 import './Manutencao.css';
 
 interface ItemAplicado {
@@ -106,12 +111,14 @@ const initialOS: OrdemServico[] = [
 ];
 
 export const Manutencao: React.FC = () => {
-  const [osList, setOsList] = useState<OrdemServico[]>(initialOS);
+  const osList = useLiveQuery(() => db.manutencoes.toArray()) || [];
+  const assets = useLiveQuery(() => db.ativos.toArray()) || [];
+  const insumos = useLiveQuery(() => db.insumos.toArray()) || [];
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [columnFilters, setColumnFilters] = useState({
     id: '',
-    nomeAtivo: '',
+    ativo_nome: '',
     tipo: 'Todos',
     status: 'Todos',
     prioridade: 'Todos',
@@ -119,33 +126,25 @@ export const Manutencao: React.FC = () => {
   });
   const [activeTab, setActiveTab] = useState<'geral' | 'itens' | 'servico'>('geral');
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingOS, setEditingOS] = useState<OrdemServico | null>(null);
+  const [editingOS, setEditingOS] = useState<ManutencaoType | null>(null);
 
-  // Form State
-  const [formData, setFormData] = useState<Partial<OrdemServico>>({
-    status: 'Aberta',
+  const [formData, setFormData] = useState<Partial<ManutencaoType>>({
+    status: 'Pendente',
     tipo: 'Preventiva',
-    prioridade: 'Média',
-    itens: [],
-    maoDeObra: 0,
-    totalVl: 0
+    valorTotal: 0
   });
 
-  const handleOpenModal = (os?: OrdemServico) => {
+  const handleOpenModal = (os?: ManutencaoType) => {
     if (os) {
       setEditingOS(os);
       setFormData({ ...os });
     } else {
       setEditingOS(null);
       setFormData({
-        id: `OS-${new Date().getFullYear()}-${(osList.length + 1).toString().padStart(3, '0')}`,
-        status: 'Aberta',
+        status: 'Pendente',
         tipo: 'Preventiva',
-        prioridade: 'Média',
-        dataAbertura: new Date().toISOString().split('T')[0],
-        itens: [],
-        maoDeObra: 0,
-        totalVl: 0,
+        data: new Date().toISOString().split('T')[0],
+        valorTotal: 0,
         descricao: ''
       });
     }
@@ -164,82 +163,98 @@ export const Manutencao: React.FC = () => {
     };
     
     const updatedItens = [...(formData.itens || []), newItem];
-    const newTotal = updatedItens.reduce((acc, curr) => acc + curr.total, 0) + (formData.maoDeObra || 0);
+    const newTotal = updatedItens.reduce((acc: number, curr: any) => acc + curr.total, 0) + (formData.maoDeObra || 0);
     
     setFormData({
       ...formData,
       itens: updatedItens,
-      totalVl: newTotal
+      valorTotal: newTotal
     });
   };
 
   const handleRemoveItem = (index: number) => {
-    const updatedItens = (formData.itens || []).filter((_, i) => i !== index);
-    const newTotal = updatedItens.reduce((acc, curr) => acc + curr.total, 0) + (formData.maoDeObra || 0);
+    const updatedItens = (formData.itens || []).filter((_: any, i: number) => i !== index);
+    const newTotal = updatedItens.reduce((acc: number, curr: any) => acc + curr.total, 0) + (formData.maoDeObra || 0);
     
     setFormData({
       ...formData,
       itens: updatedItens,
-      totalVl: newTotal
+      valorTotal: newTotal
     });
   };
 
   const updateItemQty = (index: number, qty: number) => {
-    const updatedItens = (formData.itens || []).map((item, i) => {
+    const updatedItens = (formData.itens || []).map((item: any, i: number) => {
       if (i === index) {
         return { ...item, quantidade: qty, total: qty * item.valorUnitario };
       }
       return item;
     });
-    const newTotal = updatedItens.reduce((acc, curr) => acc + curr.total, 0) + (formData.maoDeObra || 0);
+    const newTotal = updatedItens.reduce((acc: number, curr: any) => acc + curr.total, 0) + (formData.maoDeObra || 0);
     
     setFormData({
       ...formData,
       itens: updatedItens,
-      totalVl: newTotal
+      valorTotal: newTotal
     });
   };
 
-  const handleSave = () => {
-    if (!formData.idAtivo) {
+  const handleSave = async () => {
+    if (!formData.ativo_id) {
       alert('Selecione um ativo para a OS!');
       return;
     }
 
-    const finalOS = {
-      ...formData,
-      nomeAtivo: mockAssets.find(a => a.id === formData.idAtivo)?.nome || ''
-    } as OrdemServico;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const tenant_id = user?.user_metadata?.tenant_id || 'default';
+      const asset = assets.find(a => a.id === formData.ativo_id);
 
-    if (editingOS) {
-      setOsList(prev => prev.map(os => os.id === editingOS.id ? finalOS : os));
-    } else {
-      setOsList(prev => [finalOS, ...prev]);
+      const finalOS: ManutencaoType = {
+        ...formData,
+        id: editingOS?.id || Math.random().toString(36).substr(2, 9),
+        ativo_nome: asset?.nome || 'N/A',
+        tenant_id
+      } as ManutencaoType;
+
+      await dataService.saveItem('manutencoes', finalOS);
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving maintenance:', error);
+      alert('Erro ao salvar manutenção');
     }
-    setIsModalOpen(false);
   };
 
   const filteredOS = osList.filter(os => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = os.id.toLowerCase().includes(searchLower) || 
-                          os.nomeAtivo.toLowerCase().includes(searchLower) ||
+                          os.ativo_nome.toLowerCase().includes(searchLower) ||
                           os.tipo.toLowerCase().includes(searchLower) ||
                           os.status.toLowerCase().includes(searchLower) ||
-                          os.prioridade.toLowerCase().includes(searchLower) ||
-                          os.responsavel.toLowerCase().includes(searchLower) ||
-                          os.dataAbertura.toLowerCase().includes(searchLower) ||
-                          os.totalVl.toString().includes(searchLower);
+                          (os.prioridade?.toLowerCase() || '').includes(searchLower) ||
+                          (os.responsavel?.toLowerCase() || '').includes(searchLower) ||
+                          os.data.toLowerCase().includes(searchLower) ||
+                          os.valorTotal.toString().includes(searchLower);
     
     const matchesColumnFilters = 
       (columnFilters.id === '' || os.id.toLowerCase().includes(columnFilters.id.toLowerCase())) &&
-      (columnFilters.nomeAtivo === '' || os.nomeAtivo.toLowerCase().includes(columnFilters.nomeAtivo.toLowerCase())) &&
+      (columnFilters.ativo_nome === '' || os.ativo_nome.toLowerCase().includes(columnFilters.ativo_nome.toLowerCase())) &&
       (columnFilters.tipo === 'Todos' || os.tipo === columnFilters.tipo) &&
       (columnFilters.status === 'Todos' || os.status === columnFilters.status) &&
       (columnFilters.prioridade === 'Todos' || os.prioridade === columnFilters.prioridade) &&
-      (columnFilters.responsavel === '' || os.responsavel.toLowerCase().includes(columnFilters.responsavel.toLowerCase()));
+      (columnFilters.responsavel === '' || (os.responsavel || '').toLowerCase().includes(columnFilters.responsavel.toLowerCase()));
 
     return matchesSearch && matchesColumnFilters;
   });
+
+  const getStatusLabel = (status: string) => {
+    switch(status) {
+      case 'Pendente': return 'Aberta';
+      case 'Em Andamento': return 'Execução';
+      case 'Concluída': return 'Concluída';
+      default: return status;
+    }
+  };
 
   const {
     currentPage,
@@ -362,15 +377,15 @@ export const Manutencao: React.FC = () => {
                 <th className="text-right">Ações</th>
               </tr>
               {isFiltersOpen && (
-                <ColumnFilters
-                  columns={[
-                    { key: 'id', type: 'text', placeholder: 'ID OS...' },
-                    { key: 'nomeAtivo', type: 'text', placeholder: 'Ativo...' },
-                    { key: 'tipo', type: 'select', options: ['Preventiva', 'Corretiva'] },
-                    { key: 'status', type: 'select', options: ['Aberta', 'Execução', 'Concluída', 'Cancelada'] },
-                    { key: 'prioridade', type: 'select', options: ['Baixa', 'Média', 'Alta', 'Crítica'] },
-                    { key: 'responsavel', type: 'text', placeholder: 'Responsável...' }
-                  ]}
+                  <ColumnFilters
+                    columns={[
+                      { key: 'id', type: 'text', placeholder: 'ID OS...' },
+                      { key: 'ativo_nome', type: 'text', placeholder: 'Ativo...' },
+                      { key: 'tipo', type: 'select', options: ['Preventiva', 'Corretiva', 'Preditiva'] },
+                      { key: 'status', type: 'select', options: ['Pendente', 'Em Andamento', 'Concluída'] },
+                      { key: 'prioridade', type: 'select', options: ['Baixa', 'Média', 'Alta', 'Crítica'] },
+                      { key: 'responsavel', type: 'text', placeholder: 'Responsável...' }
+                    ]}
                   values={columnFilters}
                   onChange={(key, value) => setColumnFilters(prev => ({ ...prev, [key]: value }))}
                 />
@@ -385,33 +400,33 @@ export const Manutencao: React.FC = () => {
                         <span className={`os-type-prefix ${os.tipo.toLowerCase()}`}>{os.tipo[0]}</span>
                         <div className="datetime-cell">
                           <strong className="text-slate-900">{os.id}</strong>
-                          <span className="sub-info">{os.dataAbertura}</span>
+                          <span className="sub-info">{new Date(os.data).toLocaleDateString('pt-BR')}</span>
                         </div>
                       </div>
                     </div>
                   </td>
                   <td>
                     <div className="asset-info-mini">
-                      <strong className="text-slate-700">{os.nomeAtivo}</strong>
+                      <strong className="text-slate-700">{os.ativo_nome}</strong>
                     </div>
                   </td>
                   <td>
-                    <span className={`status-badge ${os.status.toLowerCase().replace('ç', 'c')}`}>
-                      {os.status === 'Execução' ? <Clock size={12} className="spinning-slow" /> : null}
-                      {os.status}
+                    <span className={`status-badge ${os.status.toLowerCase().replace(' ', '-')}`}>
+                      {os.status === 'Em Andamento' ? <Clock size={12} className="spinning-slow" /> : null}
+                      {getStatusLabel(os.status)}
                     </span>
                   </td>
                   <td>
-                    <span className={`priority-indicator ${os.prioridade.toLowerCase().replace('é', 'e').replace('í', 'i')}`}>
-                      {os.prioridade}
+                    <span className={`priority-indicator ${(os.prioridade || 'Baixa').toLowerCase().replace('é', 'e').replace('í', 'i')}`}>
+                      {os.prioridade || 'Média'}
                     </span>
                   </td>
                   <td>
                     <div className="avatar-chip">
-                      <div className="avatar-initials">{os.responsavel.split(' ').map(n => n[0]).join('')}</div>
+                      <div className="avatar-initials">{(os.responsavel || 'N A').split(' ').map(n => n[0]).join('')}</div>
                       <div className="chip-details">
-                        <span className="font-bold text-slate-700">{os.responsavel}</span>
-                        <strong className="text-indigo-600 block mt-0.5">R$ {os.totalVl.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                        <span className="font-bold text-slate-700">{os.responsavel || 'Não Atribuído'}</span>
+                        <strong className="text-indigo-600 block mt-0.5">R$ {os.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
                       </div>
                     </div>
                   </td>
@@ -469,9 +484,9 @@ export const Manutencao: React.FC = () => {
               <div className="form-grid">
                 <div className="form-group col-6">
                   <label>Selecione o Ativo</label>
-                  <select value={formData.idAtivo} onChange={(e) => setFormData({...formData, idAtivo: e.target.value})}>
+                  <select value={formData.ativo_id} onChange={(e) => setFormData({...formData, ativo_id: e.target.value})}>
                     <option value="">Selecione...</option>
-                    {mockAssets.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
+                    {assets.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
                   </select>
                 </div>
                 <div className="form-group col-6">
@@ -484,10 +499,9 @@ export const Manutencao: React.FC = () => {
                 <div className="form-group col-6">
                   <label>Status da OS</label>
                   <select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value as any})}>
-                    <option value="Aberta">Aberta</option>
-                    <option value="Execução">Em Execução</option>
-                    <option value="Concluída">Finalizada (Baixar Peças)</option>
-                    <option value="Cancelada">Cancelada</option>
+                    <option value="Pendente">Aberta</option>
+                    <option value="Em Andamento">Em Execução</option>
+                    <option value="Concluída">Finalizada</option>
                   </select>
                 </div>
                 <div className="form-group col-6">
@@ -504,8 +518,8 @@ export const Manutencao: React.FC = () => {
                   <input type="text" placeholder="Ex: Roberto Alves" value={formData.responsavel || ''} onChange={(e) => setFormData({...formData, responsavel: e.target.value})} />
                 </div>
                 <div className="form-group col-6">
-                  <label>Data de Abertura</label>
-                  <input type="date" value={formData.dataAbertura || ''} onChange={(e) => setFormData({...formData, dataAbertura: e.target.value})} />
+                  <label>Data</label>
+                  <input type="date" value={formData.data || ''} onChange={(e) => setFormData({...formData, data: e.target.value})} />
                 </div>
                 <div className="form-group col-12">
                   <label>Descrição detalhada do Problema / Serviço</label>
@@ -526,8 +540,11 @@ export const Manutencao: React.FC = () => {
                 <div className="parts-inventory">
                   <label className="section-label">Estoque de Insumos (Integração)</label>
                   <div className="inventory-chips">
-                    {mockInsumos.map(insumo => (
-                      <button key={insumo.id} className="chip" onClick={() => handleAddItem(insumo)}>
+                    {insumos.slice(0, 10).map(insumo => (
+                      <button key={insumo.id} className="chip" onClick={() => {
+                        const baseVl = formData.valorTotal || 0;
+                        setFormData({...formData, valorTotal: baseVl + (insumo.valorUnitario || 0)});
+                      }}>
                         <PlusCircle size={14} />
                         {insumo.nome}
                       </button>
@@ -581,23 +598,21 @@ export const Manutencao: React.FC = () => {
                 <div className="cost-summary-card">
                   <div className="cost-row">
                     <span>Total em Peças:</span>
-                    <strong>R$ {(formData.totalVl! - (formData.maoDeObra || 0)).toLocaleString()}</strong>
+                    <strong>R$ {(formData.valorTotal! - (formData.maoDeObra || 0)).toLocaleString()}</strong>
                   </div>
                   <div className="cost-row">
                     <span>Valor de Mão de Obra:</span>
                     <div className="input-with-icon inline">
                       <DollarSign size={16} />
-                      <input type="number" value={formData.maoDeObra} onChange={(e) => {
-                        const mo = parseFloat(e.target.value) || 0;
-                        const base = (formData.itens || []).reduce((acc, c) => acc + c.total, 0);
-                        setFormData({...formData, maoDeObra: mo, totalVl: base + mo});
+                      <input type="number" value={formData.valorTotal} onChange={(e) => {
+                        setFormData({...formData, valorTotal: parseFloat(e.target.value) || 0});
                       }} />
                     </div>
                   </div>
                   <div className="divider"></div>
                   <div className="cost-row total">
                     <span>Total Geral da OS:</span>
-                    <strong>R$ {formData.totalVl?.toLocaleString()}</strong>
+                    <strong>R$ {formData.valorTotal?.toLocaleString()}</strong>
                   </div>
                 </div>
 

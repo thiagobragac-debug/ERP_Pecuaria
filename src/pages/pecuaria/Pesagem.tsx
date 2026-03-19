@@ -30,24 +30,10 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { usePagination } from '../../hooks/usePagination';
-
-interface Pesagem {
-  id: string;
-  brinco: string;
-  data: string;
-  pesoAtual: number;
-  pesoAnterior: number;
-  gmd: number; // Ganho Médio Diário em kg
-  lote: string;
-  manejo: string;
-}
-
-const mockPesagens: Pesagem[] = [
-  { id: '1', brinco: '8922', data: '2024-03-10', pesoAtual: 345.5, pesoAnterior: 310.0, gmd: 1.18, lote: 'Lote 01 - Recria', manejo: 'Pesagem Rotina' },
-  { id: '2', brinco: '4451', data: '2024-03-10', pesoAtual: 412.0, pesoAnterior: 385.2, gmd: 0.89, lote: 'Lote 01 - Recria', manejo: 'Pesagem Rotina' },
-  { id: '3', brinco: '2210', data: '2024-03-11', pesoAtual: 450.8, pesoAnterior: 415.5, gmd: 1.25, lote: 'Lote 02 - Engorda', manejo: 'Saída Pasto' },
-  { id: '4', brinco: '5567', data: '2024-03-11', pesoAtual: 388.2, pesoAnterior: 395.0, gmd: -0.22, lote: 'Lote 02 - Engorda', manejo: 'Check-up' },
-];
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { Pesagem as PesagemType, Animal, Lote } from '../../types';
 
 import { HistoricoPesagem } from './HistoricoPesagem';
 
@@ -58,8 +44,13 @@ export const Pesagem = () => {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterLote, setFilterLote] = useState('Todos');
   const [filterManejo, setFilterManejo] = useState('Todos');
-  const [selectedPesagem, setSelectedPesagem] = useState<Pesagem | null>(null);
+  const [selectedPesagem, setSelectedPesagem] = useState<PesagemType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
+
+  // Live Queries
+  const pesagens = useLiveQuery(() => db.pesagens.toArray()) || [];
+  const animais = useLiveQuery(() => db.animais.toArray()) || [];
+  const lotes = useLiveQuery(() => db.lotes.toArray()) || [];
   const [columnFilters, setColumnFilters] = useState({
     brinco: '',
     data: '',
@@ -70,7 +61,7 @@ export const Pesagem = () => {
     manejo: 'Todos'
   });
 
-  const handleOpenModal = (pesagem: Pesagem | null = null, viewOnly = false) => {
+  const handleOpenModal = (pesagem: PesagemType | null = null, viewOnly = false) => {
     setSelectedPesagem(pesagem);
     setIsViewMode(viewOnly);
     setIsModalOpen(true);
@@ -82,32 +73,32 @@ export const Pesagem = () => {
     setIsViewMode(false);
   };
 
-  const gmdMedio = mockPesagens.length > 0
-    ? (mockPesagens.reduce((acc, p) => acc + p.gmd, 0) / mockPesagens.length).toFixed(2)
+  const gmdMedio = pesagens.length > 0
+    ? (pesagens.reduce((acc, p) => acc + (p.gmd || 0), 0) / pesagens.length).toFixed(2)
     : 0;
-  const totalPesado = mockPesagens.length;
-  const melhorGMD = Math.max(...mockPesagens.map(p => p.gmd)).toFixed(3);
-  const melhorLote = mockPesagens.find(p => p.gmd === parseFloat(melhorGMD))?.lote || '-';
-  const perdaPeso = mockPesagens.filter(p => p.gmd < 0).length;
+  const totalPesado = pesagens.length;
+  const melhorGMD = pesagens.length > 0 ? Math.max(...pesagens.map(p => p.gmd || 0)).toFixed(3) : '0.000';
+  const perdaPeso = pesagens.filter(p => (p.gmd || 0) < 0).length;
 
-  const filteredData = mockPesagens.filter(p => {
+  const filteredData = pesagens.filter(p => {
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = p.brinco.toLowerCase().includes(searchLower) || 
-      p.lote.toLowerCase().includes(searchLower) ||
-      p.manejo.toLowerCase().includes(searchLower) ||
-      p.data.toLowerCase().includes(searchLower) ||
-      p.pesoAtual.toString().includes(searchLower) ||
-      p.gmd.toString().includes(searchLower);
+    const animalBrinco = p.brinco?.toLowerCase() || '';
+    const loteNome = lotes.find(l => l.id === p.lote_id)?.nome.toLowerCase() || '';
     
-    const matchesLote = filterLote === 'Todos' || p.lote === filterLote;
+    const matchesSearch = animalBrinco.includes(searchLower) || 
+      loteNome.includes(searchLower) ||
+      p.manejo.toLowerCase().includes(searchLower) ||
+      p.data.toLowerCase().includes(searchLower);
+    
+    const matchesLote = filterLote === 'Todos' || p.lote_id === filterLote;
     const matchesManejo = filterManejo === 'Todos' || p.manejo === filterManejo;
 
     const matchesColumnFilters = 
-      (columnFilters.brinco === '' || p.brinco.toLowerCase().includes(columnFilters.brinco.toLowerCase())) &&
+      (columnFilters.brinco === '' || animalBrinco.includes(columnFilters.brinco.toLowerCase())) &&
       (columnFilters.data === '' || p.data.includes(columnFilters.data)) &&
       (columnFilters.peso === '' || p.pesoAtual.toString().includes(columnFilters.peso)) &&
-      (columnFilters.gmd === '' || p.gmd.toString().includes(columnFilters.gmd)) &&
-      (columnFilters.lote === 'Todos' || p.lote === columnFilters.lote) &&
+      (columnFilters.gmd === '' || (p.gmd || 0).toString().includes(columnFilters.gmd)) &&
+      (columnFilters.lote === 'Todos' || p.lote_id === columnFilters.lote) &&
       (columnFilters.manejo === 'Todos' || p.manejo === columnFilters.manejo);
 
     return matchesSearch && matchesLote && matchesManejo && matchesColumnFilters;
@@ -226,8 +217,8 @@ export const Pesagem = () => {
                     { key: 'peso', type: 'text', placeholder: 'Peso...' },
                     { key: 'evolucao', type: 'text', placeholder: 'Evol...' },
                     { key: 'gmd', type: 'text', placeholder: 'GMD...' },
-                    { key: 'lote', type: 'select', options: Array.from(new Set(mockPesagens.map(p => p.lote))) },
-                    { key: 'manejo', type: 'select', options: Array.from(new Set(mockPesagens.map(p => p.manejo))) }
+                    { key: 'lote', type: 'select', options: lotes.map(l => ({ value: l.id, label: l.nome })) as any },
+                    { key: 'manejo', type: 'select', options: Array.from(new Set(pesagens.map(p => p.manejo))) }
                   ]}
                   values={columnFilters}
                   onChange={(key, value) => setColumnFilters(prev => ({ ...prev, [key]: value }))}
@@ -236,7 +227,8 @@ export const Pesagem = () => {
             </thead>
             <tbody>
               {paginatedData.map((pesagem) => {
-                const diff = (pesagem.pesoAtual - pesagem.pesoAnterior).toFixed(1);
+                const diff = (pesagem.pesoAtual - (pesagem.pesoAnterior || 0)).toFixed(1);
+                const loteNome = lotes.find(l => l.id === pesagem.lote_id)?.nome || '-';
                 return (
                   <tr key={pesagem.id}>
                     <td><span className="brinco-tag">{pesagem.brinco}</span></td>
@@ -250,12 +242,12 @@ export const Pesagem = () => {
                     </td>
                     <td>
                       <div className="gmd-cell flex items-center justify-center gap-2">
-                        <span className="text-slate-900 font-bold text-lg">{pesagem.gmd.toFixed(3)}</span>
-                        <div className={`h-2.5 w-2.5 rounded-full ${pesagem.gmd > 1 ? 'bg-emerald-500' : pesagem.gmd > 0.5 ? 'bg-sky-500' : 'bg-rose-500'}`} 
-                             style={{ boxShadow: `0 0 10px ${pesagem.gmd > 1 ? 'rgba(16, 185, 129, 0.4)' : pesagem.gmd > 0.5 ? 'rgba(14, 165, 233, 0.4)' : 'rgba(244, 63, 94, 0.4)'}` }}></div>
+                        <span className="text-slate-900 font-bold text-lg">{(pesagem.gmd || 0).toFixed(3)}</span>
+                        <div className={`h-2.5 w-2.5 rounded-full ${(pesagem.gmd || 0) > 1 ? 'bg-emerald-500' : (pesagem.gmd || 0) > 0.5 ? 'bg-sky-500' : 'bg-rose-500'}`} 
+                             style={{ boxShadow: `0 0 10px ${(pesagem.gmd || 0) > 1 ? 'rgba(16, 185, 129, 0.4)' : (pesagem.gmd || 0) > 0.5 ? 'rgba(14, 165, 233, 0.4)' : 'rgba(244, 63, 94, 0.4)'}` }}></div>
                       </div>
                     </td>
-                    <td><span className="font-bold text-slate-600">{pesagem.lote}</span></td>
+                    <td><span className="font-bold text-slate-600">{loteNome}</span></td>
                     <td><span className="text-emerald-700 font-extrabold uppercase text-xs tracking-wider">{pesagem.manejo}</span></td>
                     <td className="text-right">
                       <div className="actions-cell">
@@ -265,7 +257,7 @@ export const Pesagem = () => {
                         <button className="action-btn-global btn-edit" title="Editar" onClick={() => handleOpenModal(pesagem)}>
                           <Edit size={18} strokeWidth={3} />
                         </button>
-                        <button className="action-btn-global btn-delete" title="Excluir" onClick={() => {}}>
+                        <button className="action-btn-global btn-delete" title="Excluir" onClick={() => dataService.deleteItem('pesagens', pesagem.id)}>
                           <Trash2 size={18} strokeWidth={3} />
                         </button>
                       </div>
@@ -322,40 +314,84 @@ export const Pesagem = () => {
       >
             
             <div className="modal-body scrollable">
-              <form id="pesagem-form" onSubmit={(e) => { e.preventDefault(); handleCloseModal(); }}>
+              <form id="pesagem-form" onSubmit={async (e) => { 
+                e.preventDefault(); 
+                const formData = new FormData(e.currentTarget);
+                const animalId = formData.get('animal_id') as string;
+                const animal = animais.find(a => a.id === animalId);
+                
+                const pesoAtual = parseFloat(formData.get('pesoAtual') as string);
+                const pesoAnterior = animal?.peso || 0;
+                const data = formData.get('data') as string;
+                
+                // GMD calculation
+                let gmd = 0;
+                if (animal?.dataNasc) {
+                  const dataAnterior = animal.created_at ? new Date(animal.created_at) : new Date(animal.dataNasc);
+                  const days = Math.max(1, Math.ceil((new Date(data).getTime() - dataAnterior.getTime()) / (1000 * 60 * 60 * 24)));
+                  gmd = (pesoAtual - pesoAnterior) / days;
+                }
+
+                const newPesagem: PesagemType = {
+                  ...selectedPesagem!,
+                  id: selectedPesagem?.id || Math.random().toString(36).substr(2, 9),
+                  animal_id: animalId,
+                  brinco: animal?.brinco || '',
+                  data: data,
+                  pesoAtual: pesoAtual,
+                  pesoAnterior: pesoAnterior,
+                  gmd: gmd,
+                  lote_id: animal?.lote_id || '',
+                  manejo: formData.get('manejo') as string,
+                  tenant_id: 'default'
+                };
+
+                await dataService.saveItem('pesagens', newPesagem);
+                // Update animal weight too
+                if (animal) {
+                  await dataService.saveItem('animais', { ...animal, peso: pesoAtual });
+                }
+                
+                handleCloseModal(); 
+              }}>
                 <div className="form-sections-grid">
                   <div className="form-section">
                     <h4>Informações da Pesagem</h4>
                     <div className="form-grid">
                       <div className="form-group col-6">
-                        <label>Brinco do Animal</label>
+                        <label>Animal (Brinco)</label>
                         <div className="input-with-icon">
-                          <input type="text" defaultValue={selectedPesagem?.brinco} disabled={isViewMode} required placeholder="Ex: 8922" />
+                          <select name="animal_id" defaultValue={selectedPesagem?.animal_id} disabled={isViewMode} required>
+                            <option value="">Selecione um animal...</option>
+                            {animais.map(a => (
+                                <option key={a.id} value={a.id}>{a.brinco} - {a.raca}</option>
+                            ))}
+                          </select>
                           <Hash size={18} className="field-icon" />
                         </div>
                       </div>
                       <div className="form-group col-6">
                         <label>Data da Pesagem</label>
                         <div className="input-with-icon">
-                          <input type="date" defaultValue={selectedPesagem?.data || new Date().toISOString().split('T')[0]} disabled={isViewMode} required />
+                          <input type="date" name="data" defaultValue={selectedPesagem?.data || new Date().toLocaleDateString('en-CA')} disabled={isViewMode} required />
                           <Calendar size={18} className="field-icon" />
                         </div>
                       </div>
                       <div className="form-group col-6">
                         <label>Peso Atual (kg)</label>
                         <div className="input-with-icon">
-                          <input type="number" step="0.1" defaultValue={selectedPesagem?.pesoAtual} disabled={isViewMode} required placeholder="0.0" />
+                          <input type="number" name="pesoAtual" step="0.1" defaultValue={selectedPesagem?.pesoAtual} disabled={isViewMode} required placeholder="0.0" />
                           <Scale size={18} className="field-icon" />
                         </div>
                       </div>
                       <div className="form-group col-6">
                         <label>Tipo de Manejo</label>
                         <div className="input-with-icon">
-                          <select defaultValue={selectedPesagem?.manejo} disabled={isViewMode}>
-                            <option>Pesagem Rotina</option>
-                            <option>Entrada Pasto</option>
-                            <option>Saída Pasto</option>
-                            <option>Vacinação</option>
+                          <select name="manejo" defaultValue={selectedPesagem?.manejo} disabled={isViewMode}>
+                            <option value="Pesagem Rotina">Pesagem Rotina</option>
+                            <option value="Entrada Pasto">Entrada Pasto</option>
+                            <option value="Saída Pasto">Saída Pasto</option>
+                            <option value="Vacinação">Vacinação</option>
                           </select>
                           <Layers size={18} className="field-icon" />
                         </div>

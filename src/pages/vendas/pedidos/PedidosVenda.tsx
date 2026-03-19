@@ -23,70 +23,35 @@ import {
   Edit
 } from 'lucide-react';
 import './PedidosVenda.css';
-import { StandardModal } from '../../components/StandardModal';
-import { TablePagination } from '../../components/TablePagination';
-import { TableFilters } from '../../components/TableFilters';
-import { usePagination } from '../../hooks/usePagination';
-import { ColumnFilters } from '../../components/ColumnFilters';
-import { mockAnimals } from '../../data/mockData';
+import { StandardModal } from '../../../components/StandardModal';
+import { TablePagination } from '../../../components/TablePagination';
+import { TableFilters } from '../../../components/TableFilters';
+import { usePagination } from '../../../hooks/usePagination';
+import { ColumnFilters } from '../../../components/ColumnFilters';
+import { db } from '../../../services/db';
+import { dataService } from '../../../services/dataService';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { SalesInvoice, InvoiceItem, SalesOrder, SalesItem, Cliente, Animal, Company } from '../../../types';
 
-interface SalesItem {
-  id: string;
-  brinco: string;
-  raca: string;
-  sexo: string;
-  peso: number;
-  valorKg: number;
-  subtotal: number;
-}
-
-interface SalesOrder {
-  id: string;
-  numero: string;
-  data: string;
-  cliente: string;
-  qtdCabecas: number;
-  pesoTotal: number;
-  valorTotal: number;
-  status: 'Pendente' | 'Confirmado' | 'Faturado' | 'Entregue' | 'Cancelado';
-}
-
-const INITIAL_SALES: SalesOrder[] = [
-  {
-    id: '1',
-    numero: 'PV-2026-001',
-    data: '2026-03-12',
-    cliente: 'Frigorífico JBS - Unidade Lins',
-    qtdCabecas: 2,
-    pesoTotal: 835,
-    valorTotal: 12525.00,
-    status: 'Confirmado'
-  },
-  {
-    id: '2',
-    numero: 'PV-2026-002',
-    data: '2026-03-14',
-    cliente: 'Agropecuária Terra Nova',
-    qtdCabecas: 1,
-    pesoTotal: 285,
-    valorTotal: 4275.00,
-    status: 'Pendente'
-  }
-];
 
 export const PedidosVenda: React.FC = () => {
-  const [sales, setSales] = useState<SalesOrder[]>(INITIAL_SALES);
+  const sales = useLiveQuery(() => db.pedidos_venda.toArray()) || [];
+  const clientesList = useLiveQuery(() => db.clientes.toArray()) || [];
+  const animaisList = useLiveQuery(() => db.animais.filter(a => a.status === 'Ativo').toArray()) || [];
+  const empresasList = useLiveQuery(() => db.empresas.toArray()) || [];
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState('Todos');
   const [filterCliente, setFilterCliente] = useState('Todos');
-  const [items, setItems] = useState<SalesItem[]>([]);
+  const [items, setItems] = useState<any[]>([]);
   const [gerarFinanceiro, setGerarFinanceiro] = useState(true);
   const [dataVencimento, setDataVencimento] = useState('');
   const [formaPagamento, setFormaPagamento] = useState('Boleto');
   const [isViewMode, setIsViewMode] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<SalesInvoice | null>(null);
+  const [selectedEmpresaId, setSelectedEmpresaId] = useState('');
   const [columnFilters, setColumnFilters] = useState({
     numero: '',
     cliente: '',
@@ -95,43 +60,56 @@ export const PedidosVenda: React.FC = () => {
     status: 'Todos'
   });
 
-  const handleAddField = () => {
-    const animal = mockAnimals[Math.floor(Math.random() * mockAnimals.length)];
+  const handleAddAnimal = (animalId: string) => {
+    const animal = animaisList.find(a => a.id === animalId);
+    if (!animal) return;
+
+    if (items.some(i => i.brinco === animal.brinco)) {
+      alert('Este animal já foi adicionado ao pedido.');
+      return;
+    }
+
     const newItem: SalesItem = {
       id: Math.random().toString(36).substr(2, 9),
       brinco: animal.brinco,
-      raca: animal.raca,
-      sexo: animal.sexo,
-      peso: animal.peso,
+      raca: animal.raca || 'N/A',
+      sexo: animal.sexo || 'N/A',
+      peso: animal.peso || 0,
       valorKg: 15.00,
-      subtotal: animal.peso * 15.00
+      subtotal: (animal.peso || 0) * 15.00
     };
     setItems([...items, newItem]);
   };
 
   const filteredData = sales.filter(order => {
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = order.cliente.toLowerCase().includes(searchLower) || 
-                         order.numero.toLowerCase().includes(searchLower) ||
-                         order.data.toLowerCase().includes(searchLower) ||
-                         order.status.toLowerCase().includes(searchLower) ||
-                         order.qtdCabecas.toString().includes(searchLower) ||
-                         order.pesoTotal.toString().includes(searchLower) ||
-                         order.valorTotal.toString().includes(searchLower);
+    const client = clientesList.find(c => c.id === order.cliente_id);
+    const clientName = client?.nome.toLowerCase() || '';
+
+    const matchesSearch = clientName.includes(searchLower) || 
+                         (order.numero || '').toLowerCase().includes(searchLower) ||
+                         (order.data || '').toLowerCase().includes(searchLower) ||
+                         (order.status || '').toLowerCase().includes(searchLower) ||
+                         (order.qtdCabecas || 0).toString().includes(searchLower) ||
+                         (order.pesoTotal || 0).toString().includes(searchLower) ||
+                         (order.valorTotal || 0).toString().includes(searchLower);
     const matchesStatus = filterStatus === 'Todos' || order.status === filterStatus;
-    const matchesCliente = filterCliente === 'Todos' || order.cliente === filterCliente;
+    const matchesCliente = filterCliente === 'Todos' || order.cliente_id === filterCliente;
     
     const matchesColumnFilters = 
-      (columnFilters.numero === '' || order.numero.toLowerCase().includes(columnFilters.numero.toLowerCase()) || order.data.toLowerCase().includes(columnFilters.numero.toLowerCase())) &&
-      (columnFilters.cliente === '' || order.cliente.toLowerCase().includes(columnFilters.cliente.toLowerCase())) &&
-      (columnFilters.qtdPeso === '' || order.qtdCabecas.toString().includes(columnFilters.qtdPeso) || order.pesoTotal.toString().includes(columnFilters.qtdPeso)) &&
-      (columnFilters.valorTotal === '' || order.valorTotal.toString().includes(columnFilters.valorTotal)) &&
+      (columnFilters.numero === '' || (order.numero || '').toLowerCase().includes(columnFilters.numero.toLowerCase()) || (order.data || '').toLowerCase().includes(columnFilters.numero.toLowerCase())) &&
+      (columnFilters.cliente === '' || clientName.includes(columnFilters.cliente.toLowerCase())) &&
+      (columnFilters.qtdPeso === '' || (order.qtdCabecas || 0).toString().includes(columnFilters.qtdPeso) || (order.pesoTotal || 0).toString().includes(columnFilters.qtdPeso)) &&
+      (columnFilters.valorTotal === '' || (order.valorTotal || 0).toString().includes(columnFilters.valorTotal)) &&
       (columnFilters.status === 'Todos' || order.status === columnFilters.status);
 
     return matchesSearch && matchesStatus && matchesCliente && matchesColumnFilters;
   });
 
-  const clientes = Array.from(new Set(sales.map(s => s.cliente)));
+  const clienteOptions = Array.from(new Set(sales.map(s => {
+    const client = clientesList.find(c => c.id === s.cliente_id);
+    return client ? client.nome : 'Cliente não encontrado';
+  })));
 
   const {
     currentPage,
@@ -147,7 +125,37 @@ export const PedidosVenda: React.FC = () => {
     prevPage,
   } = usePagination({ data: filteredData, initialItemsPerPage: 10 });
 
-  const calculateTotal = () => items.reduce((acc, item) => acc + item.subtotal, 0);
+  const calculateTotal = () => items.reduce((acc: number, item: SalesItem) => acc + item.subtotal, 0);
+
+  const handleSaveOrder = async () => {
+    if (!selectedClient || items.length === 0) {
+      alert('Selecione um cliente e adicione pelo menos um animal.');
+      return;
+    }
+
+    const order: SalesOrder = {
+      id: selectedOrder?.id || Math.random().toString(36).substr(2, 9),
+      numero: selectedOrder?.numero || `PV-${new Date().getFullYear()}-${(sales.length + 1).toString().padStart(3, '0')}`,
+      data: new Date().toISOString().split('T')[0],
+      cliente_id: selectedClient,
+      qtdCabecas: items.length,
+      pesoTotal: items.reduce((acc: number, i: SalesItem) => acc + i.peso, 0),
+      valorTotal: calculateTotal(),
+      status: (selectedOrder?.status as any) || 'Pendente',
+      itens: items,
+      empresaId: selectedEmpresaId,
+      tenant_id: 'default'
+    };
+
+    await dataService.saveItem('pedidos_venda', order);
+    
+    // If faturado, update animal status?
+    // For now just save the order.
+    
+    setIsModalOpen(false);
+  };
+
+  const [selectedClient, setSelectedClient] = useState('');
 
   return (
     <div className="page-container fade-in">
@@ -250,7 +258,7 @@ export const PedidosVenda: React.FC = () => {
                   { key: 'status', type: 'select', options: ['Pendente', 'Confirmado', 'Faturado', 'Entregue', 'Cancelado'] }
                 ]}
                 values={columnFilters}
-                onChange={(key, value) => setColumnFilters(prev => ({ ...prev, [key]: value }))}
+                onChange={(key, value) => setColumnFilters((prev: any) => ({ ...prev, [key]: value }))}
                 showActionsPadding={true}
               />
             )}
@@ -261,13 +269,15 @@ export const PedidosVenda: React.FC = () => {
                 <td>
                   <div className="flex items-center gap-2">
                     <strong className="text-slate-900">{order.numero}</strong>
-                    <span className="text-slate-400 text-sm font-medium">— {new Date(order.data).toLocaleDateString('pt-BR')}</span>
+                    <span className="text-slate-400 text-sm font-medium">— {new Date(order.data || '').toLocaleDateString('pt-BR')}</span>
                   </div>
                 </td>
                 <td>
                   <div className="client-cell flex items-center gap-2">
                     <Users size={16} strokeWidth={3} className="text-indigo-500" />
-                    <span className="font-bold text-slate-700">{order.cliente}</span>
+                    <span className="font-bold text-slate-700">
+                      {clientesList.find(c => c.id === order.cliente_id)?.nome || 'Cliente não encontrado'}
+                    </span>
                   </div>
                 </td>
                 <td>
@@ -327,11 +337,13 @@ export const PedidosVenda: React.FC = () => {
         size="xl"
         footer={
           <div className="footer-actions flex gap-3">
-            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-            <button className="btn-premium-solid indigo" onClick={() => setIsModalOpen(false)}>
-              <CheckCircle2 size={18} strokeWidth={3} />
-              <span>Confirmar Pedido</span>
-            </button>
+            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>{isViewMode ? 'Fechar' : 'Cancelar'}</button>
+            {!isViewMode && (
+              <button className="btn-premium-solid indigo" onClick={handleSaveOrder}>
+                <CheckCircle2 size={18} strokeWidth={3} />
+                <span>Confirmar Pedido</span>
+              </button>
+            )}
           </div>
         }
       >
@@ -341,11 +353,15 @@ export const PedidosVenda: React.FC = () => {
             <div className="form-grid">
               <div className="form-group col-12">
                 <label>Cliente (Destino)</label>
-                <select>
-                  <option>Selecione o cliente...</option>
-                  <option>Frigorífico JBS</option>
-                  <option>Frigorífico Minerva</option>
-                  <option>Leilão Boi Gordo</option>
+                <select 
+                  value={selectedClient} 
+                  onChange={(e) => setSelectedClient(e.target.value)}
+                  disabled={isViewMode}
+                >
+                  <option value="">Selecione o cliente...</option>
+                  {clientesList.map(c => (
+                    <option key={c.id} value={c.id}>{c.nome}</option>
+                  ))}
                 </select>
               </div>
               <div className="form-group col-6">
@@ -357,10 +373,33 @@ export const PedidosVenda: React.FC = () => {
                 <input type="date" />
               </div>
               <div className="form-group col-6">
-                <label>Local de Retirada (Fazenda)</label>
-                <select>
-                  <option>Fazenda Horizonte (Matriz)</option>
-                  <option>Fazenda Santa Maria</option>
+                <label>Empresa / Unidade Emissora</label>
+                <select
+                  value={selectedEmpresaId}
+                  onChange={(e) => setSelectedEmpresaId(e.target.value)}
+                  disabled={isViewMode}
+                >
+                  <option value="">Selecione a empresa...</option>
+                  {empresasList.filter((c: Company) => c.status === 'Ativa').map((c: Company) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nomeFantasia} {!c.isMatriz ? '(Filial)' : '(Matriz)'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group col-6">
+                <label>Local de Retirada / Fazenda</label>
+                <select
+                  value={selectedEmpresaId}
+                  onChange={(e) => setSelectedEmpresaId(e.target.value)}
+                  disabled={isViewMode}
+                >
+                  <option value="">Selecione a unidade...</option>
+                  {empresasList.filter((c: Company) => c.status === 'Ativa').map((c: Company) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nomeFantasia} ({c.cidade}/{c.estado})
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="form-group col-6">
@@ -378,10 +417,18 @@ export const PedidosVenda: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <h4 className="section-title">Animais / Lotes da Venda</h4>
               {!isViewMode && (
-                <button className="btn-premium-solid btn-sm" onClick={handleAddField}>
-                  <Plus size={16} strokeWidth={3} />
-                  <span>Adicionar Animal</span>
-                </button>
+                <div className="flex gap-2">
+                  <select 
+                    className="form-control" 
+                    onChange={(e) => handleAddAnimal(e.target.value)}
+                    value=""
+                  >
+                    <option value="">Adicionar Animal (Brinco)...</option>
+                    {animaisList.map(a => (
+                      <option key={a.id} value={a.id}>{a.brinco} - {a.raca}</option>
+                    ))}
+                  </select>
+                </div>
               )}
             </div>
             
@@ -398,7 +445,7 @@ export const PedidosVenda: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map(item => (
+                  {items.map((item: SalesItem) => (
                     <tr key={item.id} className="animate-slide-in">
                       <td><strong>{item.brinco}</strong></td>
                       <td>{item.raca} / {item.sexo}</td>
@@ -406,7 +453,7 @@ export const PedidosVenda: React.FC = () => {
                       <td>{item.valorKg.toFixed(2)}</td>
                       <td><strong>R$ {item.subtotal.toLocaleString()}</strong></td>
                       {!isViewMode && (
-                        <td><button className="btn-icon-danger" onClick={() => setItems(items.filter(i => i.id !== item.id))}><X size={14} /></button></td>
+                        <td><button className="btn-icon-danger" onClick={() => setItems(items.filter((i: SalesItem) => i.id !== item.id))}><X size={14} /></button></td>
                       )}
                     </tr>
                   ))}

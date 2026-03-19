@@ -63,7 +63,6 @@ const navItems: NavItem[] = [
       { title: 'Usuários do Sistema', path: '/admin/users' },
       { title: 'Gestão SaaS', path: '/admin/saas' },
       { title: 'Cadastro de Perfil', path: '/admin/profiles' },
-      { title: 'Cadastro de Empresa', path: '/admin/companies' },
       { title: 'Definição', path: '/admin/definicao' },
     ]
   },
@@ -71,6 +70,7 @@ const navItems: NavItem[] = [
     title: 'Administração', 
     icon: Settings2,
     subItems: [
+      { title: 'Cadastro de Empresa', path: '/admin/companies' },
       { title: 'Gestão de Equipe', path: '/equipe' },
       { title: 'Configurações', path: '/admin/settings' }
     ]
@@ -115,9 +115,11 @@ const navItems: NavItem[] = [
     title: 'Venda & CRM', 
     icon: TrendingUp, 
     subItems: [
+      { title: 'Cadastro de Clientes', path: '/vendas/clientes' },
       { title: 'Pedidos de Venda', path: '/vendas/pedidos' },
-      { title: 'Notas de Saída', path: '/vendas/notas-saida' },
-      { title: 'Contratos e Futuro', path: '/vendas/contratos' }
+      { title: 'Notas de Saída', path: '/vendas/notas-fiscais' },
+      { title: 'Contratos & Futuro', path: '/vendas/contratos' },
+      { title: 'Oportunidades (CRM)', path: '/vendas/oportunidades' }
     ]
   },
   { 
@@ -138,6 +140,7 @@ const navItems: NavItem[] = [
       { title: 'Fluxo de Caixa', path: '/financeiro/fluxo' },
       { title: 'Contas a Pagar', path: '/financeiro/contas-pagar' },
       { title: 'Contas a Receber', path: '/financeiro/contas-receber' },
+      { title: 'Conciliação Bancária', path: '/financeiro/conciliacao' },
       { title: 'Transferências', path: '/financeiro/bancos?modal=transfer' }
     ]
   },
@@ -160,7 +163,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed }) => {
   const { logout, user } = useAuth();
-  const [openMenus, setOpenMenus] = useState<string[]>(['Painel Master', 'Administração', 'Pecuária']);
+  const [openMenus, setOpenMenus] = useState<string[]>([]);
 
   const toggleMenu = (title: string) => {
     setOpenMenus(prev => 

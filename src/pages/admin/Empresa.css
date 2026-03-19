@@ -114,6 +114,18 @@
   border: 1px solid #dcfce7;
 }
 
+.badge-filial-premium {
+  background: #eff6ff;
+  color: #3b82f6;
+  font-size: 0.75rem;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid #dbeafe;
+}
+
 .btn-icon-small {
   width: 40px;
   height: 40px;

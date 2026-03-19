@@ -36,78 +36,28 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
+import { SolicitacaoCompra as SolicitacaoType, ItemSolicitacao, Insumo } from '../../types';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { useLiveQuery } from 'dexie-react-hooks';
 
-interface ItemSolicitacao {
-  id: string;
-  insumoId: string;
-  insumoNome: string;
-  quantidade: number;
-  unidade: string;
-  preco: number;
-  centroCustoId?: string;
-}
 
-interface Solicitacao {
-  id: string;
-  numero: string;
-  data: string;
-  solicitante: string;
-  prioridade: 'Normal' | 'Alta' | 'Urgente';
-  status: 'Pendente' | 'Em Cotação' | 'Aprovado' | 'Recusado';
-  itens: ItemSolicitacao[];
-  valorTotal: number;
-  empresaId: string;
-}
-
-const mockSolicitacoes: Solicitacao[] = [
-  {
-    id: '1',
-    numero: 'SC-2024-001',
-    data: '2024-03-10',
-    solicitante: 'João Silva',
-    prioridade: 'Alta',
-    status: 'Pendente',
-    itens: [
-      { id: 'i1', insumoId: 's7', insumoNome: 'Sal Mineral', quantidade: 200, unidade: 'kg', preco: 3.5 },
-      { id: 'i2', insumoId: 's8', insumoNome: 'Ração', quantidade: 2, unidade: 'ton', preco: 2400 }
-    ],
-    valorTotal: 5500,
-    empresaId: 'M1'
-  },
-  {
-    id: '2',
-    numero: 'SC-2024-002',
-    data: '2024-03-12',
-    solicitante: 'Maria Oliveira',
-    prioridade: 'Urgente',
-    status: 'Em Cotação',
-    itens: [
-      { id: 'i3', insumoId: 's6', insumoNome: 'Vacinas', quantidade: 10, unidade: 'un', preco: 85 }
-    ],
-    valorTotal: 850,
-    empresaId: 'F1'
-  }
-];
-
-import { MOCK_INSUMOS } from '../../data/inventoryData';
-
-export const SolicitacaoCompra = () => {
+export const SolicitacaoCompraPage = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('Todos');
-  const [filterPrioridade, setFilterPrioridade] = useState('Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewMode, setIsViewMode] = useState(false);
-  const [selectedSolicitacao, setSelectedSolicitacao] = useState<Solicitacao | null>(null);
-  
-  // Form State
-  const [items, setItems] = useState<ItemSolicitacao[]>([]);
-  const [solicitante, setSolicitante] = useState('');
-  const [prioridade, setPrioridade] = useState<'Baixa' | 'Normal' | 'Alta' | 'Urgente'>('Normal');
-  const [numero, setNumero] = useState('');
-  const [data, setData] = useState('');
-  const [empresaId, setEmpresaId] = useState('');
+  const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoType | null>(null);
+
+  // Form State (for the modal)
+  const [formItems, setFormItems] = useState<ItemSolicitacao[]>([]);
+  const [formSolicitante, setFormSolicitante] = useState('');
+  const [formPrioridade, setFormPrioridade] = useState<'Normal' | 'Alta' | 'Urgente' | 'Crítico'>('Normal');
+  const [formNumero, setFormNumero] = useState('');
+  const [formEmpresaId, setFormEmpresaId] = useState('');
+  const [formData, setFormData] = useState<SolicitacaoType | null>(null); // Used for editing/creating
+
   const [columnFilters, setColumnFilters] = useState({
     numero: '',
     data: '',
@@ -117,18 +67,109 @@ export const SolicitacaoCompra = () => {
     valorTotal: ''
   });
 
-  const filteredData = mockSolicitacoes.filter(sol => {
-    const matchesSearch = 
-      sol.numero.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  // Database Queries
+  const solicitacoes = useLiveQuery(() => db.solicitacoes_compra.toArray()) || [];
+  const insumos = useLiveQuery(() => db.insumos.filter(i => i.paraCompra).toArray()) || [];
+  const empresasList = useLiveQuery(() => db.empresas.toArray()) || [];
+
+  const handleOpenModal = (sol: SolicitacaoType | null = null, viewOnly = false) => {
+    if (sol) {
+      setSelectedSolicitacao(sol);
+      setFormData(sol);
+      setFormItems(sol.itens);
+      setFormSolicitante(sol.solicitante);
+      setFormPrioridade(sol.prioridade as any);
+      setFormNumero(sol.numero);
+      setFormEmpresaId(sol.empresaId || '');
+    } else {
+      const newSolicitacao: SolicitacaoType = {
+        id: Math.random().toString(36).substr(2, 9),
+        numero: `SC-${new Date().getFullYear()}-${String(solicitacoes.length + 1).padStart(3, '0')}`,
+        data: new Date().toISOString().split('T')[0],
+        solicitante: '',
+        prioridade: 'Normal',
+        status: 'Pendente',
+        itens: [{ id: Date.now().toString(), insumoId: '', insumoNome: '', quantidade: 0, unidade: '', preco: 0, centroCustoId: '' }],
+        valorTotal: 0,
+        empresaId: (empresasList as any[]).filter((c: any) => c.status === 'Ativa')[0]?.id || '',
+        tenant_id: 'default'
+      };
+      setSelectedSolicitacao(null); // Indicate new creation
+      setFormData(newSolicitacao);
+      setFormItems(newSolicitacao.itens);
+      setFormSolicitante(newSolicitacao.solicitante);
+      setFormPrioridade(newSolicitacao.prioridade);
+      setFormNumero(newSolicitacao.numero);
+      setFormEmpresaId(newSolicitacao.empresaId);
+    }
+    setIsViewMode(viewOnly);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async () => {
+    if (!formData) return;
+
+    const totalValue = formItems.reduce((acc, item) => acc + (item.quantidade * item.preco), 0);
+
+    const solicitacaoToSave: SolicitacaoType = {
+      ...formData,
+      solicitante: formSolicitante,
+      prioridade: formPrioridade,
+      numero: formNumero,
+      empresaId: formEmpresaId,
+      itens: formItems,
+      valorTotal: totalValue,
+      data: formData.data || new Date().toISOString().split('T')[0], // Ensure data is set
+      tenant_id: 'default' // Assuming a default tenant_id
+    };
+
+    await dataService.saveItem('solicitacoes_compra', solicitacaoToSave);
+    setIsModalOpen(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Deseja realmente excluir esta solicitação?')) {
+      await dataService.deleteItem('solicitacoes_compra', id);
+    }
+  };
+
+  const addItemRow = () => {
+    setFormItems([...formItems, { id: Date.now().toString(), insumoId: '', insumoNome: '', quantidade: 0, unidade: '', preco: 0, centroCustoId: '' }]);
+  };
+
+  const removeItemRow = (id: string) => {
+    if (formItems.length > 1) {
+      setFormItems(formItems.filter(item => item.id !== id));
+    }
+  };
+
+  const updateItem = (id: string, field: keyof ItemSolicitacao, value: any) => {
+    setFormItems(formItems.map(item => {
+      if (item.id === id) {
+        if (field === 'insumoId') {
+          const insumo = insumos.find(i => i.id === value);
+          return { ...item, [field]: value, insumoNome: insumo?.nome || '', unidade: insumo?.unidade || '' };
+        }
+        return { ...item, [field]: value };
+      }
+      return item;
+    }));
+  };
+
+  const calculateTotal = () => {
+    return formItems.reduce((acc, item) => acc + (item.quantidade * item.preco), 0);
+  };
+
+  const filteredData = solicitacoes.filter(sol => {
+    const matchesSearch =
+      sol.numero.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sol.solicitante.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sol.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sol.prioridade.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sol.valorTotal.toString().includes(searchTerm) ||
       sol.itens.some(it => it.insumoNome.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus = filterStatus === 'Todos' || sol.status === filterStatus;
-    const matchesPrioridade = filterPrioridade === 'Todos' || sol.prioridade === filterPrioridade;
-    
-    const matchesColumnFilters = 
+
+    const matchesColumnFilters =
       (columnFilters.numero === '' || sol.numero.toLowerCase().includes(columnFilters.numero.toLowerCase())) &&
       (columnFilters.data === '' || sol.data.includes(columnFilters.data)) &&
       (columnFilters.solicitante === '' || sol.solicitante.toLowerCase().includes(columnFilters.solicitante.toLowerCase())) &&
@@ -136,7 +177,7 @@ export const SolicitacaoCompra = () => {
       (columnFilters.status === 'Todos' || sol.status === columnFilters.status) &&
       (columnFilters.valorTotal === '' || sol.valorTotal.toString().includes(columnFilters.valorTotal));
 
-    return matchesSearch && matchesStatus && matchesPrioridade && matchesColumnFilters;
+    return matchesSearch && matchesColumnFilters;
   });
 
   const {
@@ -153,8 +194,6 @@ export const SolicitacaoCompra = () => {
     prevPage,
   } = usePagination({ data: filteredData, initialItemsPerPage: 10 });
 
-  const insumos = MOCK_INSUMOS.filter(i => i.paraCompra);
-  
   const centroCustoCategory = INITIAL_CATEGORIES.find(c => c.nome === 'Centros de Custo');
   const centrosCusto = centroCustoCategory ? centroCustoCategory.subcategorias : [];
 
@@ -162,58 +201,9 @@ export const SolicitacaoCompra = () => {
     if (isModalOpen) setIsModalOpen(false);
   });
 
-  const handleOpenModal = (sol: Solicitacao | null = null, viewOnly = false) => {
-    if (sol) {
-      setSelectedSolicitacao(sol);
-      setItems(sol.itens);
-      setSolicitante(sol.solicitante);
-      setPrioridade(sol.prioridade as any);
-      setNumero(sol.numero);
-      setData(sol.data);
-      setEmpresaId(sol.empresaId || '');
-    } else {
-      setSelectedSolicitacao(null);
-      setItems([{ id: Date.now().toString(), insumoId: '', insumoNome: '', quantidade: 0, unidade: '', preco: 0, centroCustoId: '' }]);
-      setSolicitante('');
-      setPrioridade('Normal');
-      setNumero(`SC-${new Date().getFullYear()}-${String(mockSolicitacoes.length + 1).padStart(3, '0')}`);
-      setData(new Date().toISOString().split('T')[0]);
-      setEmpresaId(INITIAL_COMPANIES[0]?.id || '');
-    }
-    setIsViewMode(viewOnly);
-    setIsModalOpen(true);
-  };
-
-  const addItemRow = () => {
-    setItems([...items, { id: Date.now().toString(), insumoId: '', insumoNome: '', quantidade: 0, unidade: '', preco: 0, centroCustoId: '' }]);
-  };
-
-  const removeItemRow = (id: string) => {
-    if (items.length > 1) {
-      setItems(items.filter(item => item.id !== id));
-    }
-  };
-
-  const updateItem = (id: string, field: keyof ItemSolicitacao, value: any) => {
-    setItems(items.map(item => {
-      if (item.id === id) {
-        if (field === 'insumoId') {
-          const insumo = insumos.find(i => i.id === value);
-          return { ...item, [field]: value, insumoNome: insumo?.nome || '', unidade: insumo?.unidade || '' };
-        }
-        return { ...item, [field]: value };
-      }
-      return item;
-    }));
-  };
-
-  const calculateTotal = () => {
-    return items.reduce((acc, item) => acc + (item.quantidade * item.preco), 0);
-  };
-
-  const handleGenerateMap = (sol: Solicitacao) => {
-    navigate('/compras/cotacoes', { 
-      state: { 
+  const handleGenerateMap = (sol: SolicitacaoType) => {
+    navigate('/compras/cotacoes', {
+      state: {
         originSolicitacao: {
           numero: sol.numero,
           empresaId: sol.empresaId,
@@ -226,15 +216,15 @@ export const SolicitacaoCompra = () => {
             unidade: it.unidade,
             bids: []
           }))
-        } 
-      } 
+        }
+      }
     });
   };
 
   const getPriorityColor = (p: string) => {
     switch (p) {
       case 'Baixa': return 'priority-low';
-      case 'Média': return 'priority-medium';
+      case 'Normal': return 'priority-medium';
       case 'Alta': return 'priority-high';
       case 'Urgente': return 'priority-urgent';
       default: return '';
@@ -279,18 +269,18 @@ export const SolicitacaoCompra = () => {
         <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="summary-info">
             <span className="summary-label">Total Pendente</span>
-            <span className="summary-value">{mockSolicitacoes.filter(s => s.status === 'Pendente').length}</span>
+            <span className="summary-value">{solicitacoes.filter(s => s.status === 'Pendente').length}</span>
             <span className="summary-subtext">Aguardando cotação</span>
           </div>
           <div className="summary-icon orange">
             <Clock size={24} />
           </div>
         </div>
-        
+
         <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="summary-info">
             <span className="summary-label">Valor Estimado</span>
-            <span className="summary-value">R$ {mockSolicitacoes.reduce((acc, s) => acc + s.valorTotal, 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
+            <span className="summary-value">R$ {solicitacoes.reduce((acc, s) => acc + s.valorTotal, 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
             <span className="summary-subtext">Total em solicitações</span>
           </div>
           <div className="summary-icon green">
@@ -301,7 +291,7 @@ export const SolicitacaoCompra = () => {
         <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <div className="summary-info">
             <span className="summary-label">Urgentes</span>
-            <span className="summary-value">{mockSolicitacoes.filter(s => s.prioridade === 'Urgente').length}</span>
+            <span className="summary-value">{solicitacoes.filter(s => s.prioridade === 'Urgente').length}</span>
             <span className="summary-subtext">Atenção imediata</span>
           </div>
           <div className="summary-icon purple">
@@ -317,7 +307,7 @@ export const SolicitacaoCompra = () => {
           placeholder="Buscar por número ou solicitante..."
           actionsLabel="Filtragem"
         >
-          <button 
+          <button
             className={`btn-premium-outline h-11 px-6 ${isFiltersOpen ? 'filter-active' : ''}`}
             onClick={() => setIsFiltersOpen(!isFiltersOpen)}
           >
@@ -345,8 +335,8 @@ export const SolicitacaoCompra = () => {
                     { key: 'numero', type: 'text', placeholder: 'Filtrar...' },
                     { key: 'data', type: 'text', placeholder: 'Data...' },
                     { key: 'solicitante', type: 'text', placeholder: 'Filtrar...' },
-                    { key: 'prioridade', type: 'select', options: ['Baixa', 'Média', 'Alta', 'Urgente'] },
-                    { key: 'status', type: 'select', options: ['Pendente', 'Em Cotação', 'Aprovado', 'Recusado'] },
+                    { key: 'prioridade', type: 'select', options: ['Todos', 'Baixa', 'Normal', 'Alta', 'Urgente'] },
+                    { key: 'status', type: 'select', options: ['Todos', 'Pendente', 'Em Cotação', 'Aprovado', 'Recusado'] },
                     { key: 'valorTotal', type: 'text', placeholder: 'Valor...' }
                   ]}
                   values={columnFilters}
@@ -356,49 +346,65 @@ export const SolicitacaoCompra = () => {
               )}
             </thead>
             <tbody>
-              {paginatedData.map((sol) => (
-                <tr key={sol.id}>
+              {paginatedData.map((reg) => (
+                <tr key={reg.id}>
                   <td className="font-bold">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 rounded-full" style={{ background: 'var(--primary-indigo)' }}></div>
-                      {sol.numero}
+                      {reg.numero}
                     </div>
                   </td>
-                  <td>{sol.data}</td>
+                  <td>{reg.data}</td>
                   <td>
                     <div className="solicitante-cell flex items-center gap-3">
                       <div className="avatar-circle font-black text-[10px] bg-slate-100 text-slate-600 w-8 h-8 rounded-full flex items-center justify-center border border-slate-200">
-                        {sol.solicitante.split(' ').map(n => n[0]).join('')}
+                        {reg.solicitante.split(' ').map(n => n[0]).join('')}
                       </div>
-                      <span className="font-bold text-slate-800">{sol.solicitante}</span>
+                      <span className="font-bold text-slate-800">{reg.solicitante}</span>
                     </div>
                   </td>
                   <td>
-                    <span className={`priority-badge ${getPriorityColor(sol.prioridade)}`}>
-                      {sol.prioridade}
+                    <span className={`priority-badge ${getPriorityColor(reg.prioridade)}`}>
+                      {reg.prioridade}
                     </span>
                   </td>
                   <td>
-                    <div className={`status-indicator status-${sol.status.toLowerCase().replace(' ', '-')}`}>
-                      {getStatusIcon(sol.status)}
-                      <span>{sol.status}</span>
+                    <div className={`status-indicator status-${reg.status.toLowerCase().replace(' ', '-')}`}>
+                      {getStatusIcon(reg.status)}
+                      <span>{reg.status}</span>
                     </div>
                   </td>
-                  <td className="font-bold" style={{ color: 'var(--text-main)' }}>R$ {sol.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                  <td className="font-bold" style={{ color: 'var(--text-main)' }}>R$ {reg.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                   <td className="text-right">
                     <div className="actions-cell">
-                      <button className="action-btn-global btn-view" title="Gerar Mapa de Cotação" onClick={() => handleGenerateMap(sol)}>
+                      <button className="action-btn-global btn-view" title="Gerar Mapa de Cotação" onClick={() => handleGenerateMap(reg)}>
                         <ArrowRight size={18} strokeWidth={3} />
                       </button>
-                      <button className="action-btn-global btn-view" title="Visualizar" onClick={() => handleOpenModal(sol, true)}>
+                      <button
+                        className="action-btn-global btn-view"
+                        title="Visualizar"
+                        onClick={() => handleOpenModal(reg, true)}
+                      >
                         <Eye size={18} strokeWidth={3} />
                       </button>
-                      <button className="action-btn-global btn-edit" title="Editar" onClick={() => handleOpenModal(sol)}>
-                        <Edit size={18} strokeWidth={3} />
-                      </button>
-                      <button className="action-btn-global btn-delete" title="Excluir" onClick={() => {}}>
-                        <Trash2 size={18} strokeWidth={3} />
-                      </button>
+                      {reg.status === 'Pendente' && (
+                        <>
+                          <button
+                            className="action-btn-global btn-edit"
+                            title="Editar"
+                            onClick={() => handleOpenModal(reg)}
+                          >
+                            <Edit size={18} strokeWidth={3} />
+                          </button>
+                          <button
+                            className="action-btn-global btn-delete"
+                            title="Excluir"
+                            onClick={() => handleDelete(reg.id)}
+                          >
+                            <Trash2 size={18} strokeWidth={3} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -437,7 +443,7 @@ export const SolicitacaoCompra = () => {
             <div className="footer-actions flex gap-3">
               <button type="button" className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
               {!isViewMode && (
-                <button type="submit" className="btn-premium-solid indigo" onClick={() => setIsModalOpen(false)}>
+                <button type="submit" className="btn-premium-solid indigo" onClick={handleSave}>
                   <CheckCircle2 size={18} strokeWidth={3} />
                   <span>{selectedSolicitacao ? 'Salvar Alterações' : 'Adicionar Solicitação'}</span>
                 </button>
@@ -452,16 +458,16 @@ export const SolicitacaoCompra = () => {
               <FileText size={16} />
               Informações Gerais
             </div>
-            
+
             <div className="form-grid mt-4">
               <div className="form-group col-3">
                 <label>Número</label>
                 <div className="input-with-icon">
-                  <input 
-                    type="text" 
-                    value={numero} 
-                    onChange={(e) => setNumero(e.target.value)} 
-                    required 
+                  <input
+                    type="text"
+                    value={formNumero}
+                    onChange={(e) => setFormNumero(e.target.value)}
+                    required
                     disabled={isViewMode}
                     placeholder="Ex: SC-001"
                   />
@@ -472,11 +478,11 @@ export const SolicitacaoCompra = () => {
               <div className="form-group col-9">
                 <label>Solicitante</label>
                 <div className="input-with-icon">
-                  <input 
-                    type="text" 
-                    value={solicitante} 
-                    onChange={(e) => setSolicitante(e.target.value)} 
-                    required 
+                  <input
+                    type="text"
+                    value={formSolicitante}
+                    onChange={(e) => setFormSolicitante(e.target.value)}
+                    required
                     disabled={isViewMode}
                     placeholder="Nome Completo"
                   />
@@ -487,15 +493,15 @@ export const SolicitacaoCompra = () => {
               <div className="form-group col-6">
                 <label>Empresa / Unidade</label>
                 <div className="input-with-icon">
-                  <select 
-                    value={empresaId}
-                    onChange={(e) => setEmpresaId(e.target.value)}
+                  <select
+                    value={formEmpresaId}
+                    onChange={(e) => setFormEmpresaId(e.target.value)}
                     disabled={isViewMode}
                   >
                     <option value="">Selecione...</option>
-                    {INITIAL_COMPANIES.filter(c => c.status === 'Ativa').map(company => (
+                    {(empresasList as any[]).filter((c: any) => c.status === 'Ativa').map((company: any) => (
                       <option key={company.id} value={company.id}>
-                        {company.nomeFantasia || company.razaoSocial}
+                        {company.nomeFantasia || company.razaoSocial} {!company.isMatriz ? '(Filial)' : '(Matriz)'}
                       </option>
                     ))}
                   </select>
@@ -506,11 +512,11 @@ export const SolicitacaoCompra = () => {
               <div className="form-group col-3">
                 <label>Data</label>
                 <div className="input-with-icon">
-                  <input 
-                    type="date" 
-                    value={data} 
-                    onChange={(e) => setData(e.target.value)} 
-                    required 
+                  <input
+                    type="date"
+                    value={formData?.data || ''}
+                    onChange={(e) => setFormData(prev => prev ? { ...prev, data: e.target.value } : null)}
+                    required
                     disabled={isViewMode}
                   />
                   <Calendar size={18} className="field-icon" />
@@ -520,11 +526,11 @@ export const SolicitacaoCompra = () => {
               <div className="form-group col-3">
                 <label>Prioridade</label>
                 <div className="input-with-icon">
-                  <select 
-                    value={prioridade} 
-                    onChange={(e: any) => setPrioridade(e.target.value)} 
+                  <select
+                    value={formPrioridade}
+                    onChange={(e: any) => setFormPrioridade(e.target.value)}
                     disabled={isViewMode}
-                    className={`priority-select ${getPriorityColor(prioridade)}`}
+                    className={`priority-select ${getPriorityColor(formPrioridade)}`}
                   >
                     <option value="Normal">Normal</option>
                     <option value="Alta">Alta</option>
@@ -544,7 +550,11 @@ export const SolicitacaoCompra = () => {
                 Itens da Solicitação
               </div>
               {!isViewMode && (
-                <button type="button" className="btn-premium-solid btn-sm" onClick={addItemRow}>
+                <button
+                  type="button"
+                  className="btn-premium-solid btn-sm"
+                  onClick={addItemRow}
+                >
                   <Plus size={18} strokeWidth={3} />
                   <span>Adicionar Item</span>
                 </button>
@@ -552,7 +562,7 @@ export const SolicitacaoCompra = () => {
             </div>
 
             <div className="items-cards-container">
-              {items.length === 0 ? (
+              {formItems.length === 0 ? (
                 <div className="empty-items-state animate-slide-up">
                   <Package size={48} />
                   <p>Nenhum item adicionado ainda.</p>
@@ -563,8 +573,8 @@ export const SolicitacaoCompra = () => {
                   )}
                 </div>
               ) : (
-                items.map((item, index) => (
-                  <div key={item.id} className="item-row-card animate-slide-up" style={{ animationDelay: `${0.1 * (index + 1)}s` }}>
+                formItems.map((item, index) => (
+                  <div key={item.id} className="item-card-row animate-slide-up" style={{ animationDelay: `${index * 0.05}s` }}>
                     <div className="item-field-group">
                       <label className="item-field-label">Insumo</label>
                       <div className="input-with-icon">
@@ -574,9 +584,9 @@ export const SolicitacaoCompra = () => {
                           required
                           disabled={isViewMode}
                         >
-                          <option value="">Selecione...</option>
-                          {insumos.map((ins: any) => (
-                            <option key={ins.id} value={ins.id}>{ins.nome}</option>
+                          <option value="">Selecione um Insumo...</option>
+                          {insumos.map(i => (
+                            <option key={i.id} value={i.id}>{i.nome} ({i.unidade})</option>
                           ))}
                         </select>
                         <Package size={18} className="field-icon" />

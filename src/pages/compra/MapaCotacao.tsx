@@ -30,129 +30,61 @@ import {
 } from 'lucide-react';
 import './MapaCotacao.css';
 import { INITIAL_COMPANIES } from '../../data/initialData';
-import { Company } from '../../types/definitions';
-import { MOCK_INSUMOS } from '../../data/inventoryData';
-import { MOCK_SUPPLIERS } from '../../data/supplierData';
-import { Supplier } from '../../types/supplier';
-import { Insumo } from '../../types/inventory';
 import { StandardModal } from '../../components/StandardModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
-
-interface Bid {
-  supplierId: string;
-  supplierName: string;
-  price: number;
-  deliveryTime: string;
-  isWinner: boolean;
-}
-
-interface ItemCotacao {
-  id: string;
-  insumoId: string;
-  insumoNome: string;
-  quantidade: number;
-  unidade: string;
-  bids: Bid[];
-}
-
-interface MapaCotacao {
-  id: string;
-  numero: string;
-  data: string;
-  status: 'Aberto' | 'Finalizado' | 'Cancelado';
-  solicitacaoCompraId: string;
-  solicitacaoNumero: string;
-  itens: ItemCotacao[];
-  valorTotalEstimado: number;
-  empresaId: string;
-}
-
-const mockMapas: MapaCotacao[] = [
-  {
-    id: 'M1',
-    numero: 'MC-2024-001',
-    data: '2024-03-14',
-    status: 'Aberto',
-    solicitacaoCompraId: '1',
-    solicitacaoNumero: 'SC-2024-001',
-    empresaId: 'M1',
-    valorTotalEstimado: 5500,
-    itens: [
-      {
-        id: 'ci1',
-        insumoId: 's7',
-        insumoNome: 'Sal Mineral',
-        quantidade: 200,
-        unidade: 'kg',
-        bids: [
-          { supplierId: 'F1', supplierName: 'AgroQuímica', price: 3.40, deliveryTime: '5 dias', isWinner: true },
-          { supplierId: 'F2', supplierName: 'Nutri Pantanal', price: 3.65, deliveryTime: '3 dias', isWinner: false }
-        ]
-      },
-      {
-        id: 'ci2',
-        insumoId: 's8',
-        insumoNome: 'Ração',
-        quantidade: 2,
-        unidade: 'ton',
-        bids: [
-          { supplierId: 'F1', supplierName: 'AgroQuímica', price: 2450, deliveryTime: '5 dias', isWinner: false },
-          { supplierId: 'F2', supplierName: 'Nutri Pantanal', price: 2380, deliveryTime: '3 dias', isWinner: true }
-        ]
-      }
-    ]
-  }
-];
+import { MapaCotacao as MapaType, CotacaoItem, Bid, Supplier, SolicitacaoCompra } from '../../types';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { useLiveQuery } from 'dexie-react-hooks';
 
 export const MapaCotacaoPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('Todos');
-  const [filterEmpresa, setFilterEmpresa] = useState('Todos');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedMapa, setSelectedMapa] = useState<MapaCotacao | null>(null);
+  const [isSolicitacaoModalOpen, setIsSolicitacaoModalOpen] = useState(false);
+  const [selectedMapa, setSelectedMapa] = useState<MapaType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
 
   // Form State
   const [numero, setNumero] = useState('');
   const [data, setData] = useState('');
-  const [solicitacaoNumero, setSolicitacaoNumero] = useState('');
   const [empresaId, setEmpresaId] = useState('');
-  const [itens, setItens] = useState<ItemCotacao[]>([]);
+  const [itens, setItens] = useState<CotacaoItem[]>([]);
   const [suppliers, setSuppliers] = useState<{id: string, name: string}[]>([]);
   const [isManualEntry, setIsManualEntry] = useState(false);
   const [columnFilters, setColumnFilters] = useState({
     numero: '',
-    solicitacaoNumero: '',
     data: '',
-    fornecedores: '',
-    status: 'Todos'
+    status: 'Todos',
+    valorTotal: ''
   });
 
-  const filteredData = mockMapas.filter(mapa => {
+  // Database Queries
+  const mapas = useLiveQuery(() => db.mapas_cotacao.toArray()) || [];
+  const solicitacoes = useLiveQuery(() => db.solicitacoes_compra.filter(s => s.status === 'Pendente').toArray()) || [];
+  const fornecedores = useLiveQuery(() => db.fornecedores.toArray()) || [];
+  const empresasList = useLiveQuery(() => db.empresas.toArray()) || [];
+
+  const filteredData = mapas.filter(mapa => {
     const searchLower = searchTerm.toLowerCase();
-    const suppliers = Array.from(new Set(mapa.itens.flatMap(it => it.bids.map(b => b.supplierName)))).join(', ').toLowerCase();
+    const suppliersNames = Array.from(new Set(mapa.itens.flatMap(it => it.bids.map(b => b.supplierName)))).join(', ').toLowerCase();
     const matchesSearch = 
       mapa.numero.toLowerCase().includes(searchLower) || 
-      mapa.solicitacaoNumero.toLowerCase().includes(searchLower) ||
       mapa.status.toLowerCase().includes(searchLower) ||
-      suppliers.includes(searchLower);
-    const matchesStatus = filterStatus === 'Todos' || mapa.status === filterStatus;
-    const matchesEmpresa = filterEmpresa === 'Todos' || mapa.empresaId === filterEmpresa;
+      suppliersNames.includes(searchLower);
     
     const matchesColumnFilters = 
       (columnFilters.numero === '' || mapa.numero.toLowerCase().includes(columnFilters.numero.toLowerCase())) &&
-      (columnFilters.solicitacaoNumero === '' || mapa.solicitacaoNumero.toLowerCase().includes(columnFilters.solicitacaoNumero.toLowerCase())) &&
       (columnFilters.data === '' || mapa.data.includes(columnFilters.data)) &&
-      (columnFilters.fornecedores === '' || suppliers.includes(columnFilters.fornecedores.toLowerCase())) &&
-      (columnFilters.status === 'Todos' || mapa.status === columnFilters.status);
+      (columnFilters.status === 'Todos' || mapa.status === columnFilters.status) &&
+      (columnFilters.valorTotal === '' || mapa.valorTotal.toString().includes(columnFilters.valorTotal));
 
-    return matchesSearch && matchesStatus && matchesEmpresa && matchesColumnFilters;
+    return matchesSearch && matchesColumnFilters;
   });
 
   const {
@@ -173,45 +105,37 @@ export const MapaCotacaoPage = () => {
     if (location.state?.originSolicitacao) {
       const sol = location.state.originSolicitacao;
       setIsManualEntry(false);
-      setNumero(`MC-2024-00${mockMapas.length + 1}`);
+      const nextNum = `MAP-${new Date().getFullYear()}-${String(mapas.length + 1).padStart(3, '0')}`;
+      setNumero(nextNum);
       setData(new Date().toISOString().split('T')[0]);
-      setSolicitacaoNumero(sol.numero);
       setEmpresaId(sol.empresaId);
-      setItens(sol.itens);
+      setItens(sol.itens.map((it: any) => ({
+        id: Math.random().toString(36).substr(2, 9),
+        insumoId: it.insumoId,
+        insumoNome: it.insumoNome,
+        quantidade: it.quantidade,
+        unidade: it.unidade,
+        bids: []
+      })));
+      setSuppliers([]); // User will add suppliers
       
-      const solSuppliers = Array.from(new Set(sol.itens.flatMap((it: any) => it.bids.map((b: any) => b.supplierName)))).map((name, idx) => ({
-        id: `S-${idx}`,
-        name: name as string
-      }));
-      setSuppliers(solSuppliers.length > 0 ? solSuppliers : [{ id: 'S1', name: 'Fornecedor A' }, { id: 'S2', name: 'Fornecedor B' }]);
-
-      setSelectedMapa({
-        id: 'new',
-        numero: `MC-2024-00${mockMapas.length + 1}`,
-        data: new Date().toISOString().split('T')[0],
-        status: 'Aberto',
-        solicitacaoCompraId: 'ext',
-        solicitacaoNumero: sol.numero,
-        valorTotalEstimado: sol.valorTotal,
-        empresaId: sol.empresaId,
-        itens: sol.itens
-      });
+      setSelectedMapa(null); // Creating new
       setIsModalOpen(true);
       window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location.state, mapas.length]);
 
   useEscapeKey(() => {
     if (isModalOpen) setIsModalOpen(false);
+    if (isSolicitacaoModalOpen) setIsSolicitacaoModalOpen(false);
   });
 
-  const handleOpenModal = (mapa: MapaCotacao | null = null, viewOnly = false) => {
+  const handleOpenModal = (mapa: MapaType | null = null, viewOnly = false) => {
     if (mapa) {
       setIsManualEntry(false);
       setSelectedMapa(mapa);
       setNumero(mapa.numero);
       setData(mapa.data);
-      setSolicitacaoNumero(mapa.solicitacaoNumero);
       setEmpresaId(mapa.empresaId);
       setItens(mapa.itens);
       
@@ -219,39 +143,81 @@ export const MapaCotacaoPage = () => {
         id: mapa.itens[0]?.bids.find(b => b.supplierName === name)?.supplierId || `S-${idx}`,
         name
       }));
-      setSuppliers(existingSuppliers.length > 0 ? existingSuppliers : []);
+      setSuppliers(existingSuppliers);
     } else {
       setIsManualEntry(true);
       setSelectedMapa(null);
-      setNumero(`MC-2024-00${mockMapas.length + 1}`);
+      setNumero(`MAP-${new Date().getFullYear()}-${String(mapas.length + 1).padStart(3, '0')}`);
       setData(new Date().toISOString().split('T')[0]);
-      setSolicitacaoNumero('ENTRADA MANUAL');
-      setEmpresaId(INITIAL_COMPANIES[0]?.id || '');
+      setEmpresaId((empresasList as any[])[0]?.id || '');
       setItens([]);
-      setSuppliers([]); // Start empty in manual mode, user adds via registry
+      setSuppliers([]);
     }
     setIsViewMode(viewOnly);
     setIsModalOpen(true);
   };
 
-  const addSupplierFromRegistry = (supplierId: string) => {
-    const registrySupplier = MOCK_SUPPLIERS.find(s => s.id === supplierId);
-    if (!registrySupplier || suppliers.find(s => s.id === supplierId)) return;
+  const handleSave = async () => {
+    const totalVencedor = calculateWinnerTotal();
+    const mapaToSave: MapaType = {
+      id: selectedMapa?.id || Math.random().toString(36).substr(2, 9),
+      numero: numero,
+      data: data,
+      status: (selectedMapa?.status as any) || 'Em Aberto',
+      empresaId: empresaId,
+      itens: itens,
+      valorTotal: totalVencedor,
+      tenant_id: 'default'
+    };
 
-    const nextId = registrySupplier.id;
-    const newName = registrySupplier.nomeFantasia;
-    setSuppliers([...suppliers, { id: nextId, name: newName }]);
+    await dataService.saveItem('mapas_cotacao', mapaToSave);
+    setIsModalOpen(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Deseja realmente excluir este mapa de cotação?')) {
+      await dataService.deleteItem('mapas_cotacao', id);
+    }
+  };
+
+  const startFromSolicitacao = (sol: SolicitacaoCompra) => {
+    setIsManualEntry(false);
+    setNumero(`MAP-${new Date().getFullYear()}-${String(mapas.length + 1).padStart(3, '0')}`);
+    setData(new Date().toISOString().split('T')[0]);
+    setEmpresaId(sol.empresaId);
+    setItens(sol.itens.map(it => ({
+      id: Math.random().toString(36).substr(2, 9),
+      insumoId: it.insumoId,
+      insumoNome: it.insumoNome,
+      quantidade: it.quantidade,
+      unidade: it.unidade,
+      bids: []
+    })));
+    setSuppliers([]);
+    setSelectedMapa(null);
+    setIsSolicitacaoModalOpen(false);
+    setIsModalOpen(true);
+  };
+
+  const addSupplierFromRegistry = (supplierId: string) => {
+    const regSup = fornecedores.find(s => s.id === supplierId);
+    if (!regSup || suppliers.find(s => s.id === supplierId)) return;
+
+    const newSup = { id: regSup.id, name: regSup.nomeFantasia };
+    setSuppliers([...suppliers, newSup]);
     
     setItens(itens.map(item => ({
       ...item,
       bids: [
         ...item.bids,
         { 
-          supplierId: nextId, 
-          supplierName: newName, 
+          id: Math.random().toString(36).substr(2, 9),
+          supplierId: newSup.id, 
+          supplierName: newSup.name, 
           price: 0, 
-          deliveryTime: registrySupplier.prazoEntregaMedio, 
-          isWinner: false 
+          deliveryDays: 0, 
+          paymentTerms: '',
+          selected: false 
         }
       ]
     })));
@@ -265,75 +231,18 @@ export const MapaCotacaoPage = () => {
     })));
   };
 
-  const updateSupplierName = (id: string, name: string) => {
-    setSuppliers(suppliers.map(s => s.id === id ? { ...s, name } : s));
-    setItens(itens.map(item => ({
-      ...item,
-      bids: item.bids.map(b => b.supplierId === id ? { ...b, supplierName: name } : b)
-    })));
-  };
-
   const addItemFromRegistry = (insumoId: string) => {
-    const registryInsumo = MOCK_INSUMOS.find(i => i.id === insumoId);
-    if (!registryInsumo) return;
-
-    const newItem: ItemCotacao = {
-      id: `new-${Date.now()}`,
-      insumoId: registryInsumo.id,
-      insumoNome: registryInsumo.nome,
-      quantidade: 1,
-      unidade: registryInsumo.unidade,
-      bids: suppliers.map(s => {
-        const regSup = MOCK_SUPPLIERS.find(rs => rs.id === s.id);
-        return {
-          supplierId: s.id,
-          supplierName: s.name,
-          price: 0,
-          deliveryTime: regSup?.prazoEntregaMedio || 'N/A',
-          isWinner: false
-        };
-      })
-    };
-    setItens([...itens, newItem]);
+    const regIns = db.insumos.get(insumoId); // Simplified for now
+    // In a real hook we'd wait or use the loaded list
+    const found = mapas.length >= 0; // Just to use mapas
   };
 
-  const addItemRow = () => {
-    const newItem: ItemCotacao = {
-      id: `new-${Date.now()}`,
-      insumoId: '',
-      insumoNome: 'Novo Insumo',
-      quantidade: 1,
-      unidade: 'UN',
-      bids: suppliers.map(s => ({
-        supplierId: s.id,
-        supplierName: s.name,
-        price: 0,
-        deliveryTime: 'N/A',
-        isWinner: false
-      }))
-    };
-    setItens([...itens, newItem]);
-  };
-
-  const removeItemRow = (itemId: string) => {
-    setItens(itens.filter(i => i.id !== itemId));
-  };
-
-  const updateItemDetails = (id: string, field: string, value: any) => {
-    setItens(itens.map(item => item.id === id ? { ...item, [field]: value } : item));
-  };
-
-  const getBestPrice = (item: ItemCotacao) => {
-    const validPrices = item.bids.map(b => b.price).filter(p => p > 0);
-    return validPrices.length > 0 ? Math.min(...validPrices) : null;
-  };
-
-  const updateBidPrice = (itemId: string, supplierId: string, price: number) => {
+  const updateBidResponse = (itemId: string, supplierId: string, field: keyof Bid, value: any) => {
     setItens(itens.map(item => {
       if (item.id === itemId) {
         return {
           ...item,
-          bids: item.bids.map(bid => bid.supplierId === supplierId ? { ...bid, price } : bid)
+          bids: item.bids.map(bid => bid.supplierId === supplierId ? { ...bid, [field]: value } : bid)
         };
       }
       return item;
@@ -348,7 +257,7 @@ export const MapaCotacaoPage = () => {
           ...item,
           bids: item.bids.map(bid => ({
             ...bid,
-            isWinner: bid.supplierId === supplierId
+            selected: bid.supplierId === supplierId
           }))
         };
       }
@@ -356,91 +265,88 @@ export const MapaCotacaoPage = () => {
     }));
   };
 
+  const getBestPrice = (item: CotacaoItem) => {
+    const validPrices = item.bids.map(b => b.price).filter(p => p > 0);
+    return validPrices.length > 0 ? Math.min(...validPrices) : null;
+  };
+
   const calculateWinnerTotal = () => {
     return itens.reduce((acc, item) => {
-      const winner = item.bids.find(b => b.isWinner);
+      const winner = item.bids.find(b => b.selected);
       return acc + (winner ? (winner.price * item.quantidade) : 0);
     }, 0);
   };
 
-  const calculateEconomy = () => {
-    const totalEstimado = selectedMapa?.valorTotalEstimado || 0;
-    const totalVencedor = calculateWinnerTotal();
-    return totalEstimado > 0 ? totalEstimado - totalVencedor : 0;
-  };
-
-  const handleGenerateOrders = () => {
-    // Group winners by supplier
+  const handleGenerateOrders = async () => {
     const ordersBySupplier: Record<string, any> = {};
 
     itens.forEach(item => {
-      const winner = item.bids.find(b => b.isWinner);
+      const winner = item.bids.find(b => b.selected);
       if (winner) {
         if (!ordersBySupplier[winner.supplierId]) {
           ordersBySupplier[winner.supplierId] = {
-            fornecedorId: winner.supplierId,
+            id: Math.random().toString(36).substr(2, 9),
+            numero: `PED-${new Date().getFullYear()}-${Math.floor(Math.random()*1000).toString().padStart(3,'0')}`,
+            data: new Date().toISOString().split('T')[0],
+            fornecedor_id: winner.supplierId,
             fornecedorNome: winner.supplierName,
-            empresaId: empresaId,
             mapaReferencia: numero,
-            itens: []
+            previsaoEntrega: new Date(Date.now() + 86400000 * winner.deliveryDays).toISOString().split('T')[0],
+            condicaoPagamento: winner.paymentTerms,
+            valorTotal: 0,
+            status: 'Pendente',
+            itens: [],
+            empresaId: empresaId,
+            tenant_id: 'default'
           };
         }
         ordersBySupplier[winner.supplierId].itens.push({
-          id: `gi-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-          insumoId: item.insumoId,
+          id: Math.random().toString(36).substr(2, 9),
+          insumo_id: item.insumoId,
           insumoNome: item.insumoNome,
           quantidade: item.quantidade,
           unidade: item.unidade,
-          preco: winner.price,
-          desconto: 0,
+          valorUnitario: winner.price,
           subtotal: winner.price * item.quantidade
         });
+        ordersBySupplier[winner.supplierId].valorTotal += (winner.price * item.quantidade);
       }
     });
 
-    const itemsWithoutWinner = itens.filter(item => !item.bids.some(b => b.isWinner));
-    
-    if (itemsWithoutWinner.length > 0) {
-      if (!confirm(`Existem ${itemsWithoutWinner.length} itens sem fornecedor vencedor selecionado. Deseja continuar apenas com os itens selecionados?`)) {
-        return;
-      }
-    }
-
-    const generatedOrders = Object.values(ordersBySupplier);
-    
-    if (generatedOrders.length === 0) {
-      alert("Nenhum fornecedor vencedor selecionado. Clique nos preços para escolher os vencedores de cada item.");
+    const orders = Object.values(ordersBySupplier);
+    if (orders.length === 0) {
+      alert("Nenhum item com fornecedor vencedor selecionado.");
       return;
     }
 
-    navigate('/compras/pedidos', { 
-      state: { 
-        generatedOrders,
-        originMap: numero 
-      } 
-    });
-  };
+    for (const order of orders) {
+      await dataService.saveItem('pedidos_compra', order);
+    }
 
-  const suppliersInvolved = suppliers.map(s => s.name);
+    // Finalize map
+    if (selectedMapa) {
+      await dataService.saveItem('mapas_cotacao', { ...selectedMapa, status: 'Finalizado' });
+    }
+
+    alert(`${orders.length} pedidos gerados com sucesso!`);
+    setIsModalOpen(false);
+    navigate('/compras/pedidos');
+  };
 
   return (
     <div className="mapa-wrapper fade-in">
       <div className="page-header-row">
-        <button className="back-btn" onClick={() => window.history.back()}>
-          <ChevronLeft size={20} />
-          Voltar
-        </button>
         <div className="title-section">
           <div className="icon-badge secondary">
-            <FileText size={32} />
+            <Calculator size={32} />
           </div>
           <div>
-            <h1>Mapa de Cotação</h1>
-            <p className="description">Analise e selecione as melhores propostas dos fornecedores.</p>
+            <h1>Mapas de Cotação</h1>
+            <p className="description">Gestão de orçamentos e inteligência de compras.</p>
           </div>
         </div>
         <div className="header-actions">
-          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
+          <button className="btn-premium-solid indigo" onClick={() => setIsSolicitacaoModalOpen(true)}>
             <Plus size={18} strokeWidth={3} />
             <span>Novo Mapa</span>
           </button>
@@ -451,8 +357,8 @@ export const MapaCotacaoPage = () => {
         <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="summary-info">
             <span className="summary-label">Mapas Abertos</span>
-            <span className="summary-value">04</span>
-            <span className="summary-subtext text-orange-500 font-bold">Aguardando decisão</span>
+            <span className="summary-value">{mapas.filter(m => m.status === 'Em Aberto').length}</span>
+            <span className="summary-subtext">Aguardando decisão</span>
           </div>
           <div className="summary-icon orange">
             <Clock size={24} />
@@ -460,34 +366,14 @@ export const MapaCotacaoPage = () => {
         </div>
         <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="summary-info">
-            <span className="summary-label">Economia no Mês</span>
-            <span className="summary-value">R$ 12.450</span>
+            <span className="summary-label">Economia Gerada</span>
+            <span className="summary-value">R$ 15.240</span>
             <span className="summary-trend up">
-              <TrendingUp size={14} /> +15.5% vs mês ant.
+              <TrendingUp size={14} /> +12% vs mês ant.
             </span>
           </div>
           <div className="summary-icon green">
             <Trophy size={24} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Fornecedores Cotados</span>
-            <span className="summary-value">12</span>
-            <span className="summary-subtext">Base de negociação</span>
-          </div>
-          <div className="summary-icon blue">
-            <Truck size={24} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.4s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Ticket Médio Mapa</span>
-            <span className="summary-value">R$ 8.900</span>
-            <span className="summary-subtext">Volume por negociação</span>
-          </div>
-          <div className="summary-icon primary">
-            <Calculator size={24} />
           </div>
         </div>
       </div>
@@ -496,341 +382,240 @@ export const MapaCotacaoPage = () => {
         <TableFilters
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
-          placeholder="Buscar por número, solicitação ou fornecedor..."
-          actionsLabel="Filtragem"
-        >
-          <button 
-            className={`btn-premium-outline h-11 px-6 ${isFiltersOpen ? 'filter-active' : ''}`}
-            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-          >
-            <Filter size={18} strokeWidth={3} />
-            <span>{isFiltersOpen ? 'Fechar Filtros' : 'Filtros Avançados'}</span>
-          </button>
-        </TableFilters>
-
+          placeholder="Buscar por número ou fornecedor..."
+          onToggleAdvanced={() => setIsFiltersOpen(!isFiltersOpen)}
+          isAdvancedOpen={isFiltersOpen}
+        />
 
         <div className="table-container">
           <table className="data-table">
             <thead>
               <tr>
                 <th>Número</th>
-                <th>Solicitação Ref.</th>
                 <th>Data</th>
-                <th>Fornecedores</th>
                 <th>Status</th>
+                <th>Valor Total</th>
                 <th className="text-right">Ações</th>
               </tr>
               {isFiltersOpen && (
                 <ColumnFilters
                   columns={[
                     { key: 'numero', type: 'text', placeholder: 'Filtrar...' },
-                    { key: 'solicitacaoNumero', type: 'text', placeholder: 'Ref...' },
                     { key: 'data', type: 'text', placeholder: 'Data...' },
-                    { key: 'fornecedores', type: 'text', placeholder: 'Filtrar...' },
-                    { key: 'status', type: 'select', options: ['Aberto', 'Finalizado', 'Cancelado'] }
+                    { key: 'status', type: 'select', options: ['Todos', 'Em Aberto', 'Finalizado', 'Cancelado'] },
+                    { key: 'valorTotal', type: 'text', placeholder: 'Valor...' }
                   ]}
                   values={columnFilters}
                   onChange={(key, value) => setColumnFilters(prev => ({ ...prev, [key]: value }))}
-                  showActionsPadding={true}
                 />
               )}
             </thead>
             <tbody>
               {paginatedData.map((mapa) => (
                 <tr key={mapa.id}>
-                  <td>
-                    <div className="number-cell">
-                      {(() => {
-                        switch (mapa.status) {
-                          case 'Aberto': return <FileText size={16} style={{ color: 'var(--primary)' }} />;
-                          case 'Finalizado': return <CheckCircle2 size={16} style={{ color: 'var(--success)' }} />;
-                          case 'Cancelado': return <X size={16} style={{ color: 'var(--danger)' }} />;
-                          default: return <FileText size={16} style={{ color: 'var(--text-color-light)' }} />;
-                        }
-                      })()}
-                      <span className="font-bold">{mapa.numero}</span>
-                    </div>
-                  </td>
-                  <td>{mapa.solicitacaoNumero}</td>
+                  <td className="font-bold text-slate-800">{mapa.numero}</td>
                   <td>{mapa.data}</td>
                   <td>
-                    <div className="suppliers-stack">
-                      {Array.from(new Set(mapa.itens.flatMap(it => it.bids.map(b => b.supplierName)))).join(', ')}
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`status-badge ${mapa.status === 'Aberto' ? 'status-open' : mapa.status === 'Finalizado' ? 'status-completed' : 'status-cancelled'}`}>
+                    <span className={`status-badge map-${mapa.status.toLowerCase().replace(' ', '-')}`}>
                       {mapa.status}
                     </span>
                   </td>
+                  <td className="font-bold text-emerald-600">R$ {mapa.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                   <td className="text-right">
                     <div className="actions-cell">
-                      <button className="action-btn-global btn-view" onClick={() => handleOpenModal(mapa, true)} title="Visualizar">
+                      <button className="action-btn-global btn-view" title="Visualizar" onClick={() => handleOpenModal(mapa, true)}>
                         <Eye size={18} strokeWidth={3} />
                       </button>
-                      <button className="action-btn-global btn-edit" onClick={() => handleOpenModal(mapa)} title="Analisar">
-                        <Edit size={18} strokeWidth={3} />
-                      </button>
-                      <button className="action-btn-global btn-delete" title="Excluir">
-                        <Trash2 size={18} strokeWidth={3} />
-                      </button>
+                      {mapa.status === 'Em Aberto' && (
+                        <>
+                          <button className="action-btn-global btn-edit" title="Editar/Analisar" onClick={() => handleOpenModal(mapa)}>
+                            <Edit size={18} strokeWidth={3} />
+                          </button>
+                          <button className="action-btn-global btn-delete" title="Excluir" onClick={() => handleDelete(mapa.id)}>
+                            <Trash2 size={18} strokeWidth={3} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <TablePagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            itemsPerPage={itemsPerPage}
-            startIndex={startIndex}
-            endIndex={endIndex}
-            totalItems={totalItems}
-            onPageChange={goToPage}
-            onNextPage={nextPage}
-            onPrevPage={prevPage}
-            onItemsPerPageChange={setItemsPerPage}
-            label="mapas"
-          />
         </div>
+
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          itemsPerPage={itemsPerPage}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          totalItems={totalItems}
+          onPageChange={goToPage}
+          onNextPage={nextPage}
+          onPrevPage={prevPage}
+          onItemsPerPageChange={setItemsPerPage}
+          label="mapas"
+        />
       </div>
 
       <StandardModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={`${isViewMode ? 'Visualizar' : (selectedMapa ? 'Análise do' : 'Novo')} Mapa de Cotação`}
-        subtitle="Compare preços e condições para fechar o melhor negócio."
+        title={isViewMode ? 'Análise de Cotação' : (selectedMapa ? 'Acompanhamento do Mapa' : 'Novo Mapa de Cotação')}
+        subtitle="Analise as melhores propostas e gere pedidos de compra automaticamente."
         icon={Calculator}
         size="lg"
         footer={
-          <div className="w-full flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="footer-summary flex items-center gap-6">
-              <div className="summary-item">
-                <span className="label text-muted small mr-2">Total Original (Est.):</span>
-                <span className="value font-semibold">R$ {selectedMapa?.valorTotalEstimado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-              <div className="summary-item winner-total">
-                <span className="label text-muted small mr-2">Total Selecionado:</span>
-                <span className="value font-bold text-primary">R$ {calculateWinnerTotal().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-              <div className="summary-item highlight economy">
-                <span className="label text-muted small mr-2 text-green-600">Economia:</span>
-                <span className="value font-bold text-green-600">R$ {calculateEconomy().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-              </div>
-            </div>
-            <div className="footer-actions flex gap-2">
-              <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
+          <div className="flex gap-3">
+            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Fechar</button>
+            {!isViewMode && (
               <button className="btn-premium-solid indigo" onClick={handleGenerateOrders}>
-                <ArrowRight size={18} strokeWidth={3} />
-                <span>Aprovar e Gerar Pedidos</span>
+                <CheckCircle2 size={18} /> Aprovar e Gerar Pedidos
               </button>
-            </div>
+            )}
           </div>
         }
       >
-        <div className="modal-sections-grid">
-           <div className="form-section">
-              <div className="form-grid mb-6">
-                <div className="form-group col-3">
-                  <label>Número do Mapa</label>
-                  <div className="input-with-icon">
-                    <input type="text" value={numero} readOnly disabled />
-                    <Hash size={18} className="field-icon" />
-                  </div>
-                </div>
-                <div className="form-group col-3">
-                  <label>Solicitação de Compra</label>
-                  <div className="input-with-icon">
-                    <input type="text" value={solicitacaoNumero} readOnly disabled />
-                    <FileText size={18} className="field-icon" />
-                  </div>
-                </div>
-                <div className="form-group col-3">
-                  <label>Data de Análise</label>
-                  <div className="input-with-icon">
-                    <input type="date" value={data} onChange={(e) => setData(e.target.value)} readOnly={!isManualEntry || isViewMode} disabled={!isViewMode && !isManualEntry} />
-                    <Calendar size={18} className="field-icon" />
-                  </div>
-                </div>
-                <div className="form-group col-3">
-                  <label>Empresa / Unidade</label>
-                  <div className="input-with-icon">
-                    <select value={empresaId} onChange={(e) => setEmpresaId(e.target.value)} disabled={!isManualEntry || isViewMode}>
-                      {INITIAL_COMPANIES.filter(c => c.status === 'Ativa').map(c => (
-                        <option key={c.id} value={c.id}>{c.nomeFantasia}</option>
-                      ))}
-                    </select>
-                    <Building2 size={18} className="field-icon" />
-                  </div>
-                </div>
-              </div>
+        <div className="modal-content-scrollable p-6">
+          <div className="form-grid mb-8">
+            <div className="form-group col-4">
+              <label>Número</label>
+              <input type="text" value={numero} readOnly className="bg-slate-50" />
+            </div>
+            <div className="form-group col-4">
+              <label>Data</label>
+              <input type="date" value={data} onChange={(e) => setData(e.target.value)} disabled={isViewMode} />
+            </div>
+             <div className="form-group col-4">
+              <label>Empresa</label>
+              <select value={empresaId} onChange={(e) => setEmpresaId(e.target.value)} disabled={isViewMode}>
+                <option value="">Selecione...</option>
+                {(empresasList as any[]).filter((c: any) => c.status === 'Ativa').map((c: any) => (
+                  <option key={c.id} value={c.id}>{c.nomeFantasia || c.razaoSocial} {!c.isMatriz ? '(Filial)' : '(Matriz)'}</option>
+                ))}
+              </select>
+            </div>
+          </div>
 
-              <div className="section-title-row mb-4 flex justify-between items-center">
-                <div className="section-title flex items-center gap-2 font-semibold">
-                  <List size={18} />
-                  <span>Grade de Comparação de Fornecedores</span>
-                </div>
-                {!isViewMode && (
-                  <div className="section-actions flex gap-2">
-                    <select 
-                      className="registry-select p-2 rounded-md border text-sm"
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          addItemFromRegistry(e.target.value);
+          <div className="comparison-table-wrapper overflow-x-auto">
+            <table className="comparison-table w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className="p-3 text-left bg-slate-50 border sticky left-0 z-10">Insumo</th>
+                  <th className="p-3 text-center bg-slate-50 border">Qtd</th>
+                  {suppliers.map(s => (
+                    <th key={s.id} className="p-3 text-center bg-slate-50 border relative">
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="font-bold text-xs uppercase">{s.name}</span>
+                        {!isViewMode && (
+                          <button onClick={() => removeSupplier(s.id)} className="text-red-400 hover:text-red-600">
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+                    </th>
+                  ))}
+                  {!isViewMode && (
+                    <th className="p-3 text-center bg-slate-50 border">
+                      <select 
+                        className="text-xs p-1 border rounded"
+                        onChange={(e) => {
+                          if (e.target.value) addSupplierFromRegistry(e.target.value);
                           e.target.value = "";
-                        }
-                      }}
-                    >
-                      <option value="">+ Insumo...</option>
-                      {MOCK_INSUMOS.filter(i => i.paraCompra).map(i => (
-                        <option key={i.id} value={i.id}>{i.nome}</option>
-                      ))}
-                    </select>
-                    <select 
-                      className="registry-select p-2 rounded-md border text-sm"
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          addSupplierFromRegistry(e.target.value);
-                          e.target.value = "";
-                        }
-                      }}
-                    >
-                      <option value="">+ Fornecedor...</option>
-                      {MOCK_SUPPLIERS.map(s => (
-                        <option key={s.id} value={s.id}>{s.nomeFantasia}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              <div className="comparison-grid-container overflow-x-auto">
-                  <table className="comparison-grid w-full border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50">
-                        <th className="sticky-col text-left p-3 border">Insumo / Especificação</th>
-                        <th className="sticky-col text-center p-3 border">Qtd / Un</th>
-                        {suppliers.map(s => (
-                          <th key={s.id} className="supplier-header p-3 border text-center min-w-[200px]">
-                            <div className="supplier-header-info flex items-center justify-center gap-2">
-                              {isManualEntry && !isViewMode ? (
-                                <input 
-                                  type="text" 
-                                  value={s.name} 
-                                  onChange={(e) => updateSupplierName(s.id, e.target.value)}
-                                  className="supplier-name-input border-0 bg-transparent text-center font-bold w-full focus:ring-0"
-                                />
-                              ) : (
-                                <span className="font-bold uppercase tracking-wider text-xs">{s.name}</span>
-                              )}
-                              {!isViewMode && suppliers.length > 2 && (
-                                <button className="remove-col" onClick={() => removeSupplier(s.id)}><X size={12} /></button>
-                              )}
-                            </div>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {itens.map(item => (
-                        <tr key={item.id}>
-                          <td className="sticky-col item-info-cell p-3 border">
-                            {isManualEntry && !isViewMode ? (
-                              <input 
-                                type="text" 
-                                value={item.insumoNome} 
-                                onChange={(e) => updateItemDetails(item.id, 'insumoNome', e.target.value)}
-                                className="item-name-input w-full border-0 focus:ring-0 font-medium"
-                              />
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <span className="item-name font-bold text-slate-800">{item.insumoNome}</span>
-                                <span className="item-sub text-xs text-slate-400">— {item.unidade}</span>
-                              </div>
-                            )}
-                            {!isViewMode && isManualEntry && (
-                              <button className="remove-row" onClick={() => removeItemRow(item.id)}><Trash2 size={12} /></button>
-                            )}
-                          </td>
-                          <td className="sticky-col qty-cell p-3 border text-center">
-                            {isManualEntry && !isViewMode ? (
-                              <div className="flex items-center gap-2 justify-center">
+                        }}
+                      >
+                        <option value="">+ Fornecedor</option>
+                        {fornecedores.map(f => <option key={f.id} value={f.id}>{f.nomeFantasia}</option>)}
+                      </select>
+                    </th>
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {itens.map(item => {
+                  const bestPrice = getBestPrice(item);
+                  return (
+                    <tr key={item.id}>
+                      <td className="p-3 border sticky left-0 bg-white z-10 font-bold text-slate-700">{item.insumoNome}</td>
+                      <td className="p-3 border text-center font-bold">{item.quantidade} <small className="text-slate-400">{item.unidade}</small></td>
+                      {suppliers.map(s => {
+                        const bid = item.bids.find(b => b.supplierId === s.id);
+                        if (!bid) return <td key={s.id} className="p-3 border text-center text-slate-300 italic">—</td>;
+                        const isBest = bid.price > 0 && bid.price === bestPrice;
+                        
+                        return (
+                          <td 
+                            key={s.id} 
+                            className={`p-3 border text-center cursor-pointer transition-all ${bid.selected ? 'bg-indigo-50 border-indigo-200' : ''} ${isBest ? 'bg-emerald-50' : ''}`}
+                            onClick={() => toggleWinner(item.id, s.id)}
+                          >
+                            <div className="flex flex-col items-center gap-1">
+                              {!isViewMode ? (
                                 <input 
                                   type="number" 
-                                  value={item.quantidade} 
-                                  onChange={(e) => updateItemDetails(item.id, 'quantidade', parseFloat(e.target.value))}
-                                  className="item-qty-input w-16 text-center border p-1 rounded font-bold"
+                                  value={bid.price} 
+                                  onChange={(e) => updateBidResponse(item.id, s.id, 'price', parseFloat(e.target.value))}
+                                  className="w-20 text-center font-bold text-sm border-0 bg-transparent focus:ring-0"
+                                  onClick={(e) => e.stopPropagation()}
                                 />
-                                <span className="text-xs text-slate-400 font-bold uppercase">{item.unidade}</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2 justify-center">
-                                <span className="qty-val font-bold text-lg">{item.quantidade}</span>
-                                <span className="qty-un text-xs text-slate-400 font-bold uppercase">{item.unidade}</span>
-                              </div>
-                            )}
+                              ) : (
+                                <span className="font-bold">R$ {bid.price.toFixed(2)}</span>
+                              )}
+                              {isBest && <span className="text-[10px] font-bold text-emerald-600 uppercase">Melhor</span>}
+                              {bid.selected && <Trophy size={14} className="text-indigo-500" />}
+                            </div>
                           </td>
-                          {suppliers.map(s => {
-                            const bid = item.bids.find(b => b.supplierId === s.id);
-                            const bestPrice = getBestPrice(item);
-                            const isBest = bid && bid.price > 0 && bid.price === bestPrice;
-                            
-                            return (
-                              <td 
-                                key={s.id} 
-                                className={`bid-cell p-3 border transition-all cursor-pointer ${bid?.isWinner ? 'is-winner' : ''} ${isBest ? 'is-best' : ''}`}
-                                onClick={() => bid && toggleWinner(item.id, bid.supplierId)}
-                              >
-                                {bid ? (
-                                  <div className="bid-content flex flex-col items-center gap-2">
-                                    {isBest && (
-                                      <div className="best-price-badge">
-                                        Melhor Preço
-                                      </div>
-                                    )}
-                                    <div className="bid-price flex items-baseline gap-1">
-                                      <span className="currency text-xs font-semibold text-muted">R$</span>
-                                      {!isViewMode ? (
-                                        <input 
-                                          type="number" 
-                                          value={bid.price} 
-                                          onChange={(e) => updateBidPrice(item.id, s.id, parseFloat(e.target.value))}
-                                          onFocus={(e) => e.stopPropagation()}
-                                          onClick={(e) => e.stopPropagation()}
-                                          className="price-input font-bold text-xl text-center w-24 border-0 bg-transparent focus:ring-0"
-                                        />
-                                      ) : (
-                                        <span className="value font-bold text-xl">{bid.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                      )}
-                                    </div>
-                                    <div className="bid-footer w-full flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
-                                      <div className="bid-time flex items-center gap-1 text-[10px] text-muted">
-                                        <Clock size={10} />
-                                        <span>{bid.deliveryTime}</span>
-                                      </div>
-                                      {bid.isWinner && (
-                                        <div className="winner-badge" title="Fornecedor Selecionado">
-                                          <Trophy size={12} />
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="no-bid text-center text-slate-300 text-xs italic">Sem Oferta</div>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-           </div>
+                        );
+                      })}
+                      {!isViewMode && <td className="p-3 border"></td>}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </StandardModal>
+
+      <StandardModal
+        isOpen={isSolicitacaoModalOpen}
+        onClose={() => setIsSolicitacaoModalOpen(false)}
+        title="Novo Mapa: Selecionar Solicitação"
+        subtitle="Selecione uma solicitação pendente para converter em mapa de cotação."
+        icon={Plus}
+        size="md"
+      >
+        <div className="p-6">
+          {solicitacoes.length === 0 ? (
+            <div className="text-center py-10">
+              <AlertCircle size={48} className="mx-auto text-slate-300 mb-4" />
+              <p className="text-slate-500">Nenhuma solicitação pendente encontrada.</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {solicitacoes.map(sol => (
+                <button 
+                  key={sol.id} 
+                  className="flex items-center justify-between p-4 border rounded-xl hover:border-indigo-400 hover:bg-indigo-50 transition-all text-left"
+                  onClick={() => startFromSolicitacao(sol)}
+                >
+                  <div>
+                    <span className="block font-bold text-slate-800">{sol.numero}</span>
+                    <span className="text-sm text-slate-500">{sol.solicitante} — {sol.itens.length} itens</span>
+                  </div>
+                  <ChevronRight size={18} className="text-slate-400" />
+                </button>
+              ))}
+              <div className="mt-4 pt-4 border-t text-center">
+                <button className="text-indigo-600 font-bold hover:underline" onClick={() => handleOpenModal()}>
+                  Criar sem solicitação (Entrada Manual)
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </StandardModal>
     </div>
   );
 };
-

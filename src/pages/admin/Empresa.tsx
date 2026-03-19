@@ -28,11 +28,13 @@ import { ColumnFilters } from '../../components/ColumnFilters';
 import { usePagination } from '../../hooks/usePagination';
 import './Empresa.css';
 
-import { Company } from '../../types/definitions';
-import { INITIAL_COMPANIES } from '../../data/initialData';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { Company } from '../../types';
 
 export const Empresa: React.FC = () => {
-  const [companies, setCompanies] = useState<Company[]>(INITIAL_COMPANIES);
+  const companies = useLiveQuery(() => db.empresas.toArray()) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState('Todos');
@@ -132,26 +134,29 @@ export const Empresa: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.razaoSocial || !formData.cnpj) {
       alert('Razão Social e CPF/CNPJ são obrigatórios');
       return;
     }
 
     if (editingCompany) {
-      const oldStatus = editingCompany.status;
-      const newStatus = formData.status;
+      const accountData: Company = {
+        ...editingCompany,
+        ...formData,
+        isMatriz: !isBranch,
+        parentId: isBranch ? selectedMatrizId : undefined,
+      };
+
+      await dataService.saveItem('empresas', accountData);
       
-      setCompanies((prev: Company[]) => {
-        let updated = prev.map((c: Company) => c.id === editingCompany.id ? { ...c, ...formData } as Company : c);
-        
-        // Cascade inactivation: if matriz becomes inactive, all its branches become inactive
-        if (editingCompany.isMatriz && oldStatus === 'Ativa' && newStatus === 'Inativa') {
-          updated = updated.map(c => c.parentId === editingCompany.id ? { ...c, status: 'Inativa' } : c);
+      // Cascade inactivation: if matriz becomes inactive, all its branches become inactive
+      if (editingCompany.isMatriz && editingCompany.status === 'Ativa' && formData.status === 'Inativa') {
+        const branchesToInactivate = companies.filter((c: Company) => c.parentId === editingCompany.id);
+        for (const branch of branchesToInactivate) {
+          await dataService.saveItem('empresas', { ...branch, status: 'Inativa' });
         }
-        
-        return updated;
-      });
+      }
     } else {
       const newCompany: Company = {
         ...formData,
@@ -160,14 +165,19 @@ export const Empresa: React.FC = () => {
         parentId: isBranch ? selectedMatrizId : undefined,
         status: 'Ativa'
       } as Company;
-      setCompanies((prev: Company[]) => [...prev, newCompany]);
+      await dataService.saveItem('empresas', newCompany);
     }
     setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`Deseja realmente excluir a empresa "${name}"? Todas as filiais relacionadas também perderão o vínculo.`)) {
-      setCompanies(prev => prev.filter(c => c.id !== id && c.parentId !== id));
+  const handleDelete = async (id: string, name: string) => {
+    if (window.confirm(`Tem certeza que deseja excluir a empresa ${name}?`)) {
+      await dataService.deleteItem('empresas', id);
+      // Delete branches
+      const branchesToDelete = companies.filter((c: Company) => c.parentId === id);
+      for (const branch of branchesToDelete) {
+        await dataService.deleteItem('empresas', branch.id);
+      }
     }
   };
 
@@ -211,7 +221,7 @@ export const Empresa: React.FC = () => {
         <div className="summary-card animate-slide-up" style={{ animationDelay: '0s' }}>
           <div className="summary-info">
             <span className="summary-label">Total Matrizes</span>
-            <span className="summary-value">{companies.filter(c => c.isMatriz).length}</span>
+            <span className="summary-value">{companies.filter((c: Company) => c.isMatriz).length}</span>
             <span className="summary-subtext">Unidades principais</span>
           </div>
           <div className="summary-icon emerald">
@@ -221,7 +231,7 @@ export const Empresa: React.FC = () => {
         <div className="summary-card animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="summary-info">
             <span className="summary-label">Total Filiais</span>
-            <span className="summary-value">{companies.filter(c => !c.isMatriz).length}</span>
+            <span className="summary-value">{companies.filter((c: Company) => !c.isMatriz).length}</span>
             <span className="summary-subtext">Unidades produtivas</span>
           </div>
           <div className="summary-icon emerald">
@@ -315,7 +325,10 @@ export const Empresa: React.FC = () => {
                         <div className="company-details-main">
                           <div className="name-box">
                             <strong>{branch.nomeFantasia || branch.razaoSocial}</strong>
-                            {branch.status === 'Inativa' && <span className="badge-status-inativa-premium">INATIVA</span>}
+                            <div className="flex gap-2">
+                              <span className="badge-filial-premium">FILIAL</span>
+                              {branch.status === 'Inativa' && <span className="badge-status-inativa-premium">INATIVA</span>}
+                            </div>
                           </div>
                           <span className="sub-info">{branch.cnpj} • {branch.cidade}/{branch.estado}</span>
                         </div>
@@ -391,6 +404,31 @@ export const Empresa: React.FC = () => {
                 <input type="text" value={formData.nomeFantasia || ''} onChange={(e) => handleInputChange('nomeFantasia', e.target.value)} placeholder="Fazenda Exemplo" />
               </div>
               <div className="form-group col-6">
+                <label>Tipo de Unidade</label>
+                <select 
+                  value={isBranch ? 'Filial' : 'Matriz'} 
+                  onChange={(e) => {
+                    const branch = e.target.value === 'Filial';
+                    setIsBranch(branch);
+                    handleInputChange('isMatriz', !branch);
+                    if (!branch) {
+                      handleInputChange('parentId', undefined);
+                      setSelectedMatrizId('');
+                    } else if (matrizes.length > 0 && !selectedMatrizId) {
+                      setSelectedMatrizId(matrizes[0].id);
+                      handleInputChange('parentId', matrizes[0].id);
+                    }
+                  }}
+                  disabled={!!editingCompany && editingCompany.isMatriz && getBranches(editingCompany.id).length > 0}
+                >
+                  <option value="Matriz">Matriz</option>
+                  <option value="Filial">Filial</option>
+                </select>
+                {!!editingCompany && editingCompany.isMatriz && getBranches(editingCompany.id).length > 0 && (
+                  <span className="text-[10px] text-amber-600 mt-1">Não é possível mudar uma matriz que possui filiais vinculadas.</span>
+                )}
+              </div>
+              <div className="form-group col-6">
                 <label>Status</label>
                 <select 
                   value={formData.status || 'Ativa'} 
@@ -408,8 +446,17 @@ export const Empresa: React.FC = () => {
               {isBranch && (
                 <div className="form-group col-6">
                   <label>Matriz Vinculada</label>
-                  <select value={selectedMatrizId} onChange={(e) => setSelectedMatrizId(e.target.value)} disabled={!!editingCompany}>
-                    {matrizes.map((m: Company) => <option key={m.id} value={m.id}>{m.razaoSocial}</option>)}
+                  <select 
+                    value={selectedMatrizId} 
+                    onChange={(e) => {
+                      setSelectedMatrizId(e.target.value);
+                      handleInputChange('parentId', e.target.value);
+                    }}
+                  >
+                    <option value="">Selecione a matriz...</option>
+                    {matrizes.filter(m => m.id !== editingCompany?.id).map((m: Company) => (
+                      <option key={m.id} value={m.id}>{m.razaoSocial}</option>
+                    ))}
                   </select>
                 </div>
               )}
@@ -441,6 +488,14 @@ export const Empresa: React.FC = () => {
                   <option value="Lucro Presumido">Lucro Presumido</option>
                   <option value="Lucro Real">Lucro Real</option>
                   <option value="Produtor Rural">Produtor Rural</option>
+                </select>
+              </div>
+              <div className="form-group col-6">
+                <label>CRT (Código de Regime Tributário)</label>
+                <select value={formData.crt || '1'} onChange={(e) => handleInputChange('crt', e.target.value)}>
+                  <option value="1">1 - Simples Nacional</option>
+                  <option value="2">2 - Simples Nacional (Excesso)</option>
+                  <option value="3">3 - Regime Normal</option>
                 </select>
               </div>
             </div>

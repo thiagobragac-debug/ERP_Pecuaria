@@ -23,6 +23,9 @@ import {
 } from 'lucide-react';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
+import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { Transacao } from '../../types';
 import './FluxoCaixa.css';
 
 interface MonthlyFlow {
@@ -33,23 +36,43 @@ interface MonthlyFlow {
   despesaProjetada: number;
 }
  
-const mockMonthlyFlow: MonthlyFlow[] = [
-  { mes: 'Out', receitaRealizada: 450000, receitaProjetada: 0, despesaRealizada: 320000, despesaProjetada: 0 },
-  { mes: 'Nov', receitaRealizada: 520000, receitaProjetada: 0, despesaRealizada: 410000, despesaProjetada: 0 },
-  { mes: 'Dez', receitaRealizada: 850000, receitaProjetada: 0, despesaRealizada: 380000, despesaProjetada: 0 },
-  { mes: 'Jan', receitaRealizada: 480000, receitaProjetada: 0, despesaRealizada: 420000, despesaProjetada: 0 },
-  { mes: 'Fev', receitaRealizada: 490000, receitaProjetada: 10000, despesaRealizada: 550000, despesaProjetada: 5000 },
-  { mes: 'Mar', receitaRealizada: 210000, receitaProjetada: 400000, despesaRealizada: 150000, despesaProjetada: 240000 },
-];
- 
-const mockTransactions = [
-  { id: '1', desc: 'Venda Lote 04 - Frigorífico JBS', valor: 450000, data: '14/03/2026', tipo: 'in', status: 'Pago', categoria: 'Venda Gado' },
-  { id: '2', desc: 'Compra de Insumos - Nutrição Seca', valor: 85000, data: '12/03/2026', tipo: 'out', status: 'Pago', categoria: 'Nutrição' },
-  { id: '3', desc: 'Venda Bezerros - Próximo Lote', valor: 150000, data: '25/03/2026', tipo: 'in', status: 'Pendente', categoria: 'Venda Gado' },
-  { id: '4', desc: 'Folha de Pagamento - Março', valor: 32000, data: '10/03/2026', tipo: 'out', status: 'Pago', categoria: 'Operacional' },
-  { id: '5', desc: 'Manutenção Trator JD 6125J', valor: 12500, data: '20/03/2026', tipo: 'out', status: 'Pendente', categoria: 'Frota' },
-  { id: '6', desc: 'Arrendamento Pastagem Norte', valor: 45000, data: '30/03/2026', tipo: 'out', status: 'Pendente', categoria: 'Terras' },
-];
+// Helper to group transactions by month for the chart
+const getMonthlyFlowFromTransactions = (transactions: Transacao[]) => {
+  const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  const flows: Record<string, MonthlyFlow> = {};
+
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthName = months[d.getMonth()];
+    flows[monthName] = { 
+      mes: monthName, 
+      receitaRealizada: 0, 
+      receitaProjetada: 0, 
+      despesaRealizada: 0, 
+      despesaProjetada: 0 
+    };
+  }
+
+  transactions.forEach(t => {
+    // For projections, use vencimento. For realized, use data.
+    const dateUsed = (t.status === 'Pago' ? t.data : (t.vencimento || t.data));
+    const date = new Date(dateUsed);
+    const monthName = months[date.getMonth()];
+    
+    if (flows[monthName]) {
+      if (t.tipo === 'in') {
+        if (t.status === 'Pago') flows[monthName].receitaRealizada += t.valor;
+        else flows[monthName].receitaProjetada += t.valor;
+      } else {
+        if (t.status === 'Pago') flows[monthName].despesaRealizada += t.valor;
+        else flows[monthName].despesaProjetada += t.valor;
+      }
+    }
+  });
+
+  return Object.values(flows);
+};
 
 export const FluxoCaixa: React.FC = () => {
   const [viewMode, setViewMode] = useState<'real' | 'proj'>('proj');
@@ -64,18 +87,42 @@ export const FluxoCaixa: React.FC = () => {
     categoria: 'Todas'
   });
   
-  const totalReceita = mockMonthlyFlow.reduce((acc, curr) => 
+  const isOnline = useOnlineStatus();
+  const { data: transactions = [], isLoading } = useOfflineQuery<Transacao>(['transacoes'], 'transacoes');
+  
+  const monthlyFlow = useMemo(() => getMonthlyFlowFromTransactions(transactions), [transactions]);
+
+  const totalReceita = monthlyFlow.reduce((acc, curr) => 
     acc + curr.receitaRealizada + (viewMode === 'proj' ? curr.receitaProjetada : 0), 0);
   
-  const totalDespesa = mockMonthlyFlow.reduce((acc, curr) => 
+  const totalDespesa = monthlyFlow.reduce((acc, curr) => 
     acc + curr.despesaRealizada + (viewMode === 'proj' ? curr.despesaProjetada : 0), 0);
     
   const saldoTotal = totalReceita - totalDespesa;
+
+  const intelMetrics = useMemo(() => {
+    const compromised = totalReceita > 0 ? (totalDespesa / totalReceita) * 100 : 0;
+    const safetyMargin = 100 - compromised;
+    const overdueTotal = transactions
+      .filter(t => t.status === 'Atrasado')
+      .reduce((acc, t) => acc + t.valor, 0);
+    const defaults = totalReceita > 0 ? (overdueTotal / totalReceita) * 100 : 0;
+    
+    // Health Score calculation (simplified)
+    const healthScore = Math.max(0, Math.min(100, (safetyMargin * 0.7 + (100 - defaults) * 0.3)));
+    
+    let statusLabel = 'Crítico';
+    if (healthScore > 80) statusLabel = 'Excelente';
+    else if (healthScore > 60) statusLabel = 'Bom';
+    else if (healthScore > 40) statusLabel = 'Alerta';
+
+    return { compromised, safetyMargin, defaults, healthScore, statusLabel };
+  }, [totalReceita, totalDespesa, transactions]);
  
-  const maxVal = Math.max(...mockMonthlyFlow.flatMap(m => [
+  const maxVal = Math.max(...monthlyFlow.flatMap(m => [
     m.receitaRealizada + m.receitaProjetada, 
     m.despesaRealizada + m.despesaProjetada
-  ])) * 1.1; 
+  ]), 1000) * 1.1; 
 
   const yTicks = [0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75, maxVal];
 
@@ -87,7 +134,13 @@ export const FluxoCaixa: React.FC = () => {
             <LineChart size={32} />
           </div>
           <div>
-            <h1>Inteligência de Fluxo de Caixa</h1>
+            <div className="flex items-center gap-3">
+               <h1>Inteligência de Fluxo de Caixa</h1>
+               <div className={`online-badge ${isOnline ? 'online' : 'offline'}`}>
+                <Activity size={12} />
+                <span>{isOnline ? 'Online' : 'Offline'}</span>
+              </div>
+            </div>
             <p className="description">Visão tática, projeções financeiras e saúde operacional.</p>
           </div>
         </div>
@@ -209,7 +262,7 @@ export const FluxoCaixa: React.FC = () => {
                {yTicks.map((_, i) => <div key={i} className="grid-h-line"></div>)}
             </div>
             <div className="bars-flex">
-              {mockMonthlyFlow.map((flow, i) => (
+              {monthlyFlow.map((flow, i) => (
                 <div key={i} className="bar-column">
                   <div className="dual-group">
                     <div className="stack-group">
@@ -287,7 +340,7 @@ export const FluxoCaixa: React.FC = () => {
                 />
               </div>
             )}
-            {mockTransactions
+            {transactions
               .filter(t => {
                 const searchLower = searchTerm.toLowerCase();
                 const matchesSearch = t.desc.toLowerCase().includes(searchLower) || 
@@ -342,42 +395,46 @@ export const FluxoCaixa: React.FC = () => {
              <h3>Saúde Financeira</h3>
              <div className="gauge-container">
                 <div className="gauge-track">
-                   <div className="gauge-fill" style={{ transform: 'rotate(110deg)' }}></div>
+                   <div className="gauge-fill" style={{ transform: `rotate(${(intelMetrics.healthScore / 100) * 180 - 90}deg)` }}></div>
                 </div>
                 <div className="gauge-value">
-                   <span className="number">85</span>
-                   <span className="label">Excelente</span>
+                   <span className="number">{Math.round(intelMetrics.healthScore)}</span>
+                   <span className="label">{intelMetrics.statusLabel}</span>
                 </div>
              </div>
-             <p className="gauge-desc">Seu fluxo de caixa está operando com alta margem de segurança para o próximo trimestre.</p>
+             <p className="gauge-desc">
+               {intelMetrics.healthScore > 70 
+                 ? 'Seu fluxo de caixa está operando com alta margem de segurança para o próximo trimestre.'
+                 : 'Atenção necessária às projeções de saída para evitar pressão sobre o capital de giro.'}
+             </p>
           </div>
 
           <div className="prognosis-list mt-6">
              <div className="prognosis-item">
                 <div className="info">
                    <span className="label">Comprometimento</span>
-                   <span className="val-text">64%</span>
+                   <span className="val-text">{Math.round(intelMetrics.compromised)}%</span>
                 </div>
                 <div className="progress-track">
-                   <div className="progress-bar orange" style={{ width: '64%' }}></div>
+                   <div className="progress-bar orange" style={{ width: `${intelMetrics.compromised}%` }}></div>
                 </div>
              </div>
              <div className="prognosis-item">
                 <div className="info">
                    <span className="label">Margem de Segurança</span>
-                   <span className="val-text">36%</span>
+                   <span className="val-text">{Math.round(intelMetrics.safetyMargin)}%</span>
                 </div>
                 <div className="progress-track">
-                   <div className="progress-bar emerald" style={{ width: '36%' }}></div>
+                   <div className="progress-bar emerald" style={{ width: `${intelMetrics.safetyMargin}%` }}></div>
                 </div>
              </div>
              <div className="prognosis-item">
                 <div className="info">
                    <span className="label">Inadimplência (Histórica)</span>
-                   <span className="val-text">12%</span>
+                   <span className="val-text">{Math.round(intelMetrics.defaults)}%</span>
                 </div>
                 <div className="progress-track">
-                   <div className="progress-bar rose" style={{ width: '12%' }}></div>
+                   <div className="progress-bar rose" style={{ width: `${intelMetrics.defaults}%` }}></div>
                 </div>
              </div>
           </div>

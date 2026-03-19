@@ -16,8 +16,9 @@ export const syncEngine = {
         await db.sync_queue.delete(item.id!);
       } catch (error) {
         console.error('SyncEngine: Error syncing item', item, error);
-        // Retrying later (could implement exponential backoff here)
-        break; 
+        // logging and moving to next item
+        console.error('Moving to next item in queue despite error');
+        continue; 
       }
     }
   },

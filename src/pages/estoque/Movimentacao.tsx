@@ -32,72 +32,10 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
+import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { MovimentacaoEstoque as MovimentacaoType } from '../../types';
 
-interface Movimentacao {
-  id: string;
-  insumo: string;
-  localEstoque: string;
-  localDestino?: string;
-  tipo: 'Entrada' | 'Saída' | 'Transferência';
-  quantidade: number;
-  unidade: string;
-  motivo: string;
-  data: string;
-  responsavel: string;
-  status: 'Processado' | 'Pendente' | 'Cancelado';
-}
-
-const mockMovimentacoes: Movimentacao[] = [
-  { 
-    id: '1', 
-    insumo: 'Milho Grão', 
-    localEstoque: 'Depósito Central',
-    tipo: 'Entrada', 
-    quantidade: 5000, 
-    unidade: 'kg', 
-    motivo: 'Compra Manual (Produtor Local)', 
-    data: '2024-03-12T10:30:00', 
-    responsavel: 'João Silva',
-    status: 'Processado'
-  },
-  { 
-    id: '2', 
-    insumo: 'Ivermectina 1%', 
-    localEstoque: 'Farmácia Veterinária',
-    tipo: 'Saída', 
-    quantidade: 5, 
-    unidade: 'un', 
-    motivo: 'Ajuste de Inventário (Quebra)', 
-    data: '2024-03-11T15:45:00', 
-    responsavel: 'Dr. Ricardo',
-    status: 'Processado'
-  },
-  { 
-    id: '3', 
-    insumo: 'Sal Mineral 80', 
-    localEstoque: 'Depósito Central',
-    tipo: 'Entrada', 
-    quantidade: 20, 
-    unidade: 'sc (30kg)', 
-    motivo: 'Devolução de Lote', 
-    data: '2024-03-13T08:15:00', 
-    responsavel: 'Maria Oliveira',
-    status: 'Pendente'
-  },
-  { 
-    id: '4', 
-    insumo: 'Sal Mineral 80', 
-    localEstoque: 'Depósito Central',
-    localDestino: 'Galpão de Nutrição',
-    tipo: 'Transferência', 
-    quantidade: 200, 
-    unidade: 'kg', 
-    motivo: 'Transferência de saldo para uso imediato', 
-    data: '2024-03-14T09:00:00', 
-    responsavel: 'João Silva',
-    status: 'Processado'
-  },
-];
 
 export const Movimentacao = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -110,11 +48,16 @@ export const Movimentacao = () => {
     status: 'Todos',
     responsavel: ''
   });
-  const [selectedMov, setSelectedMov] = useState<Movimentacao | null>(null);
+  
+  const isOnline = useOnlineStatus();
+  const { data: movimentacoes = [], isLoading } = useOfflineQuery<MovimentacaoType>(['movimentacoes_estoque'], 'movimentacoes_estoque');
+  const saveMovMutation = useOfflineMutation<MovimentacaoType>('movimentacoes_estoque', [['movimentacoes_estoque']]);
+
+  const [selectedMov, setSelectedMov] = useState<MovimentacaoType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
   const [movType, setMovType] = useState<'Entrada' | 'Saída' | 'Transferência'>('Entrada');
 
-  const handleOpenModal = (mov: Movimentacao | null = null, viewOnly = false) => {
+  const handleOpenModal = (mov: MovimentacaoType | null = null, viewOnly = false) => {
     setSelectedMov(mov);
     setIsViewMode(viewOnly);
     setMovType(mov?.tipo || 'Entrada');
@@ -127,29 +70,29 @@ export const Movimentacao = () => {
     setIsViewMode(false);
   };
 
-  const totalEntradas = mockMovimentacoes
+  const totalEntradas = movimentacoes
     .filter(m => m.tipo === 'Entrada')
     .reduce((acc, m) => acc + m.quantidade, 0);
   
-  const totalSaidas = mockMovimentacoes
+  const totalSaidas = movimentacoes
     .filter(m => m.tipo === 'Saída')
     .reduce((acc, m) => acc + m.quantidade, 0);
 
-  const filteredData = mockMovimentacoes.filter(m => {
+  const filteredData = movimentacoes.filter(m => {
     const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = m.insumo.toLowerCase().includes(searchLower) || 
+    const matchesSearch = m.insumo_nome.toLowerCase().includes(searchLower) || 
                          m.motivo.toLowerCase().includes(searchLower) ||
                          m.responsavel.toLowerCase().includes(searchLower) ||
-                         m.localEstoque.toLowerCase().includes(searchLower) ||
-                         (m.localDestino && m.localDestino.toLowerCase().includes(searchLower)) ||
+                         m.local_origem.toLowerCase().includes(searchLower) ||
+                         (m.local_destino && m.local_destino.toLowerCase().includes(searchLower)) ||
                          m.tipo.toLowerCase().includes(searchLower) ||
                          m.status.toLowerCase().includes(searchLower) ||
                          m.quantidade.toString().includes(searchLower) ||
                          m.unidade.toLowerCase().includes(searchLower);
     
     const matchesColumnFilters = 
-      (columnFilters.insumo === '' || m.insumo.toLowerCase().includes(columnFilters.insumo.toLowerCase())) &&
-      (columnFilters.localEstoque === 'Todos os Locais' || m.localEstoque === columnFilters.localEstoque) &&
+      (columnFilters.insumo === '' || m.insumo_nome.toLowerCase().includes(columnFilters.insumo.toLowerCase())) &&
+      (columnFilters.localEstoque === 'Todos os Locais' || m.local_origem === columnFilters.localEstoque) &&
       (columnFilters.tipo === 'Todos' || m.tipo === columnFilters.tipo) &&
       (columnFilters.status === 'Todos' || m.status === columnFilters.status) &&
       (columnFilters.responsavel === '' || m.responsavel.toLowerCase().includes(columnFilters.responsavel.toLowerCase()));
@@ -181,6 +124,12 @@ export const Movimentacao = () => {
           <div>
             <h1>Movimentação de Estoque</h1>
             <p className="description">Registro manual de entradas, saídas e ajustes de inventário.</p>
+          </div>
+        </div>
+        <div className="connectivity-section mr-4">
+          <div className={`online-badge ${isOnline ? 'online' : 'offline'}`}>
+            <ArrowLeftRight size={12} />
+            <span>{isOnline ? 'Online' : 'Offline'}</span>
           </div>
         </div>
         <div className="action-buttons">
@@ -301,15 +250,15 @@ export const Movimentacao = () => {
                         {mov.tipo}
                     </span>
                   </td>
-                  <td className="font-bold">{mov.insumo}</td>
+                  <td className="font-bold">{mov.insumo_nome}</td>
                   <td>
                     <div className="location-cell">
                       <Warehouse size={14} />
                       {mov.tipo === 'Transferência' ? (
                         <span className="transfer-path">
-                          {mov.localEstoque} <ChevronRight size={12} /> {mov.localDestino}
+                          {mov.local_origem} <ChevronRight size={12} /> {mov.local_destino}
                         </span>
-                      ) : mov.localEstoque}
+                      ) : mov.local_origem}
                     </div>
                   </td>
                   <td className="font-semibold text-primary">{mov.quantidade} {mov.unidade}</td>
@@ -425,7 +374,7 @@ export const Movimentacao = () => {
             <div className="form-group col-8">
               <label>Insumo / Produto</label>
               <div className="input-with-icon">
-                  <input type="text" defaultValue={selectedMov?.insumo} disabled={isViewMode} required placeholder="Buscar produto no estoque..." className="w-full" />
+                  <input type="text" defaultValue={selectedMov?.insumo_nome} disabled={isViewMode} required placeholder="Buscar produto no estoque..." className="w-full" />
                   <Package size={18} className="field-icon" />
               </div>
             </div>
@@ -461,7 +410,7 @@ export const Movimentacao = () => {
             <div className="form-group col-6">
               <label>{movType === 'Transferência' ? 'Local de Origem' : 'Almoxarifado / Local'}</label>
               <div className="input-with-icon">
-                <select disabled={isViewMode} defaultValue={selectedMov?.localEstoque} className="w-full">
+                <select disabled={isViewMode} defaultValue={selectedMov?.local_origem} className="w-full">
                     <option>Depósito Central</option>
                     <option>Farmácia Veterinária</option>
                     <option>Galpão de Nutrição</option>
@@ -470,18 +419,18 @@ export const Movimentacao = () => {
               </div>
             </div>
             {movType === 'Transferência' ? (
-              <div className="form-group col-6">
-                <label>Local de Destino</label>
-                <div className="input-with-icon">
-                  <select disabled={isViewMode} defaultValue={selectedMov?.localDestino} className="w-full">
-                      <option value="">Selecione o destino...</option>
-                      <option>Depósito Central</option>
-                      <option>Farmácia Veterinária</option>
-                      <option>Galpão de Nutrição</option>
-                  </select>
-                  <Warehouse size={18} className="field-icon" />
+                <div className="form-group col-6">
+                  <label>Local de Destino</label>
+                  <div className="input-with-icon">
+                    <select disabled={isViewMode} defaultValue={selectedMov?.local_destino} className="w-full">
+                        <option value="">Selecione o destino...</option>
+                        <option>Depósito Central</option>
+                        <option>Farmácia Veterinária</option>
+                        <option>Galpão de Nutrição</option>
+                    </select>
+                    <Warehouse size={18} className="field-icon" />
+                  </div>
                 </div>
-              </div>
             ) : (
                 <div className="form-group col-6"></div>
             )}

@@ -38,12 +38,14 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
+import { useLiveQuery } from 'dexie-react-hooks';
 
-import { Supplier } from '../../types/supplier';
-import { MOCK_SUPPLIERS } from '../../data/supplierData';
+import { Supplier } from '../../types';
 
 export const Fornecedor: React.FC = () => {
-  const [suppliers, setSuppliers] = useState<Supplier[]>(MOCK_SUPPLIERS);
+  const suppliers = useLiveQuery(() => db.fornecedores.toArray()) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -79,6 +81,9 @@ export const Fornecedor: React.FC = () => {
         tipoLogradouro: 'Rua',
         estado: 'MT',
         pais: 'Brasil',
+        cPais: '1058',
+        cMun: '',
+        indIEDest: '9',
         status: 'Ativo',
         condicaoPagamentoPadrao: '30 dias',
         prazoEntregaMedio: '7 dias'
@@ -116,9 +121,11 @@ export const Fornecedor: React.FC = () => {
         bairro: data.bairro || prev.bairro,
         cidade: data.municipio || prev.cidade,
         estado: data.uf || prev.estado,
+        cMun: data.ibge || prev.cMun,
         email: data.email || data.e_mail || prev.email,
         telefone: data.ddd_telefone_1 ? `(${data.ddd_telefone_1.substring(0,2)}) ${data.ddd_telefone_1.substring(2)}` : prev.telefone,
         pais: 'Brasil',
+        cPais: '1058',
         cnae: data.cnae_fiscal ? `${String(data.cnae_fiscal).replace(/(\d{4})(\d{1})(\d{2})/, '$1-$2/$3')} - ${data.cnae_fiscal_descricao}` : prev.cnae
       }));
     } catch (error: any) {
@@ -128,27 +135,26 @@ export const Fornecedor: React.FC = () => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.nome || !formData.documento) {
       alert('Nome/Razão Social e CPF/CNPJ são obrigatórios');
       return;
     }
 
-    if (editingSupplier) {
-      setSuppliers(prev => prev.map(s => s.id === editingSupplier.id ? { ...s, ...formData } as Supplier : s));
-    } else {
-      const newSupplier: Supplier = {
-        ...formData,
-        id: Math.random().toString(36).substr(2, 9),
-      } as Supplier;
-      setSuppliers(prev => [...prev, newSupplier]);
-    }
+    const updatedSupplier: Supplier = {
+      ...(editingSupplier || {}),
+      ...formData,
+      id: editingSupplier?.id || Math.random().toString(36).substr(2, 9),
+      tenant_id: 'default'
+    } as Supplier;
+
+    await dataService.saveItem('fornecedores', updatedSupplier);
     setIsModalOpen(false);
   };
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (window.confirm(`Deseja realmente excluir o fornecedor "${name}"?`)) {
-      setSuppliers(prev => prev.filter(s => s.id !== id));
+      await dataService.deleteItem('fornecedores', id);
     }
   };
 
@@ -460,6 +466,17 @@ export const Fornecedor: React.FC = () => {
                     <DollarSign size={18} className="field-icon" />
                   </div>
                 </div>
+                <div className="form-group col-4">
+                  <label>Indicador IE Destinatário</label>
+                  <div className="input-with-icon">
+                    <select value={formData.indIEDest || '9'} onChange={(e) => handleInputChange('indIEDest', e.target.value)} disabled={isViewMode}>
+                      <option value="1">1 - Contribuinte ICMS</option>
+                      <option value="2">2 - Contribuinte Isento</option>
+                      <option value="9">9 - Não Contribuinte</option>
+                    </select>
+                    <Activity size={18} className="field-icon" />
+                  </div>
+                </div>
                 <div className="form-group col-12">
                   <label>CNAE (Atividade Principal)</label>
                   <div className="input-with-icon">
@@ -525,6 +542,27 @@ export const Fornecedor: React.FC = () => {
                   <div className="input-with-icon">
                     <input type="text" value={formData.estado || ''} onChange={(e) => handleInputChange('estado', e.target.value)} placeholder="UF" disabled={isViewMode} />
                     <MapPin size={18} className="field-icon" />
+                  </div>
+                </div>
+                <div className="form-group col-4">
+                  <label>Cód. Município (IBGE)</label>
+                  <div className="input-with-icon">
+                    <input type="text" value={formData.cMun || ''} onChange={(e) => handleInputChange('cMun', e.target.value)} placeholder="Ex: 5103403" disabled={isViewMode} />
+                    <Building2 size={18} className="field-icon" />
+                  </div>
+                </div>
+                <div className="form-group col-4">
+                  <label>País</label>
+                  <div className="input-with-icon">
+                    <input type="text" value={formData.pais || 'Brasil'} onChange={(e) => handleInputChange('pais', e.target.value)} placeholder="Brasil" disabled={isViewMode} />
+                    <Globe size={18} className="field-icon" />
+                  </div>
+                </div>
+                <div className="form-group col-4">
+                  <label>Cód. País</label>
+                  <div className="input-with-icon">
+                    <input type="text" value={formData.cPais || '1058'} onChange={(e) => handleInputChange('cPais', e.target.value)} placeholder="1058" disabled={isViewMode} />
+                    <Building2 size={18} className="field-icon" />
                   </div>
                 </div>
               </div>

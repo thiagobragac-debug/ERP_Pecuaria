@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { 
   Users, 
   Search, 
@@ -17,31 +18,19 @@ import {
   Filter
 } from 'lucide-react';
 import { StandardModal } from '../../components/StandardModal';
-import { supabase } from '../../services/supabase';
+import { db } from '../../services/db';
+import { dataService } from '../../services/dataService';
 import { useAuth } from '../../contexts/AuthContext';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
+import { Profile, USER_ROLES } from '../../types';
 import './Usuario.css';
 
-interface Profile {
-  id: string;
-  full_name: string;
-  avatar_url?: string;
-  role: 'USER' | 'ADMIN' | 'MASTER';
-  is_active: boolean;
-  email?: string;
-}
-
-const ROLES = [
-  { id: 'USER', nome: 'Usuário' },
-  { id: 'ADMIN', nome: 'Administrador' },
-  { id: 'MASTER', nome: 'Proprietário Master' },
-];
 
 export const Usuario: React.FC = () => {
   const { user: currentUser } = useAuth();
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const profiles = useLiveQuery(() => db.profiles.toArray()) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterRole, setFilterRole] = useState('Todos');
@@ -60,24 +49,9 @@ export const Usuario: React.FC = () => {
     status: 'Todos'
   });
 
-  const loadProfiles = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*');
-      
-      if (error) throw error;
-      setProfiles(data || []);
-    } catch (error) {
-      console.error('Error loading profiles:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadProfiles();
+    // Initial revalidation
+    dataService.revalidate('profiles');
   }, []);
 
   const handleOpenModal = (profile?: Profile) => {
@@ -104,20 +78,17 @@ export const Usuario: React.FC = () => {
 
     try {
       if (editingProfile) {
-        const { error } = await supabase
-          .from('profiles')
-          .update({
-            full_name: formData.full_name,
-            role: formData.role,
-            is_active: formData.is_active
-          })
-          .eq('id', editingProfile.id);
+        const profileData: Profile = {
+          ...editingProfile,
+          full_name: formData.full_name!,
+          role: formData.role!,
+          is_active: formData.is_active!
+        };
 
-        if (error) throw error;
+        await dataService.saveItem('profiles', profileData);
       } else {
         alert('Para novos usuários, utilize o convite via e-mail (Supabase Auth).');
       }
-      loadProfiles();
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error saving profile:', error);
@@ -125,7 +96,7 @@ export const Usuario: React.FC = () => {
     }
   };
 
-  const filteredProfiles = profiles.filter(p => {
+  const filteredProfiles = profiles.filter((p: Profile) => {
     const matchesSearch = p.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           p.email?.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -171,7 +142,7 @@ export const Usuario: React.FC = () => {
         <div className="summary-card animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="summary-info">
             <span className="summary-label">Ativos</span>
-            <span className="summary-value">{profiles.filter(p => p.is_active).length}</span>
+            <span className="summary-value">{profiles.filter((p: Profile) => p.is_active).length}</span>
             <span className="summary-subtext">Acesso permitido</span>
           </div>
           <div className="summary-icon emerald">
@@ -181,7 +152,7 @@ export const Usuario: React.FC = () => {
         <div className="summary-card animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="summary-info">
             <span className="summary-label">Proprietários Master</span>
-            <span className="summary-value">{profiles.filter(p => p.role === 'MASTER').length}</span>
+            <span className="summary-value">{profiles.filter((p: Profile) => p.role === 'MASTER').length}</span>
             <span className="summary-subtext">Acesso total</span>
           </div>
           <div className="summary-icon emerald">
@@ -262,7 +233,7 @@ export const Usuario: React.FC = () => {
         <div className="users-list">
           {loading ? (
              <div className="p-8 text-center text-muted">Carregando usuários...</div>
-          ) : paginatedData.map((profile) => (
+          ) : paginatedData.map((profile: Profile) => (
             <div key={profile.id} className="user-row hover-row">
               <div className="user-info-cell">
                 <div className={`user-avatar-premium ${profile.role === 'MASTER' ? 'master' : ''}`}>
@@ -277,7 +248,7 @@ export const Usuario: React.FC = () => {
               <div className="user-profile-cell">
                 <div className={`profile-badge-premium ${profile.role.toLowerCase()}`}>
                   <Shield size={14} strokeWidth={3} className="mr-2" />
-                  {ROLES.find(r => r.id === profile.role)?.nome}
+                  {USER_ROLES.find(r => r.id === profile.role)?.nome}
                 </div>
               </div>
 
@@ -383,7 +354,7 @@ export const Usuario: React.FC = () => {
               <div className="form-group col-12">
                 <label>Perfil de Acesso</label>
                 <div className="profiles-select-grid">
-                  {ROLES.filter(r => currentUser?.role === 'MASTER' || r.id !== 'MASTER').map(role => (
+                  {USER_ROLES.filter(r => currentUser?.role === 'MASTER' || r.id !== 'MASTER').map(role => (
                     <div key={role.id} className={`profile-card-premium ${formData.role === role.id ? 'selected' : ''}`} onClick={() => setFormData({...formData, role: role.id as any})}>
                       <div className="check-box">{formData.role === role.id && <CheckCircle2 size={16} />}</div>
                       <Shield size={20} strokeWidth={3} className="profile-icon" />

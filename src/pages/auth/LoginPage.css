@@ -1,13 +1,15 @@
+/* Removed local :root to avoid conflicts, variables should be in index.css or handled globally */
+
 .login-wrapper {
   min-height: 100vh;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f8fafc; /* Clean off-white */
-  color: #1e293b; /* Dark slate for contrast */
+  background-color: #f1f5f9; /* Slate 100 for stability */
+  color: #1e293b;
   position: relative;
-  overflow: hidden;
+  overflow: auto; /* Allow scrolling if something breaks */
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
@@ -175,14 +177,10 @@
   text-decoration: none;
   font-weight: 600;
   transition: all 0.2s;
+  cursor: pointer;
 }
 
-.forgot-link:hover {
-  color: #6366f1;
-  text-decoration: underline;
-}
-
-.input-wrapper {
+.input-with-icon {
   position: relative;
   display: flex;
   align-items: center;
@@ -193,28 +191,32 @@
   left: 16px;
   color: #94a3b8;
   transition: color 0.2s;
+  z-index: 5;
+  pointer-events: none;
 }
 
-.input-wrapper input {
-  width: 100%;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 14px 16px 14px 48px;
-  color: #1e293b;
-  font-size: 15px;
-  transition: all 0.3s;
-  outline: none;
+.input-with-icon input {
+  width: 100% !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 14px !important;
+  padding: 14px 16px 14px 52px !important; /* Increased padding */
+  color: #1e293b !important;
+  font-size: 15px !important;
+  transition: all 0.3s !important;
+  outline: none !important;
+  position: relative !important;
+  z-index: 1 !important;
 }
 
-.input-wrapper input:focus {
-  background: #ffffff;
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+.input-with-icon input:focus {
+  background: #ffffff !important;
+  border-color: #4f46e5 !important;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1) !important;
 }
 
-.input-wrapper input:focus + .field-icon {
-  color: #4f46e5;
+.input-with-icon input:focus + .field-icon {
+  color: #4f46e5 !important;
 }
 
 .form-options {
@@ -371,13 +373,13 @@
   100% { transform: scale(1.1) translate(10%, 10%); }
 }
 
-.animate-scale {
-  animation: scale-up 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
 @keyframes scale-up {
   from { transform: scale(0.95); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
+}
+
+.animate-scale {
+  animation: scale-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
 }
 
 .animate-fade-in {

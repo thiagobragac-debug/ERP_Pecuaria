@@ -1,34 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Building2, 
   Plus, 
-  Search, 
-  Filter, 
-  CreditCard, 
   TrendingUp, 
   TrendingDown, 
   DollarSign, 
   MoreVertical,
-  Edit,
-  Trash2,
-  ArrowUpRight,
-  ArrowDownLeft,
-  Calendar,
-  Wallet,
   Landmark,
   Info,
   ChevronRight,
-  ChevronLeft,
-  User,
-  Hash,
   Activity,
   Check,
   Globe,
-  FileText,
-  Repeat
+  Hash,
+  CreditCard
 } from 'lucide-react';
-import { MOCK_BANKS, BankAccount } from '../../data/bankData';
 import { StandardModal } from '../../components/StandardModal';
 import { TransferModal } from '../../components/TransferModal';
 import { ExtratoModal } from '../../components/ExtratoModal';
@@ -36,13 +23,10 @@ import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { usePagination } from '../../hooks/usePagination';
+import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
+import { BankAccount, Transacao } from '../../types';
 import './Financeiro.css';
-
-const mockTransactions = [
-  { id: 'T1', data: '2024-03-20', descricao: 'Liquidação - NF 1234', valor: -5500.00, bancoId: 'B1', tipo: 'Saída' },
-  { id: 'T2', data: '2024-03-19', descricao: 'Venda de Bezerras', valor: 12500.00, bancoId: 'B1', tipo: 'Entrada' },
-  { id: 'T3', data: '2024-03-18', descricao: 'Ajuste de Saldo', valor: 100.00, bancoId: 'B2', tipo: 'Entrada' },
-];
 
 const BANK_COLORS = [
   { name: 'Emerald', value: '#10b981' },
@@ -57,27 +41,24 @@ const BANK_COLORS = [
 export const Bancos = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const isOnline = useOnlineStatus();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBankIdOperacao, setSelectedBankIdOperacao] = useState<string | undefined>(undefined);
   const [isExtratoOpen, setIsExtratoOpen] = useState(false);
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [selectedBank, setSelectedBank] = useState<BankAccount | null>(null);
 
-  // Handle query params for modals (from sidebar)
-  React.useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const modal = params.get('modal');
-    if (modal === 'extrato') {
-      setIsExtratoOpen(true);
-    } else if (modal === 'transfer') {
-      setIsTransferModalOpen(true);
-    }
-  }, [location.search]);
+  // Queries
+  const { data: banks = [], isLoading: isLoadingBanks } = useOfflineQuery<BankAccount>(['bancos'], 'bancos');
+  const { data: transactions = [] } = useOfflineQuery<Transacao>(['transacoes'], 'transacoes');
   
+  // Mutations
+  const saveMutation = useOfflineMutation<BankAccount>('bancos', [['bancos']]);
+  const deleteMutation = useOfflineMutation<BankAccount>('bancos', [['bancos']], 'delete');
+
   // Search and Pagination State
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('Todas');
   const [columnFilters, setColumnFilters] = useState({
     data: '',
     descricao: '',
@@ -86,24 +67,32 @@ export const Bancos = () => {
     valor: ''
   });
 
-  const filteredTransactions = mockTransactions.filter(t => {
-    const searchLower = searchTerm.toLowerCase();
-    const bankName = MOCK_BANKS.find(b => b.id === t.bancoId)?.banco || '';
-    const matchesSearch = t.descricao.toLowerCase().includes(searchLower) ||
-           t.tipo.toLowerCase().includes(searchLower) ||
-           t.valor.toString().includes(searchLower) ||
-           t.data.toLowerCase().includes(searchLower) ||
-           bankName.toLowerCase().includes(searchLower);
+  const recentTransactions = useMemo(() => {
+    return transactions
+      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+      .slice(0, 50);
+  }, [transactions]);
 
-    const matchesColumnFilters = 
-      (columnFilters.data === '' || t.data.toLowerCase().includes(columnFilters.data.toLowerCase())) &&
-      (columnFilters.descricao === '' || t.descricao.toLowerCase().includes(columnFilters.descricao.toLowerCase())) &&
-      (columnFilters.banco === 'Todos' || bankName === columnFilters.banco) &&
-      (columnFilters.tipo === 'Todos' || t.tipo === columnFilters.tipo) &&
-      (columnFilters.valor === '' || t.valor.toString().includes(columnFilters.valor));
+  const filteredTransactions = useMemo(() => {
+    return recentTransactions.filter(t => {
+      const searchLower = searchTerm.toLowerCase();
+      const bankName = banks.find(b => b.id === t.banco_id)?.banco || '';
+      const matchesSearch = t.desc.toLowerCase().includes(searchLower) ||
+             t.tipo.toLowerCase().includes(searchLower) ||
+             t.valor.toString().includes(searchLower) ||
+             t.data.toLowerCase().includes(searchLower) ||
+             bankName.toLowerCase().includes(searchLower);
 
-    return matchesSearch && matchesColumnFilters;
-  });
+      const matchesColumnFilters = 
+        (columnFilters.data === '' || t.data.toLowerCase().includes(columnFilters.data.toLowerCase())) &&
+        (columnFilters.descricao === '' || t.desc.toLowerCase().includes(columnFilters.descricao.toLowerCase())) &&
+        (columnFilters.banco === 'Todos' || bankName === columnFilters.banco) &&
+        (columnFilters.tipo === 'Todos' || (t.tipo === 'in' ? 'Entrada' : 'Saída') === columnFilters.tipo) &&
+        (columnFilters.valor === '' || t.valor.toString().includes(columnFilters.valor));
+
+      return matchesSearch && matchesColumnFilters;
+    });
+  }, [recentTransactions, searchTerm, columnFilters, banks]);
 
   const {
     currentPage,
@@ -151,6 +140,24 @@ export const Bancos = () => {
     setIsModalOpen(true);
   };
 
+  const handleSave = async () => {
+    const data: BankAccount = {
+      ...(selectedBank || {}),
+      id: selectedBank?.id || crypto.randomUUID(),
+      banco: bancoNome,
+      tipo,
+      agencia,
+      conta,
+      saldo,
+      color,
+      status,
+      tenant_id: 'default'
+    } as BankAccount;
+    
+    await saveMutation.mutateAsync(data);
+    setIsModalOpen(false);
+  };
+
   return (
     <div className="page-container fade-in">
       <div className="page-header-row">
@@ -159,7 +166,12 @@ export const Bancos = () => {
             <Landmark size={40} strokeWidth={3} />
           </div>
           <div>
-            <h1>Contas Bancárias</h1>
+            <div className="flex items-center gap-3">
+              <h1>Contas Bancárias</h1>
+              <div className={`online-badge ${isOnline ? 'online' : 'offline'}`}>
+                <span>{isOnline ? 'Online' : 'Offline'}</span>
+              </div>
+            </div>
             <p className="description">Gestão avançada de saldos, extratos e integração financeira.</p>
           </div>
         </div>
@@ -176,7 +188,7 @@ export const Bancos = () => {
       </div>
 
       <div className="bank-cards-grid">
-        {MOCK_BANKS.map(banco => (
+        {banks.map(banco => (
           <div 
             key={banco.id} 
             className="bank-card animate-slide-up"
@@ -257,9 +269,9 @@ export const Bancos = () => {
               <tr>
                 <th>Data</th>
                 <th>Descrição</th>
-                <th>Banco de Origem</th>
+                <th>Banco</th>
                 <th>Tipo</th>
-                <th className="text-right">Valor Líquido</th>
+                <th className="text-right">Valor</th>
                 <th className="text-center">Ações</th>
               </tr>
               {isFiltersOpen && (
@@ -267,7 +279,7 @@ export const Bancos = () => {
                   columns={[
                     { key: 'data', type: 'text', placeholder: 'Data...' },
                     { key: 'descricao', type: 'text', placeholder: 'Filtrar...' },
-                    { key: 'banco', type: 'select', options: MOCK_BANKS.map(b => b.banco) },
+                    { key: 'banco', type: 'select', options: banks.map(b => b.banco) },
                     { key: 'tipo', type: 'select', options: ['Entrada', 'Saída'] },
                     { key: 'valor', type: 'text', placeholder: 'Valor...' }
                   ]}
@@ -282,34 +294,36 @@ export const Bancos = () => {
                   <td>
                     <div className="flex items-center gap-3">
                       <span className="font-bold text-slate-700">{new Date(t.data).toLocaleDateString()}</span>
-                      <span className="text-[10px] text-slate-400 uppercase font-black bg-slate-100 px-2 py-0.5 rounded-full whitespace-nowrap">Hoje às 14:30</span>
                     </div>
                   </td>
                   <td className="font-medium text-slate-700">
                     <div className="flex items-center gap-2">
-                      <div className={`p-1.5 rounded-lg ${t.tipo === 'Entrada' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                        {t.tipo === 'Entrada' ? <TrendingUp size={14} strokeWidth={3} /> : <TrendingDown size={14} strokeWidth={3} />}
+                      <div className={`p-1.5 rounded-lg ${t.tipo === 'in' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                        {t.tipo === 'in' ? <TrendingUp size={14} strokeWidth={3} /> : <TrendingDown size={14} strokeWidth={3} />}
                       </div>
-                      {t.descricao}
+                      {t.desc}
                     </div>
                   </td>
                   <td>
                     <div className="flex items-center gap-2">
                        <Landmark size={14} strokeWidth={3} className="text-slate-400" />
-                       <span className="text-sm font-semibold text-slate-600">{MOCK_BANKS.find(b => b.id === t.bancoId)?.banco}</span>
+                       <span className="text-sm font-semibold text-slate-600">{banks.find(b => b.id === t.banco_id)?.banco || 'N/A'}</span>
                     </div>
                   </td>
                   <td>
-                    <span className={`status-badge ${t.tipo === 'Entrada' ? 'recebido' : 'atrasado'}`}>
-                       {t.tipo}
+                    <span className={`status-badge ${t.tipo === 'in' ? 'recebido' : 'atrasado'}`}>
+                       {t.tipo === 'in' ? 'Entrada' : 'Saída'}
                     </span>
                   </td>
-                  <td className={`text-right font-black ${t.valor > 0 ? 'text-green-600' : 'text-slate-800'}`}>
-                    {t.valor > 0 ? '+' : '-'} R$ {Math.abs(t.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <td className={`text-right font-black ${t.tipo === 'in' ? 'text-green-600' : 'text-slate-800'}`}>
+                    {t.tipo === 'in' ? '+' : '-'} R$ {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </td>
                   <td className="text-center">
                     <div className="actions-cell justify-center">
-                      <button className="action-btn-global btn-view">
+                      <button className="action-btn-global btn-view" onClick={() => {
+                        setSelectedBankIdOperacao(t.banco_id);
+                        setIsExtratoOpen(true);
+                      }}>
                         <ChevronRight size={18} strokeWidth={3} />
                       </button>
                     </div>
@@ -337,139 +351,51 @@ export const Bancos = () => {
       <StandardModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={selectedBank ? 'Configuração de Conta' : 'Nova Conta Bancária'}
-        subtitle="Defina os parâmetros operacionais e identidade da conta."
+        title={selectedBank ? 'Configuração' : 'Nova Conta'}
+        subtitle="Gerenciamento de contas bancárias."
         icon={Landmark}
         footer={
           <div className="footer-actions flex gap-3">
             <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-            <button className="btn-premium-solid indigo px-8" onClick={() => setIsModalOpen(false)}>
+            <button className="btn-premium-solid indigo px-8" onClick={handleSave}>
               <Check size={18} strokeWidth={3} />
-              <span>{selectedBank ? 'Salvar Alterações' : 'Criar Conta'}</span>
+              <span>Salvar</span>
             </button>
           </div>
         }
         size="lg"
       >
         <div className="refined-form-container">
-          {/* Section 1: Identificação */}
           <div className="form-block">
-             <div className="form-block-header">
-                <div className="icon-wrap"><Info size={18} strokeWidth={3} /></div>
-                <h3>Identificação do Banco</h3>
-             </div>
              <div className="form-grid-refined">
                 <div className="form-field-wrapper col-span-8">
-                   <label>Nome da Instituição</label>
-                   <div className="input-with-icon">
-                      <input 
-                        type="text" 
-                        placeholder="Ex: Banco do Brasil S.A." 
-                        value={bancoNome}
-                        onChange={(e) => setBancoNome(e.target.value)}
-                      />
-                      <Building2 size={18} strokeWidth={3} className="field-icon" />
-                   </div>
+                   <label>Instituição</label>
+                   <input value={bancoNome} onChange={e => setBancoNome(e.target.value)} />
                 </div>
                 <div className="form-field-wrapper col-span-4">
-                   <label>Tipo de Conta</label>
-                   <div className="input-with-icon">
-                      <select value={tipo} onChange={(e) => setTipo(e.target.value as any)}>
-                        <option value="Corrente">Conta Corrente</option>
-                        <option value="Poupança">Poupança</option>
-                        <option value="Investimento">Aplicações</option>
-                        <option value="Caixa">Caixa (Espécie)</option>
-                      </select>
-                      <CreditCard size={18} strokeWidth={3} className="field-icon" />
-                   </div>
+                   <label>Tipo</label>
+                   <select value={tipo} onChange={e => setTipo(e.target.value as any)}>
+                      <option value="Corrente">Corrente</option>
+                      <option value="Poupança">Poupança</option>
+                      <option value="Investimento">Investimento</option>
+                      <option value="Caixa">Caixa</option>
+                   </select>
                 </div>
              </div>
           </div>
-
-          {/* Section 2: Dados Bancários */}
           <div className="form-block border-t pt-8">
-             <div className="form-block-header">
-                <div className="icon-wrap"><Hash size={18} strokeWidth={3} /></div>
-                <h3>Dados de Registro</h3>
-             </div>
              <div className="form-grid-refined">
                 <div className="form-field-wrapper col-span-4">
                    <label>Agência</label>
-                   <div className="input-with-icon">
-                      <input 
-                        type="text" 
-                        placeholder="0000-0" 
-                        value={agencia}
-                        onChange={(e) => setAgencia(e.target.value)}
-                      />
-                      <Landmark size={18} strokeWidth={3} className="field-icon" />
-                   </div>
+                   <input value={agencia} onChange={e => setAgencia(e.target.value)} />
                 </div>
                 <div className="form-field-wrapper col-span-4">
-                   <label>Número da Conta</label>
-                   <div className="input-with-icon">
-                      <input 
-                        type="text" 
-                        placeholder="000000-0" 
-                        value={conta}
-                        onChange={(e) => setConta(e.target.value)}
-                      />
-                      <Hash size={18} strokeWidth={3} className="field-icon" />
-                   </div>
+                   <label>Conta</label>
+                   <input value={conta} onChange={e => setConta(e.target.value)} />
                 </div>
                 <div className="form-field-wrapper col-span-4">
-                   <label>Saldo Inicial (R$)</label>
-                   <div className="input-with-icon">
-                      <input 
-                        type="number" 
-                        step="0.01" 
-                        value={saldo}
-                        onChange={(e) => setSaldo(parseFloat(e.target.value) || 0)}
-                      />
-                      <DollarSign size={18} strokeWidth={3} className="field-icon" />
-                   </div>
-                </div>
-             </div>
-          </div>
-
-          {/* Section 3: Personalização Visual */}
-          <div className="form-block border-t pt-8 bg-slate-50/50 -mx-6 px-6 py-8 rounded-b-3xl">
-             <div className="form-block-header">
-                <div className="icon-wrap"><Globe size={18} strokeWidth={3} /></div>
-                <h3>Personalização & Status</h3>
-             </div>
-             <div className="grid grid-cols-2 gap-12">
-                <div>
-                   <label className="text-xs font-bold text-slate-500 uppercase mb-4 block">Cor Sugerida para Marca</label>
-                   <div className="color-picker-grid">
-                      {BANK_COLORS.map(c => (
-                        <div 
-                          key={c.value}
-                          className={`color-option ${color === c.value ? 'selected' : ''}`}
-                          style={{ background: c.value }}
-                          onClick={() => setColor(c.value)}
-                        >
-                          {color === c.value && <Check size={14} strokeWidth={3} color={c.name === 'BB Yellow' ? '#000' : '#fff'} />}
-                        </div>
-                      ))}
-                   </div>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-500 uppercase mb-4 block">Status Operacional</label>
-                  <div className="flex gap-4">
-                     <button 
-                        className={`flex-1 p-3 rounded-xl border-2 transition-all font-bold text-sm ${status === 'Ativa' ? 'bg-green-50 border-green-500 text-green-700' : 'bg-white border-slate-200 text-slate-400'}`}
-                        onClick={() => setStatus('Ativa')}
-                     >
-                        Ativa
-                     </button>
-                     <button 
-                        className={`flex-1 p-3 rounded-xl border-2 transition-all font-bold text-sm ${status === 'Inativa' ? 'bg-red-50 border-red-500 text-red-700' : 'bg-white border-slate-200 text-slate-400'}`}
-                        onClick={() => setStatus('Inativa')}
-                     >
-                        Inativa
-                     </button>
-                  </div>
+                   <label>Saldo (R$)</label>
+                   <input type="number" value={saldo} onChange={e => setSaldo(parseFloat(e.target.value))} />
                 </div>
              </div>
           </div>
@@ -478,22 +404,15 @@ export const Bancos = () => {
 
       <TransferModal 
         isOpen={isTransferModalOpen} 
-        onClose={() => {
-          setIsTransferModalOpen(false);
-          setSelectedBankIdOperacao(undefined);
-        }} 
+        onClose={() => setIsTransferModalOpen(false)} 
         initialSourceId={selectedBankIdOperacao}
       />
 
       <ExtratoModal 
         isOpen={isExtratoOpen} 
-        onClose={() => {
-          setIsExtratoOpen(false);
-          setSelectedBankIdOperacao(undefined);
-        }} 
+        onClose={() => setIsExtratoOpen(false)} 
         initialBankId={selectedBankIdOperacao}
       />
     </div>
   );
 };
-
