@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
   Utensils, 
@@ -98,6 +99,13 @@ export const MonitorCocho: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/pecuaria/rebanho">Pecuária</Link>
+        <ChevronRight size={14} />
+        <Link to="/pecuaria/confinamento">Confinamento</Link>
+        <ChevronRight size={14} />
+        <span>Monitor de Cocho</span>
+      </nav>
       <div className="page-header-row">
         <div className="title-section">
           <button className="btn-premium-outline back-btn-std h-10 px-3" onClick={onBack}>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Globe, 
   Plus, 
@@ -145,6 +146,12 @@ export const Oportunidades: React.FC = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/vendas">Vendas & Comercial</Link>
+        <ChevronRight size={14} />
+        <span>Oportunidades</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge blue">

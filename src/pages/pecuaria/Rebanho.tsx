@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { Beef, Plus, Search, Filter, Download, ChevronLeft, ChevronRight, Eye, Edit, Trash2, Calendar, Tag, Weight, MapPin, Activity, History, Info, BarChart3, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import './Rebanho.css';
@@ -145,13 +146,11 @@ export const Rebanho = () => {
 
   return (
     <div className="page-container fade-in">
-      <div className="subpage-breadcrumb" style={{ paddingBottom: 0, marginBottom: '-1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 500 }}>
-          <span>Pecuária</span>
-          <ChevronRight size={14} />
-          <span style={{ color: 'var(--primary-indigo)', fontWeight: 700 }}>Rebanho</span>
-        </div>
-      </div>
+      <nav className="subpage-breadcrumb">
+        <span>Pecuária</span>
+        <ChevronRight size={14} />
+        <span>Rebanho</span>
+      </nav>
 
       {!showReports && (
         <div className="page-header-row">

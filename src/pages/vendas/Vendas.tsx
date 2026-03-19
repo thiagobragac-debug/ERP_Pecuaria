@@ -5,7 +5,7 @@ import {
   Users, 
   Target, 
   ChevronRight,
-  Handshake,
+  Handshake, 
   BarChart3,
   FileText
 } from 'lucide-react';
@@ -38,14 +38,19 @@ export const Vendas = () => {
 
   const vgvTotal = notasMes.reduce((sum, n) => sum + (n.valorTotal || 0), 0);
   const ticketMedio = notasMes.length > 0 ? vgvTotal / notasMes.length : 0;
-  
+
   const openOppsValue = oportunidades
     .filter(o => o.estagio !== 'Fechado' && o.estagio !== 'Perdido')
     .reduce((sum, o) => sum + (o.valor || 0), 0);
 
   return isHubHome ? (
-    <div className="vendas-hub page-container">
-      <div className="page-header-row">
+    <div className="vendas-hub page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <span>Vendas & Comercial</span>
+        <ChevronRight size={14} />
+        <span>Vendas</span>
+      </nav>
+      <div className="page-header-row mb-8">
         <div className="title-section">
           <div className="icon-badge indigo">
             <TrendingUp size={32} strokeWidth={3} />
@@ -82,7 +87,7 @@ export const Vendas = () => {
           <div className="summary-info">
             <span className="summary-label">Taxa de Conversão</span>
             <span className="summary-value">
-              {oportunidades.length > 0 
+              {oportunidades.length > 0
                 ? ((oportunidades.filter(o => o.estagio === 'Fechado').length / oportunidades.length) * 100).toFixed(1)
                 : '0.0'}%
             </span>
@@ -152,16 +157,8 @@ export const Vendas = () => {
       </div>
     </div>
   ) : (
-    <div className="vendas-subpage fade-in">
-      <div className="subpage-breadcrumb page-container" style={{ paddingBottom: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Link to="/vendas">Venda & CRM</Link>
-          <ChevronRight size={14} />
-          <span>{location.pathname.split('/').pop()?.replace(/^\w/, (c) => c.toUpperCase())}</span>
-        </div>
-      </div>
+    <div className="page-container fade-in">
       <Outlet />
     </div>
   );
 };
-

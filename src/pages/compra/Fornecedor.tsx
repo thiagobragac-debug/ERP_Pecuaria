@@ -195,11 +195,11 @@ export const Fornecedor: React.FC = () => {
 
   return (
     <div className="page-container fade-in">
-      <div className="subpage-breadcrumb">
+      <nav className="subpage-breadcrumb">
         <Link to="/compras">Compra & Cotação</Link>
-        <span>/</span>
+        <ChevronRight size={14} />
         <span>Fornecedores</span>
-      </div>
+      </nav>
 
       <div className="page-header-row">
         <div className="title-section">

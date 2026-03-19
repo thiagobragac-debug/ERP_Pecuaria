@@ -39,6 +39,12 @@ export const Compra = () => {
 
   return (
     <div className="compra-hub page-container">
+      <nav className="subpage-breadcrumb">
+        <Link to="/compras">Compra & Cotação</Link>
+        <ChevronRight size={14} />
+        <span>Compras</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge secondary">

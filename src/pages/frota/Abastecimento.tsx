@@ -17,6 +17,7 @@ import {
   TrendingUp,
   Filter
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { StandardModal } from '../../components/StandardModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
@@ -133,6 +134,12 @@ export const Abastecimento: React.FC = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/maquinas">Frota & Máquinas</Link>
+        <ChevronRight size={14} />
+        <span>Abastecimento</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">

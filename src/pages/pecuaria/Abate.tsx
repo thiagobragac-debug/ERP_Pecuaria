@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Beef, 
   Truck, 
@@ -122,6 +123,11 @@ export const Abate = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/pecuaria/rebanho">Pecuária</Link>
+        <ChevronRight size={14} />
+        <span>Abate</span>
+      </nav>
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge emerald">

@@ -25,6 +25,7 @@ import {
   Wallet,
   ArrowRight
 } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { INITIAL_COMPANIES } from '../../data/initialData';
 import { MOCK_SUPPLIERS } from '../../data/supplierData';
@@ -193,6 +194,12 @@ export const ContasPagar = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/financeiro/fluxo">Financeiro & Controle</Link>
+        <ChevronRight size={14} />
+        <span>Contas a Pagar</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge secondary">

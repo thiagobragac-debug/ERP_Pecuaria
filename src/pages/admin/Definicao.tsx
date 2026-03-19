@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { 
@@ -25,7 +26,8 @@ import {
   RefreshCw,
   QrCode,
   CreditCard,
-  Link,
+  Link as LinkIcon,
+  Key,
   MapPin,
   User
 } from 'lucide-react';
@@ -339,6 +341,11 @@ export const Definicao: React.FC = () => {
 
   return (
     <div className="definicao-wrapper">
+      <nav className="subpage-breadcrumb">
+        <Link to="/admin/usuarios">Admin</Link>
+        <ChevronRight size={14} />
+        <span>Definições & Parâmetros</span>
+      </nav>
       <div className="page-header-row">
         <div className="header-left">
           <h1>Definições e Parâmetros</h1>
@@ -832,9 +839,68 @@ export const Definicao: React.FC = () => {
                           })}
                           placeholder="Ex: https://buy.stripe.com/..."
                         />
-                        <Link size={18} className="field-icon" />
+                        <LinkIcon size={18} className="field-icon" />
                       </div>
                       <small className="text-slate-500 font-semibold">Utilize o Stripe Payment Links ou Mercado Pago Checkout para taxas reduzidas.</small>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CHECKOUT TRANSPARENTE SECTION */}
+                <div className="card-premium p-6">
+                  <div className="flex justify-between items-center mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="icon-badge sm text-blue-600 bg-blue-50">
+                        <LinkIcon size={20} strokeWidth={3} />
+                      </div>
+                      <h4 style={{ margin: 0 }}>Checkout Transparente</h4>
+                    </div>
+                    <div className="custom-switch">
+                      <input 
+                        type="checkbox" 
+                        id="transparentCheckoutToggle" 
+                        checked={paymentConfig.transparent_checkout.is_active}
+                        onChange={(e) => setPaymentConfig({
+                          ...paymentConfig,
+                          transparent_checkout: { ...paymentConfig.transparent_checkout, is_active: e.target.checked }
+                        })}
+                      />
+                      <label htmlFor="transparentCheckoutToggle"></label>
+                    </div>
+                  </div>
+
+                  <div className="form-grid-premium">
+                    <div className="form-group-premium full-width">
+                      <label>URL do Endpoint de Pagamento</label>
+                      <div className="input-with-icon">
+                        <input 
+                          type="text" 
+                          value={paymentConfig.transparent_checkout.endpoint_url}
+                          onChange={(e) => setPaymentConfig({
+                            ...paymentConfig,
+                            transparent_checkout: { ...paymentConfig.transparent_checkout, endpoint_url: e.target.value }
+                          })}
+                          placeholder="Ex: https://api.seupagamento.com/checkout"
+                        />
+                        <LinkIcon size={18} className="field-icon" />
+                      </div>
+                      <small className="text-slate-500 font-semibold">Integre com seu próprio gateway de pagamento para uma experiência de checkout totalmente personalizada.</small>
+                    </div>
+                    <div className="form-group-premium full-width">
+                      <label>Chave de API (Secret Key)</label>
+                      <div className="input-with-icon">
+                        <input 
+                          type="password" 
+                          value={paymentConfig.transparent_checkout.api_key}
+                          onChange={(e) => setPaymentConfig({
+                            ...paymentConfig,
+                            transparent_checkout: { ...paymentConfig.transparent_checkout, api_key: e.target.value }
+                          })}
+                          placeholder="Sua chave secreta do gateway de pagamento"
+                        />
+                        <Key size={18} className="field-icon" />
+                      </div>
+                      <small className="text-slate-500 font-semibold">Mantenha esta chave segura. Ela é usada para autenticar suas requisições.</small>
                     </div>
                   </div>
                 </div>

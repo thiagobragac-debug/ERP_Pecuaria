@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   ShieldCheck, 
   Plus, 
@@ -107,6 +108,11 @@ export const Sanidade = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/pecuaria/rebanho">Pecuária</Link>
+        <ChevronRight size={14} />
+        <span>Sanidade</span>
+      </nav>
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge success">

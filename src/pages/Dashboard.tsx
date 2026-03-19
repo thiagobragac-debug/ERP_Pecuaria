@@ -60,6 +60,11 @@ export const Dashboard = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <span>Principal</span>
+        <ChevronRight size={14} />
+        <span>Dashboard</span>
+      </nav>
       <div className="page-header-row">
         <div className="title-section">
           <h1>Command Center 2.0</h1>

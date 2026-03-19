@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import React, { useState } from 'react';
 import { 
   Building2, 
@@ -217,6 +218,11 @@ export const Empresa: React.FC = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/admin/usuarios">Admin</Link>
+        <ChevronRight size={14} />
+        <span>Empresas & Unidades</span>
+      </nav>
       <div className="summary-grid">
         <div className="summary-card animate-slide-up" style={{ animationDelay: '0s' }}>
           <div className="summary-info">

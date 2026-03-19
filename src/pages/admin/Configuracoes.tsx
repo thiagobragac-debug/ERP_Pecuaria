@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import React, { useState } from 'react';
 import { 
   Settings, 
@@ -127,6 +128,11 @@ export const Configuracoes: React.FC = () => {
 
   return (
     <div className="configuracoes-wrapper">
+      <nav className="subpage-breadcrumb">
+        <Link to="/admin/usuarios">Admin</Link>
+        <ChevronRight size={14} />
+        <span>Configurações</span>
+      </nav>
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge emerald">

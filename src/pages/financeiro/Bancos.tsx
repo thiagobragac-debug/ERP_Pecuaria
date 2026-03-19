@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { 
   Building2, 
   Plus, 
@@ -160,6 +160,12 @@ export const Bancos = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/financeiro/fluxo">Financeiro & Controle</Link>
+        <ChevronRight size={14} />
+        <span>Contas Bancárias</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge emerald">

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Users, 
   Plus, 
@@ -28,6 +29,7 @@ import {
   ChevronLeft,
   Building2,
   Tag,
+  CheckCircle2,
   SearchCode
 } from 'lucide-react';
 import { StandardModal } from '../../../components/StandardModal';
@@ -201,6 +203,11 @@ export const Cliente: React.FC = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/vendas">Vendas & Comercial</Link>
+        <ChevronRight size={14} />
+        <span>Clientes</span>
+      </nav>
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">

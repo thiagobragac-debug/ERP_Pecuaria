@@ -8,6 +8,7 @@ import {
   ClipboardList, 
   AlertTriangle,
   TrendingDown,
+  CheckCircle2,
   ChevronRight
 } from 'lucide-react';
 import './Estoque.css';
@@ -34,8 +35,15 @@ export const Estoque = () => {
 
   return (
     <div className="page-container fade-in">
+
       {isHubHome ? (
         <div className="estoque-hub">
+          <nav className="subpage-breadcrumb">
+            <Link to="/estoque">Estoque & Inventário</Link>
+            <ChevronRight size={14} />
+            <span>Visão Geral</span>
+          </nav>
+
           <div className="page-header-row">
             <div className="title-section">
               <div className="icon-badge indigo">
@@ -126,11 +134,6 @@ export const Estoque = () => {
         </div>
       ) : (
         <div className="estoque-subpage">
-           <div className="subpage-breadcrumb">
-                <Link to="/estoque">Estoque</Link>
-                <ChevronRight size={14} />
-                <span>{location.pathname.split('/').pop()?.replace(/^\w/, (c) => c.toUpperCase())}</span>
-           </div>
            <Outlet />
         </div>
       )}

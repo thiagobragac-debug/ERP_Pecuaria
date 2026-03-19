@@ -9,13 +9,21 @@ import {
   PieChart,
   BarChart3,
   Lightbulb,
-  CheckCircle2
+  CheckCircle2,
+  ChevronRight
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import './PlanoContas.css';
 
 export const PlanejamentoFiscal = () => {
   return (
     <div className="planejamento-wrapper fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/contabil/plano">Contabilidade & Fiscal</Link>
+        <ChevronRight size={14} />
+        <span>Planejamento Fiscal</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge violet">

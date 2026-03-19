@@ -6,12 +6,13 @@ import {
   Filter, 
   Zap, 
   Upload, 
-  Link, 
+  Link as LinkIcon, 
   Check,
   Building2,
-  ShieldCheck
+  ShieldCheck,
+  ChevronRight
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { parseOFX } from '../../services/ofxParser';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
@@ -120,6 +121,12 @@ export const Conciliacao = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/financeiro/fluxo">Financeiro & Controle</Link>
+        <ChevronRight size={14} />
+        <span>Conciliação</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <button className="action-btn-global btn-view h-12 w-12" onClick={() => navigate('/financeiro/bancos')}>
@@ -202,7 +209,7 @@ export const Conciliacao = () => {
 
         <div className="connection-center">
              <button className="manual-match-btn" onClick={handleManualMatch} disabled={!selectedExtrato || !selectedErp}>
-                 <Link size={20} />
+                 <LinkIcon size={20} />
              </button>
         </div>
 

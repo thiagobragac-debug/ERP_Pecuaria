@@ -17,6 +17,7 @@ import {
   Download,
   Check
 } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { INITIAL_COMPANIES } from '../../data/initialData';
 import { StandardModal } from '../../components/StandardModal';
@@ -188,6 +189,12 @@ export const ContasReceber = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/financeiro/fluxo">Financeiro & Controle</Link>
+        <ChevronRight size={14} />
+        <span>Contas a Receber</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge secondary">

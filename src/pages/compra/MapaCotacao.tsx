@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { 
   FileText, 
@@ -340,7 +340,12 @@ export const MapaCotacaoPage = () => {
   };
 
   return (
-    <div className="mapa-wrapper fade-in">
+    <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/compras">Compra & Cotação</Link>
+        <ChevronRight size={14} />
+        <span>Mapas de Cotação</span>
+      </nav>
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge secondary">

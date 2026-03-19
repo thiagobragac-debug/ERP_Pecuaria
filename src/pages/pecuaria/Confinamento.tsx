@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Home, 
   Plus, 
@@ -138,6 +139,11 @@ export const Confinamento = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/pecuaria/rebanho">Pecuária</Link>
+        <ChevronRight size={14} />
+        <span>Confinamento</span>
+      </nav>
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">

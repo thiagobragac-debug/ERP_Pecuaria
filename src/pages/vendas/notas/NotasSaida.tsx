@@ -13,8 +13,10 @@ import {
   Filter,
   Calculator,
   ArrowRight,
-  Printer
+  Printer,
+  ChevronRight
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { StandardModal } from '../../../components/StandardModal';
 import { DanfeModal } from './components/DanfeModal';
 import { TablePagination } from '../../../components/TablePagination';
@@ -274,6 +276,12 @@ export const NotasSaida = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/vendas">Vendas & Comercial</Link>
+        <ChevronRight size={14} />
+        <span>Notas de Saída</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">

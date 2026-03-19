@@ -13,6 +13,7 @@ import {
   ChevronRight,
   FileText
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
 import { TaxApuracao } from '../../types';
@@ -102,6 +103,12 @@ export const Imposto = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/contabil/plano">Contabilidade & Fiscal</Link>
+        <ChevronRight size={14} />
+        <span>Impostos</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge orange">

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import React, { useState } from 'react';
 import { 
   Plus, 
@@ -125,6 +126,11 @@ export const PerfilUsuario: React.FC = () => {
 
   return (
     <div className="perfil-usuario-wrapper">
+      <nav className="subpage-breadcrumb">
+        <Link to="/admin/usuarios">Admin</Link>
+        <ChevronRight size={14} />
+        <span>Perfis de Usuário</span>
+      </nav>
       <div className="page-header-row">
         <div className="header-left">
           <h1>Perfis de Usuário</h1>

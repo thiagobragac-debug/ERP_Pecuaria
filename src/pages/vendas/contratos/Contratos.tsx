@@ -14,8 +14,10 @@ import {
   Clock,
   CheckCircle2,
   DollarSign,
-  AlertCircle
+  AlertCircle,
+  Link as LinkIcon
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useCompany } from '../../../contexts/CompanyContext';
 import { TablePagination } from '../../../components/TablePagination';
 import { TableFilters } from '../../../components/TableFilters';
@@ -97,6 +99,12 @@ export const Contratos = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/vendas">Vendas & Comercial</Link>
+        <ChevronRight size={14} />
+        <span>Contratos & Mercado</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">

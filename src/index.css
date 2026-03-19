@@ -941,3 +941,29 @@ button, input, textarea, select {
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* Global Subpage Breadcrumb */
+.subpage-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--slate-400);
+}
+
+.subpage-breadcrumb a {
+  color: var(--primary-indigo);
+  transition: var(--transition);
+}
+
+.subpage-breadcrumb a:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+
+.subpage-breadcrumb span {
+  display: flex;
+  align-items: center;
+  color: var(--slate-400);
+}

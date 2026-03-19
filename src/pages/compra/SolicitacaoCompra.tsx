@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { 
   FileText, 
@@ -247,11 +246,12 @@ export const SolicitacaoCompraPage = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/compras">Compra & Cotação</Link>
+        <ChevronRight size={14} />
+        <span>Solicitações de Compra</span>
+      </nav>
       <div className="page-header-row">
-        <button className="back-btn" onClick={() => window.history.back()}>
-          <ChevronLeft size={20} />
-          Voltar
-        </button>
         <div className="title-section">
           <div className="icon-badge indigo">
             <FileText size={24} />
@@ -354,7 +354,7 @@ export const SolicitacaoCompraPage = () => {
                 <tr key={reg.id}>
                   <td className="font-bold">
                     <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full" style={{ background: 'var(--primary-indigo)' }}></div>
+                       <div className="w-2 h-2 rounded-full" style={{ background: 'var(--primary-indigo)' }}></div>
                       {reg.numero}
                     </div>
                   </td>
@@ -694,4 +694,3 @@ export const SolicitacaoCompraPage = () => {
     </div>
   );
 };
-

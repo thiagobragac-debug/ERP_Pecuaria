@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Filter
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
@@ -164,6 +165,12 @@ export const PlanoContas: React.FC = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/contabil/plano">Contabilidade & Fiscal</Link>
+        <ChevronRight size={14} />
+        <span>Plano de Contas</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="header-left">
           <h1>Plano de Contas</h1>

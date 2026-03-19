@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { 
   ShoppingBag, 
@@ -294,6 +294,11 @@ export const PedidoCompraPage = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/compras">Compra & Cotação</Link>
+        <ChevronRight size={14} />
+        <span>Pedidos de Compra</span>
+      </nav>
       <div className="page-header-row">
         <button className="back-btn" onClick={() => window.history.back()}>
           <ChevronLeft size={20} />
@@ -719,4 +724,3 @@ export const PedidoCompraPage = () => {
     </div>
   );
 };
-

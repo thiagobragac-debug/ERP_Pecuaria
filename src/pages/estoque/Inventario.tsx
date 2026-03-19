@@ -29,6 +29,7 @@ import {
   ChevronRight,
   Activity
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import './Inventario.css';
 import { StandardModal } from '../../components/StandardModal';
 import { TablePagination } from '../../components/TablePagination';
@@ -231,6 +232,12 @@ export const Inventario = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/estoque">Estoque & Inventário</Link>
+        <ChevronRight size={14} />
+        <span>Inventário</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">

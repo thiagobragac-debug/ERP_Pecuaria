@@ -21,6 +21,7 @@ import {
   Zap,
   Filter
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
@@ -139,6 +140,12 @@ export const FluxoCaixa: React.FC = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/financeiro/fluxo">Financeiro & Controle</Link>
+        <ChevronRight size={14} />
+        <span>Fluxo de Caixa</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">

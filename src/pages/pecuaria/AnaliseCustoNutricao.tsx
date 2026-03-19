@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
   DollarSign, 
@@ -15,7 +16,8 @@ import {
   Percent,
   Calculator,
   Users,
-  Scale
+  Scale,
+  ChevronRight
 } from 'lucide-react';
 import { useCompany } from '../../contexts/CompanyContext';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -102,6 +104,13 @@ export const AnaliseCustoNutricao: React.FC<{ onBack: () => void; dietaNome?: st
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/pecuaria/rebanho">Pecuária</Link>
+        <ChevronRight size={14} />
+        <Link to="/pecuaria/nutricao">Nutrição</Link>
+        <ChevronRight size={14} />
+        <span>Análise de Custo</span>
+      </nav>
       <div className="page-header-row">
         <div className="title-section">
           <button className="btn-premium-outline back-btn-std h-11 w-11 flex items-center justify-center p-0" style={{ borderRadius: '15px' }} onClick={onBack}>

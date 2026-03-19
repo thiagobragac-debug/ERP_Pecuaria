@@ -11,8 +11,10 @@ import {
   BookOpen,
   ArrowUpRight,
   ArrowDownLeft,
-  Plus
+  Plus,
+  ChevronRight
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
 import { AccountingEntry } from '../../types';
@@ -99,6 +101,12 @@ export const LivroCaixa = () => {
   
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/contabil/plano">Contabilidade & Fiscal</Link>
+        <ChevronRight size={14} />
+        <span>Livro Caixa</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">

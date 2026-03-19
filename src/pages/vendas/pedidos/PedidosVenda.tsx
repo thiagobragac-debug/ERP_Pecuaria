@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Plus, 
   Search, 
@@ -163,6 +164,12 @@ export const PedidosVenda: React.FC = () => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/vendas">Vendas & Comercial</Link>
+        <ChevronRight size={14} />
+        <span>Pedidos de Venda</span>
+      </nav>
+
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">

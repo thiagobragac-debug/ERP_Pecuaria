@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
   Map as MapIcon, 
@@ -62,6 +63,13 @@ export const MapaPastagem: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 
   return (
     <div className="page-container fade-in">
+      <nav className="subpage-breadcrumb">
+        <Link to="/pecuaria/rebanho">Pecuária</Link>
+        <ChevronRight size={14} />
+        <Link to="/pecuaria/pastos">Pastos</Link>
+        <ChevronRight size={14} />
+        <span>Mapa</span>
+      </nav>
       <div className="page-header-row">
         <div className="title-section">
           <button className="btn-premium-outline back-btn h-10 px-3" onClick={onBack}>
