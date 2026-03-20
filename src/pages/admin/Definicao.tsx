@@ -29,9 +29,10 @@ import {
   Link as LinkIcon,
   Key,
   MapPin,
-  User
+  User,
+  CheckCircle2
 } from 'lucide-react';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import './Definicao.css';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
@@ -352,9 +353,9 @@ export const Definicao: React.FC = () => {
           <p className="text-slate-500 font-semibold mt-1">Gerencie taxonomias, unidades e índices técnicos do sistema</p>
         </div>
         <div className="header-actions">
-          <button className="btn-premium-solid indigo h-11 px-6 gap-2" onClick={() => handleOpenModal(activeTab === 'unidades' ? 'unidade' : selectedCategory ? 'subcategoria' : 'categoria')}>
-            <Plus size={18} strokeWidth={3} /> 
+          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal(activeTab === 'unidades' ? 'unidade' : selectedCategory ? 'subcategoria' : 'categoria')}>
             <span>{activeTab === 'unidades' ? 'Nova Unidade' : selectedCategory ? 'Nova Subcategoria' : 'Nova Categoria'}</span>
+            <Plus size={18} strokeWidth={3} /> 
           </button>
         </div>
       </div>
@@ -595,7 +596,7 @@ export const Definicao: React.FC = () => {
                 </div>
               </div>
               <div className="">
-                <button className="btn-premium-solid indigo h-11 px-8 gap-2">
+                <button className="btn-premium-solid indigo">
                   <Save size={18} strokeWidth={3} />
                   <span>Salvar Parâmetros</span>
                 </button>
@@ -950,7 +951,7 @@ export const Definicao: React.FC = () => {
 
               <div className="flex justify-start">
                 <button 
-                  className="btn-premium-solid indigo px-8" 
+                  className="btn-premium-solid indigo" 
                   onClick={handleSavePayment}
                   disabled={isSavingPix}
                 >
@@ -963,14 +964,25 @@ export const Definicao: React.FC = () => {
         </main>
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={`${editingItem ? 'Editar' : 'Nova'} ${modalType === 'categoria' ? 'Categoria' : modalType === 'subcategoria' ? 'Subcategoria' : 'Unidade'}`}
-        size="md"
         icon={modalType === 'unidade' ? Ruler : modalType === 'subcategoria' ? Layers : Settings}
+        footer={
+          <>
+            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
+            </button>
+            <button className="btn-premium-solid indigo" onClick={handleSave}>
+              <CheckCircle2 size={18} strokeWidth={3} />
+              <span>Salvar Alterações</span>
+            </button>
+          </>
+        }
       >
-        <div className="modal-body-premium">
+        <div className="modal-content-scrollable">
           {modalType === 'unidade' ? (
             <div className="form-grid-premium">
                 <div className="form-group-premium">
@@ -1086,18 +1098,10 @@ export const Definicao: React.FC = () => {
                 <Info size={20} />
                 <p>As alterações feitas aqui afetam globalmente o comportamento dos módulos vinculados.</p>
               </div>
-
-              <div className="modal-footer-premium flex gap-3">
-                <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-                <button className="btn-premium-solid indigo" onClick={handleSave}>
-                  <Save size={18} strokeWidth={3} />
-                  <span>Salvar Alterações</span>
-                </button>
-              </div>
             </div>
           )}
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

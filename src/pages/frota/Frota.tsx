@@ -20,10 +20,13 @@ import {
   Building2,
   Info,
   CheckCircle2,
-  Filter
+  Filter,
+  Activity,
+  TrendingDown,
+  Hash
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
@@ -32,8 +35,12 @@ import { INITIAL_COMPANIES } from '../../data/initialData';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
-import { supabase } from '../../services/supabase';
-import { useCompany } from '../../contexts/CompanyContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { SummaryCard } from '../../components/SummaryCard';
+import { StatusBadge } from '../../components/StatusBadge';
+import { SearchableSelect } from '../../components/SearchableSelect';
+import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import './Frota.css';
 
 import { 
@@ -44,16 +51,17 @@ import {
 } from '../../data/fleetData';
 
 export const Frota: React.FC = () => {
-  const { activeCompanyId } = useCompany();
-  const allAssets = useLiveQuery(() => db.ativos.toArray()) || [];
+  const { user: currentUser, currentOrg } = useAuth();
+  const isOnline = useOnlineStatus();
   
-  // Filter by active company
-  const assets = allAssets.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
+  const { data: assets = [], isLoading: loadingAssets } = useOfflineQuery<Asset>(['ativos'], 'ativos');
+  const { data: companies = [], isLoading: loadingCompanies } = useOfflineQuery<any>(['empresas'], 'empresas');
+  
+  const saveAssetMutation = useOfflineMutation<Asset>('ativos', [['ativos']]);
+  const deleteAssetMutation = useOfflineMutation<{ id: string }>('ativos', [['ativos']], 'delete');
+
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('Todos');
-  const [filterCategoria, setFilterCategoria] = useState('Todos');
-  const [filterEmpresa, setFilterEmpresa] = useState('Todas');
   const [columnFilters, setColumnFilters] = useState({
     ativo: '',
     status: 'Todos',
@@ -64,14 +72,15 @@ export const Frota: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'identificacao' | 'operacional' | 'financeiro' | 'manutencao'>('identificacao');
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+
   const [formData, setFormData] = useState<Partial<Asset>>({
     status: 'Operacional',
     tipoUso: 'Horas',
     financeiro: {
       valorCompra: 0,
       dataCompra: '',
-      vidaUtilAnos: 0,
-      depreciacaoAnual: 0
+      vidaUtilAnos: 10,
+      depreciacaoAnual: 10
     }
   });
 
@@ -106,19 +115,16 @@ export const Frota: React.FC = () => {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const tenant_id = user?.user_metadata?.tenant_id || 'default';
-
       const finalAsset: Asset = {
         ...(editingAsset || {}),
         ...formData,
         id: editingAsset?.id || Math.random().toString(36).substr(2, 9),
-        tenant_id,
-        empresaId: formData.empresaId || (activeCompanyId === 'Todas' ? undefined : activeCompanyId),
+        tenant_id: currentOrg?.id || 'default',
+        empresaId: formData.empresaId,
         proximaRevisao: formData.proximaRevisao || 'A definir'
       } as Asset;
 
-      await dataService.saveItem('ativos', finalAsset);
+      await saveAssetMutation.mutateAsync(finalAsset);
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error saving asset:', error);
@@ -128,14 +134,11 @@ export const Frota: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Deseja realmente excluir este ativo?')) {
-      await dataService.deleteItem('ativos', id);
+      await deleteAssetMutation.mutateAsync({ id });
     }
   };
 
   const filteredAssets = assets.filter(a => {
-    const company = INITIAL_COMPANIES.find(c => c.id === a.empresaId);
-    if (company && company.status === 'Inativa') return false;
-    
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = a.nome.toLowerCase().includes(searchLower) ||
                           a.placaOuSerie.toLowerCase().includes(searchLower) ||
@@ -148,11 +151,9 @@ export const Frota: React.FC = () => {
                           a.tipoUso.toLowerCase().includes(searchLower) ||
                           a.proximaRevisao.toLowerCase().includes(searchLower);
     
-    const matchesStatus = filterStatus === 'Todos' || a.status === filterStatus;
-    const matchesCategoria = filterCategoria === 'Todos' || a.categoria === filterCategoria;
-    const matchesEmpresa = filterEmpresa === 'Todas' || a.empresaId === filterEmpresa;
-
-    const currentEmpresa = mockCompanies.find(c => c.id === a.empresaId)?.nome || 'N/A';
+    // Using simple filters instead of complex INITIAL_COMPANIES/mockCompanies logic for now
+    const currentEmpresa = companies.find((c: any) => c.id === a.empresaId)?.nomeFantasia || 'N/A';
+    
     const matchesColumnFilters = 
       (columnFilters.ativo === '' || a.nome.toLowerCase().includes(columnFilters.ativo.toLowerCase()) || a.placaOuSerie.toLowerCase().includes(columnFilters.ativo.toLowerCase())) &&
       (columnFilters.status === 'Todos' || a.status === columnFilters.status) &&
@@ -160,7 +161,7 @@ export const Frota: React.FC = () => {
       (columnFilters.empresa === 'Todas' || currentEmpresa.includes(columnFilters.empresa)) &&
       (columnFilters.revisao === '' || a.proximaRevisao.toLowerCase().includes(columnFilters.revisao.toLowerCase()));
 
-    return matchesSearch && matchesStatus && matchesCategoria && matchesEmpresa && matchesColumnFilters;
+    return matchesSearch && matchesColumnFilters;
   });
 
   const {
@@ -199,12 +200,17 @@ export const Frota: React.FC = () => {
       </nav>
 
       <div className="page-header-row">
-        <div className="header-left">
-          <h1>Máquina & Frota</h1>
-          <p>Gestão de ativos imobilizados, manutenção e controle operacional</p>
+        <div className="title-section">
+          <div className="icon-badge indigo">
+            <Truck size={32} />
+          </div>
+          <div>
+            <h1>Máquina & Frota</h1>
+            <p className="description">Gestão de ativos imobilizados, manutenção e controle operacional</p>
+          </div>
         </div>
         <div className="header-actions">
-          <button className="btn-premium-solid indigo h-11 px-6 gap-2" onClick={() => handleOpenModal()}>
+          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
             <Plus size={18} strokeWidth={3} />
             <span>Novo Ativo</span>
           </button>
@@ -212,11 +218,46 @@ export const Frota: React.FC = () => {
       </div>
 
       <div className="summary-grid">
-        <StatCard icon={Truck} label="Total Ativos" value={assets.length} color="indigo" delay="0s" subtext="Frota registrada" />
-        <StatCard icon={CheckCircle2} label="Disponíveis" value={assets.filter(a => a.status === 'Operacional').length} color="indigo" delay="0.1s" subtext="Prontos para uso" />
-        <StatCard icon={Wrench} label="Em Manutenção" value={assets.filter(a => a.status === 'Manutenção').length} color="orange" delay="0.2s" subtext="Parada técnica" />
-        <StatCard icon={AlertTriangle} label="Críticos" value={assets.filter(a => (a.proximaRevisao || '').toLowerCase().includes('atrasad')).length} color="red" delay="0.3s" subtext="Revisão atrasada" />
-        <StatCard icon={DollarSign} label="Vlr. Imobilizado" value={`R$ ${(assets.reduce((acc, current) => acc + (current.financeiro?.valorCompra || 0), 0) / 1000000).toFixed(1)}M`} color="green" delay="0.4s" subtext="Capital em Ativos" />
+        <SummaryCard 
+          label="Total Ativos"
+          value={assets.length.toString()}
+          icon={Truck}
+          color="indigo"
+          delay="0s"
+          subtext="Frota registrada"
+        />
+        <SummaryCard 
+          label="Disponíveis"
+          value={assets.filter(a => a.status === 'Operacional').length.toString()}
+          icon={CheckCircle2}
+          color="indigo"
+          delay="0.1s"
+          subtext="Prontos para uso"
+        />
+        <SummaryCard 
+          label="Em Manutenção"
+          value={assets.filter(a => a.status === 'Manutenção').length.toString()}
+          icon={Wrench}
+          color="amber"
+          delay="0.2s"
+          subtext="Parada técnica"
+        />
+        <SummaryCard 
+          label="Críticos"
+          value={assets.filter(a => (a.proximaRevisao || '').toLowerCase().includes('atrasad')).length.toString()}
+          icon={AlertTriangle}
+          color="rose"
+          delay="0.3s"
+          subtext="Revisão atrasada"
+        />
+        <SummaryCard 
+          label="Vlr. Imobilizado"
+          value={`R$ ${(assets.reduce((acc, current) => acc + (current.financeiro?.valorCompra || 0), 0) / 1000000).toFixed(1)}M`}
+          icon={DollarSign}
+          color="emerald"
+          delay="0.4s"
+          subtext="Capital em Ativos"
+        />
       </div>
 
       <div className="assets-container card glass">
@@ -244,7 +285,7 @@ export const Frota: React.FC = () => {
                     { key: 'ativo', type: 'text', placeholder: 'Filtrar...' },
                     { key: 'status', type: 'select', options: ['Operacional', 'Manutenção', 'Inativo'] },
                     { key: 'operacional', type: 'text', placeholder: 'Uso...' },
-                    { key: 'empresa', type: 'select', options: ['Todas', ...mockCompanies.map(c => c.nome.split(' (')[0])] },
+                    { key: 'empresa', type: 'select', options: ['Todas', ...companies.map((c: any) => c.nomeFantasia)] },
                     { key: 'revisao', type: 'text', placeholder: 'Data...' }
                   ]}
                   values={columnFilters}
@@ -271,9 +312,7 @@ export const Frota: React.FC = () => {
                   </td>
 
                   <td>
-                    <span className={`status-badge ${asset.status.toLowerCase().replace('ç', 'c')} font-black px-3 py-1 rounded-full text-[10px] uppercase tracking-wider`}>
-                      {asset.status}
-                    </span>
+                    <StatusBadge status={asset.status} />
                   </td>
 
                   <td>
@@ -291,7 +330,7 @@ export const Frota: React.FC = () => {
                       <div className="h-6 w-6 rounded bg-indigo-50 flex items-center justify-center text-indigo-500">
                         <Building2 size={14} strokeWidth={3} />
                       </div>
-                      <span className="text-sm font-bold text-slate-600">{mockCompanies.find(c => c.id === asset.empresaId)?.nome.split(' (')[0] || 'N/A'}</span>
+                      <span className="text-sm font-bold text-slate-600">{companies.find((c: any) => c.id === asset.empresaId)?.nomeFantasia || 'N/A'}</span>
                     </div>
                   </td>
 
@@ -333,18 +372,23 @@ export const Frota: React.FC = () => {
 
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingAsset ? 'Editar Ativo' : 'Novo Ativo Profissional'}
         subtitle="Gestão completa de máquinas e veículos"
         icon={Truck}
-        size="lg"
         footer={
-          <div className="flex gap-3 w-full justify-end">
-            <button className="btn-premium-outline px-8" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-            <button className="btn-premium-solid indigo px-8" onClick={handleSave}>Finalizar Cadastro</button>
-          </div>
+          <>
+            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
+            </button>
+            <button className="btn-premium-solid indigo" onClick={handleSave}>
+              <span>{editingAsset ? 'Salvar Alterações' : 'Cadastrar Ativo'}</span>
+              {editingAsset ? <CheckCircle2 size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
+            </button>
+          </>
         }
       >
         <div className="modal-tabs mb-6">
@@ -354,137 +398,202 @@ export const Frota: React.FC = () => {
           <button className={`tab-btn ${activeTab === 'manutencao' ? 'active' : ''}`} onClick={() => setActiveTab('manutencao')}>Manutenção</button>
         </div>
 
-        <div className="form-sections-grid">
+        <div className="modal-content-scrollable">
+          <div className="form-sections-grid">
           {activeTab === 'identificacao' && (
-            <div className="form-section">
-              <div className="form-grid">
-                <div className="form-group col-12">
-                  <label>Nome do Ativo / Equipamento</label>
-                  <input type="text" placeholder="Ex: Trator Massey Ferguson 4707" value={formData.nome || ''} onChange={(e) => setFormData({...formData, nome: e.target.value})} />
+            <div className="modal-form-body">
+              <div className="form-section">
+                <div className="form-section-title">
+                  <Truck size={20} />
+                  <span>Identificação do Ativo</span>
                 </div>
-                <div className="form-group col-6">
-                  <label>Categoria</label>
-                  <select value={formData.categoria} onChange={(e) => setFormData({...formData, categoria: e.target.value})}>
-                    <option value="Trator">Trator</option>
-                    <option value="Caminhão">Caminhão</option>
-                    <option value="Utilitário">Utilitário (Picape/Carro)</option>
-                    <option value="Colheitadeira">Colheitadeira</option>
-                    <option value="Implemento">Implemento Agrícola</option>
-                  </select>
+                <div className="form-grid">
+                  <div className="form-group col-12">
+                    <label>Nome do Ativo / Equipamento</label>
+                    <input type="text" placeholder="Ex: Trator Massey Ferguson 4707" value={formData.nome || ''} onChange={(e) => setFormData({...formData, nome: e.target.value})} />
+                  </div>
+                  <div className="form-group col-6">
+                    <SearchableSelect
+                      label="Categoria"
+                      options={[
+                        { id: 'Trator', label: 'Trator' },
+                        { id: 'Caminhão', label: 'Caminhão' },
+                        { id: 'Utilitário', label: 'Utilitário (Picape/Carro)' },
+                        { id: 'Colheitadeira', label: 'Colheitadeira' },
+                        { id: 'Implemento', label: 'Implemento Agrícola' }
+                      ]}
+                      value={formData.categoria || ''}
+                      onChange={(val) => setFormData({ ...formData, categoria: val })}
+                      required
+                    />
+                  </div>
+                  <div className="form-group col-6">
+                    <SearchableSelect
+                      label="Empresa Responsável"
+                      options={companies.map((c: any) => ({ id: c.id, label: c.nomeFantasia }))}
+                      value={formData.empresaId || ''}
+                      onChange={(val) => setFormData({ ...formData, empresaId: val })}
+                      required
+                    />
+                  </div>
                 </div>
-                <div className="form-group col-6">
-                  <label>Empresa Responsável</label>
-                  <select value={formData.empresaId} onChange={(e) => setFormData({...formData, empresaId: e.target.value})}>
-                    <option value="">Selecione...</option>
-                    {INITIAL_COMPANIES.filter(c => c.status === 'Ativa').map(c => (
-                      <option key={c.id} value={c.id}>{c.nomeFantasia}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group col-4">
-                  <label>Marca</label>
-                  <input type="text" placeholder="Ex: John Deere" value={formData.marca || ''} onChange={(e) => setFormData({...formData, marca: e.target.value})} />
-                </div>
-                <div className="form-group col-4">
-                  <label>Modelo</label>
-                  <input type="text" placeholder="Ex: 6125J" value={formData.modelo || ''} onChange={(e) => setFormData({...formData, modelo: e.target.value})} />
-                </div>
-                <div className="form-group col-4">
-                  <label>Ano</label>
-                  <input type="number" placeholder="2024" value={formData.ano || ''} onChange={(e) => setFormData({...formData, ano: parseInt(e.target.value) || 0})} />
-                </div>
-                <div className="form-group col-12">
-                  <label>Placa ou Nº de Série</label>
-                  <input type="text" placeholder="ABC-1234 ou 000.000" value={formData.placaOuSerie || ''} onChange={(e) => setFormData({...formData, placaOuSerie: e.target.value})} />
+              </div>
+              <div className="form-divider" />
+              <div className="form-section">
+                <div className="form-section-title">Dados Técnicos</div>
+                <div className="form-grid">
+                  <div className="form-group col-4">
+                    <label>Marca</label>
+                    <div className="input-with-icon">
+                      <Building2 size={16} className="field-icon" />
+                      <input type="text" placeholder="Ex: John Deere" value={formData.marca || ''} onChange={(e) => setFormData({...formData, marca: e.target.value})} />
+                    </div>
+                  </div>
+                  <div className="form-group col-4">
+                    <label>Modelo</label>
+                    <div className="input-with-icon">
+                      <Settings size={16} className="field-icon" />
+                      <input type="text" placeholder="Ex: 6125J" value={formData.modelo || ''} onChange={(e) => setFormData({...formData, modelo: e.target.value})} />
+                    </div>
+                  </div>
+                  <div className="form-group col-4">
+                    <label>Ano</label>
+                    <div className="input-with-icon">
+                      <Calendar size={16} className="field-icon" />
+                      <input type="number" placeholder="2024" value={formData.ano || ''} onChange={(e) => setFormData({...formData, ano: parseInt(e.target.value) || 0})} />
+                    </div>
+                  </div>
+                  <div className="form-group col-6">
+                    <label>Placa ou Nº de Série</label>
+                    <div className="input-with-icon">
+                      <Hash size={16} className="field-icon" />
+                      <input type="text" placeholder="ABC-1234" value={formData.placaOuSerie || ''} onChange={(e) => setFormData({...formData, placaOuSerie: e.target.value})} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
           {activeTab === 'operacional' && (
-            <div className="form-section">
-              <div className="form-grid">
-                <div className="form-group col-6">
-                  <label>Status Operacional</label>
-                  <select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value as any})}>
-                    <option value="Operacional">Operacional</option>
-                    <option value="Manutenção">Em Manutenção</option>
-                    <option value="Inativo">Inativo / Desativado</option>
-                  </select>
+            <div className="modal-form-body">
+              <div className="form-section">
+                <div className="form-section-title">
+                  <Activity size={20} />
+                  <span>Condição Atual</span>
                 </div>
-                <div className="form-group col-6">
-                  <label>Tipo de Controle de Uso</label>
-                  <div className="radio-group" style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                      <input type="radio" checked={formData.tipoUso === 'Horas'} onChange={() => setFormData({...formData, tipoUso: 'Horas'})} /> Horas
-                    </label>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                      <input type="radio" checked={formData.tipoUso === 'KM'} onChange={() => setFormData({...formData, tipoUso: 'KM'})} /> KM
-                    </label>
+                <div className="form-grid">
+                  <div className="form-group col-12">
+                    <SearchableSelect
+                      label="Status Operacional"
+                      options={[
+                        { id: 'Operacional', label: 'Operacional' },
+                        { id: 'Manutenção', label: 'Em Manutenção' },
+                        { id: 'Inativo', label: 'Inativo / Desativado' }
+                      ]}
+                      value={formData.status || ''}
+                      onChange={(val) => setFormData({ ...formData, status: val as any })}
+                      required
+                    />
+                  </div>
+                  <div className="form-group col-6">
+                    <label>Tipo de Controle de Uso</label>
+                    <div className="radio-group">
+                      <label className="radio-option">
+                        <input type="radio" checked={formData.tipoUso === 'Horas'} onChange={() => setFormData({...formData, tipoUso: 'Horas'})} /> Horas
+                      </label>
+                      <label className="radio-option">
+                        <input type="radio" checked={formData.tipoUso === 'KM'} onChange={() => setFormData({...formData, tipoUso: 'KM'})} /> Quilometragem (KM)
+                      </label>
+                    </div>
                   </div>
                 </div>
-                <div className="form-group col-6">
-                  <label>Uso Atual ({formData.tipoUso})</label>
-                  <div className="input-with-icon" style={{ position: 'relative' }}>
-                    <Gauge size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input type="number" style={{ paddingLeft: '2.5rem' }} value={formData.usoAtual || 0} onChange={(e) => setFormData({...formData, usoAtual: parseInt(e.target.value) || 0})} />
-                  </div>
+              </div>
+              <div className="form-divider" />
+              <div className="form-section">
+                <div className="form-section-title">
+                  <Gauge size={20} />
+                  <span>Medidores</span>
                 </div>
-                <div className="form-group col-6">
-                  <label>Próxima Revisão em ({formData.tipoUso})</label>
-                  <input type="number" placeholder="Ex: 1500" />
+                <div className="form-grid">
+                  <div className="form-group col-6">
+                    <label>Uso Atual ({formData.tipoUso})</label>
+                    <div className="input-with-icon">
+                      <span className="field-icon"><Gauge size={16} /></span>
+                      <input type="number" value={formData.usoAtual || 0} onChange={(e) => setFormData({...formData, usoAtual: parseInt(e.target.value) || 0})} />
+                    </div>
+                  </div>
+                  <div className="form-group col-6">
+                    <label>Próxima Revisão em ({formData.tipoUso})</label>
+                    <input type="number" placeholder="Ex: 1500" />
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
           {activeTab === 'financeiro' && (
-            <div className="form-section">
-              <div className="form-grid">
-                <div className="form-group col-6">
-                  <label>Valor de Aquisição</label>
-                  <div className="input-with-icon" style={{ position: 'relative' }}>
-                    <DollarSign size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input type="number" style={{ paddingLeft: '2.5rem' }} value={formData.financeiro?.valorCompra || 0} onChange={(e) => setFormData({...formData, financeiro: {...formData.financeiro!, valorCompra: parseFloat(e.target.value) || 0}})} />
+            <div className="modal-form-body">
+              <div className="form-section">
+                <div className="form-section-title">
+                  <DollarSign size={20} />
+                  <span>Dados de Aquisição</span>
+                </div>
+                <div className="form-grid">
+                  <div className="form-group col-6">
+                    <label>Valor de Aquisição</label>
+                    <div className="input-with-icon">
+                      <span className="field-icon"><DollarSign size={16} /></span>
+                      <input type="number" value={formData.financeiro?.valorCompra || 0} onChange={(e) => setFormData({...formData, financeiro: {...formData.financeiro!, valorCompra: parseFloat(e.target.value) || 0}})} />
+                    </div>
+                  </div>
+                  <div className="form-group col-6">
+                    <label>Data da Compra</label>
+                    <input type="date" value={formData.financeiro?.dataCompra || ''} onChange={(e) => setFormData({...formData, financeiro: {...formData.financeiro!, dataCompra: e.target.value}})} />
                   </div>
                 </div>
-                <div className="form-group col-6">
-                  <label>Data da Compra</label>
-                  <input type="date" value={formData.financeiro?.dataCompra || ''} onChange={(e) => setFormData({...formData, financeiro: {...formData.financeiro!, dataCompra: e.target.value}})} />
+              </div>
+              <div className="form-section">
+                <div className="form-section-title">
+                  <TrendingDown size={20} />
+                  <span>Depreciação</span>
                 </div>
-                <div className="form-group col-6">
-                  <label>Vida Útil Estimada (Anos)</label>
-                  <input type="number" value={formData.financeiro?.vidaUtilAnos || 10} onChange={(e) => setFormData({...formData, financeiro: {...formData.financeiro!, vidaUtilAnos: parseInt(e.target.value) || 0}})} />
-                </div>
-                <div className="form-group col-6">
-                  <label>Depreciação Anual (%)</label>
-                  <input type="number" value={formData.financeiro?.depreciacaoAnual || 10} onChange={(e) => setFormData({...formData, financeiro: {...formData.financeiro!, depreciacaoAnual: parseFloat(e.target.value) || 0}})} />
+                <div className="form-grid">
+                  <div className="form-group col-6">
+                    <label>Vida Útil Estimada (Anos)</label>
+                    <input type="number" value={formData.financeiro?.vidaUtilAnos || 10} onChange={(e) => setFormData({...formData, financeiro: {...formData.financeiro!, vidaUtilAnos: parseInt(e.target.value) || 0}})} />
+                  </div>
+                  <div className="form-group col-6">
+                    <label>Depreciação Anual (%)</label>
+                    <input type="number" value={formData.financeiro?.depreciacaoAnual || 10} onChange={(e) => setFormData({...formData, financeiro: {...formData.financeiro!, depreciacaoAnual: parseFloat(e.target.value) || 0}})} />
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
           {activeTab === 'manutencao' && (
-            <div className="form-section">
-              <div className="maintenance-tab">
-                <div className="info-alert mb-6" style={{ display: 'flex', gap: '1rem', padding: '1rem', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px', color: 'var(--info)' }}>
+            <div className="modal-form-body">
+              <div className="form-section">
+                <div className="form-section-title">Histórico de Manutenção</div>
+                <div className="info-alert">
                   <Info size={18} />
-                  <p style={{ margin: 0, fontSize: '0.9rem' }}>Agende e monitore as manutenções preventivas e corretivas.</p>
+                  <p>Agende e monitore as manutenções preventivas e corretivas aqui.</p>
                 </div>
-                
-                <div className="history-list">
-                  <label className="section-label" style={{ display: 'block', marginBottom: '1rem', fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Últimas Intervenções</label>
-                  <div className="maintenance-empty" style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
-                    <Wrench size={40} style={{ marginBottom: '1rem', opacity: 0.5 }} />
-                    <p style={{ marginBottom: '1.5rem' }}>Nenhum registro de manutenção para este ativo.</p>
-                    <button className="btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}>Adicionar Ordem de Serviço</button>
-                  </div>
+                <div className="maintenance-empty">
+                  <Wrench size={40} style={{ opacity: 0.4 }} />
+                  <p>Nenhum registro de manutenção para este ativo.</p>
+                  <button className="btn-premium-outline btn-sm">
+                    <Plus size={16} strokeWidth={3} />
+                    <span>Adicionar Ordem de Serviço</span>
+                  </button>
                 </div>
               </div>
             </div>
           )}
+          </div>
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

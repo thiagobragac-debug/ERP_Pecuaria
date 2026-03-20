@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Repeat, ArrowRight, DollarSign, Calendar, MessageSquare, ShieldCheck, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
-import { StandardModal } from './StandardModal';
+import { Repeat, ArrowRight, DollarSign, Calendar, MessageSquare, ShieldCheck, ArrowDownLeft, ArrowUpRight, X } from 'lucide-react';
+import { ModernModal } from './ModernModal';
 import { MOCK_BANKS, BankAccount } from '../data/bankData';
 
 interface TransferModalProps {
@@ -38,15 +38,18 @@ export const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, o
   const sourceBank = MOCK_BANKS.find(b => b.id === sourceId);
 
   return (
-    <StandardModal
+    <ModernModal
       isOpen={isOpen}
       onClose={onClose}
       title="Transferência entre Contas"
       subtitle="Movimente saldo entre suas contas internas com facilidade."
       icon={Repeat}
       footer={
-        <div className="footer-actions flex justify-end gap-3 w-full">
-          <button className="btn-premium-outline" onClick={onClose}>Cancelar</button>
+        <>
+          <button className="btn-premium-outline" onClick={onClose}>
+            <X size={18} strokeWidth={3} />
+            <span>Cancelar</span>
+          </button>
           <button 
             className="btn-premium-solid indigo" 
             onClick={handleTransfer}
@@ -55,7 +58,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, o
             {isSuccess ? <ShieldCheck size={18} strokeWidth={3} className="animate-bounce" /> : <Repeat size={18} strokeWidth={3} />}
             <span>{isSuccess ? 'Sucesso!' : 'Confirmar Transferência'}</span>
           </button>
-        </div>
+        </>
       }
     >
       <div className="transfer-form-grid">
@@ -174,6 +177,6 @@ export const TransferModal: React.FC<TransferModalProps> = ({ isOpen, onClose, o
             border: 1px solid rgba(239, 68, 68, 0.2);
         }
       `}</style>
-    </StandardModal>
+    </ModernModal>
   );
 };

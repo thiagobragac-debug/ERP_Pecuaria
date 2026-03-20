@@ -20,9 +20,10 @@ import {
   Loader2,
   RefreshCw,
   Shield,
+  CheckCircle2,
   Filter
 } from 'lucide-react';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
@@ -219,39 +220,56 @@ export const Empresa: React.FC = () => {
   return (
     <div className="page-container fade-in">
       <nav className="subpage-breadcrumb">
-        <Link to="/admin/usuarios">Admin</Link>
+        <Link to="/dashboard">Admin</Link>
         <ChevronRight size={14} />
         <span>Empresas & Unidades</span>
       </nav>
-      <div className="summary-grid">
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Total Matrizes</span>
-            <span className="summary-value">{companies.filter((c: Company) => c.isMatriz).length}</span>
-            <span className="summary-subtext">Unidades principais</span>
+      <div className="page-header-row">
+        <div className="title-section">
+          <div className="icon-badge indigo">
+            <Building2 size={40} strokeWidth={3} />
           </div>
-          <div className="summary-icon emerald">
-            <Building2 size={36} strokeWidth={3} />
+          <div>
+            <h1>Estrutura Organizacional</h1>
+            <p className="description">Gestão de matrizes, filiais e unidades produtivas do ecossistema.</p>
           </div>
         </div>
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <div className="header-actions">
+           <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
+              <span>Nova Matriz</span>
+              <Plus size={18} strokeWidth={3} />
+           </button>
+        </div>
+      </div>
+      <div className="summary-grid">
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0s' }}>
+          <div className="summary-info">
+            <span className="summary-label">Total Matrizes</span>
+            <span className="summary-value">{companies.filter((c: Company) => c.isMatriz).length.toString().padStart(2, '0')}</span>
+            <span className="summary-subtext">Unidades principais</span>
+          </div>
+          <div className="summary-icon indigo">
+            <Building2 size={32} strokeWidth={3} />
+          </div>
+        </div>
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="summary-info">
             <span className="summary-label">Total Filiais</span>
-            <span className="summary-value">{companies.filter((c: Company) => !c.isMatriz).length}</span>
+            <span className="summary-value">{companies.filter((c: Company) => !c.isMatriz).length.toString().padStart(2, '0')}</span>
             <span className="summary-subtext">Unidades produtivas</span>
           </div>
           <div className="summary-icon emerald">
-            <Globe size={36} strokeWidth={3} />
+            <Globe size={32} strokeWidth={3} />
           </div>
         </div>
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.2s' }}>
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="summary-info">
-            <span className="summary-label">Estados Atendidos</span>
-            <span className="summary-value">{new Set(companies.map(c => c.estado)).size}</span>
+            <span className="summary-label">Estados</span>
+            <span className="summary-value">{new Set(companies.map(c => c.estado)).size.toString().padStart(2, '0')}</span>
             <span className="summary-subtext">Cobertura geográfica</span>
           </div>
-          <div className="summary-icon emerald">
-            <MapPin size={36} strokeWidth={3} />
+          <div className="summary-icon sky">
+            <MapPin size={32} strokeWidth={3} />
           </div>
         </div>
       </div>
@@ -373,21 +391,23 @@ export const Empresa: React.FC = () => {
 
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={`${editingCompany ? 'Editar ' : 'Nova '} ${isBranch ? 'Filial' : 'Matriz'}`}
         subtitle={isBranch ? `Vinculada à matriz: ${matrizes.find(m => m.id === selectedMatrizId)?.razaoSocial}` : 'Configuração completa da unidade principal'}
         icon={Building2}
-        size="lg"
         footer={
-          <div className="footer-actions flex gap-3">
-            <button className="btn-premium-outline px-8" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-            <button className="btn-premium-solid indigo px-8 flex items-center gap-2" onClick={handleSave}>
-              {isLoadingCnpj ? <Loader2 size={18} className="spinning" /> : <RefreshCw size={18} strokeWidth={3} />}
-              <span>Finalizar Cadastro</span>
+          <>
+            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
             </button>
-          </div>
+            <button className="btn-premium-solid indigo" onClick={handleSave}>
+              <span>{editingCompany ? 'Salvar Alterações' : 'Finalizar Cadastro'}</span>
+              {isLoadingCnpj ? <Loader2 size={18} className="spinning" /> : (editingCompany ? <CheckCircle2 size={18} strokeWidth={3} /> : <RefreshCw size={18} strokeWidth={3} />)}
+            </button>
+          </>
         }
       >
         <div className="modal-tabs mb-6">
@@ -398,140 +418,162 @@ export const Empresa: React.FC = () => {
           <button className={`tab-btn ${activeTab === 'rural' ? 'active' : ''}`} onClick={() => setActiveTab('rural')}>Rural</button>
         </div>
  
-        <div className="modal-body-content">
+        <div className="modern-form-section">
           {activeTab === 'geral' && (
-            <div className="form-grid">
-              <div className="form-group col-12">
+            <div className="form-content-active fade-in">
+              <div className="modern-form-group full-width">
                 <label>Razão Social</label>
-                <input type="text" value={formData.razaoSocial || ''} onChange={(e) => handleInputChange('razaoSocial', e.target.value)} placeholder="Agropecuária Exemplo LTDA" />
+                <div className="modern-input-wrapper">
+                  <input type="text" className="modern-input text-lg font-bold" value={formData.razaoSocial || ''} onChange={(e) => handleInputChange('razaoSocial', e.target.value)} placeholder="Agropecuária Exemplo LTDA" />
+                  <Building2 size={18} className="modern-field-icon" />
+                </div>
               </div>
-              <div className="form-group col-12">
+              <div className="modern-form-group full-width">
                 <label>Nome Fantasia</label>
-                <input type="text" value={formData.nomeFantasia || ''} onChange={(e) => handleInputChange('nomeFantasia', e.target.value)} placeholder="Fazenda Exemplo" />
+                <div className="modern-input-wrapper">
+                  <input type="text" className="modern-input" value={formData.nomeFantasia || ''} onChange={(e) => handleInputChange('nomeFantasia', e.target.value)} placeholder="Fazenda Exemplo" />
+                  <Globe size={18} className="modern-field-icon" />
+                </div>
               </div>
-              <div className="form-group col-6">
-                <label>Tipo de Unidade</label>
-                <select 
-                  value={isBranch ? 'Filial' : 'Matriz'} 
-                  onChange={(e) => {
-                    const branch = e.target.value === 'Filial';
-                    setIsBranch(branch);
-                    handleInputChange('isMatriz', !branch);
-                    if (!branch) {
-                      handleInputChange('parentId', undefined);
-                      setSelectedMatrizId('');
-                    } else if (matrizes.length > 0 && !selectedMatrizId) {
-                      setSelectedMatrizId(matrizes[0].id);
-                      handleInputChange('parentId', matrizes[0].id);
-                    }
-                  }}
-                  disabled={!!editingCompany && editingCompany.isMatriz && getBranches(editingCompany.id).length > 0}
-                >
-                  <option value="Matriz">Matriz</option>
-                  <option value="Filial">Filial</option>
-                </select>
-                {!!editingCompany && editingCompany.isMatriz && getBranches(editingCompany.id).length > 0 && (
-                  <span className="text-[10px] text-amber-600 mt-1">Não é possível mudar uma matriz que possui filiais vinculadas.</span>
-                )}
-              </div>
-              <div className="form-group col-6">
-                <label>Status</label>
-                <select 
-                  value={formData.status || 'Ativa'} 
-                  onChange={(e) => handleInputChange('status', e.target.value)}
-                  className={formData.status === 'Inativa' ? 'text-red-500 font-bold' : 'text-green-600 font-bold'}
-                >
-                  <option value="Ativa">Ativa</option>
-                  <option value="Inativa">Inativa</option>
-                </select>
-              </div>
-              <div className="form-group col-6">
-                <label>Logotipo (URL)</label>
-                <input type="text" value={formData.logotipo || ''} onChange={(e) => handleInputChange('logotipo', e.target.value)} placeholder="https://..." />
-              </div>
-              {isBranch && (
-                <div className="form-group col-6">
-                  <label>Matriz Vinculada</label>
+              <div className="modern-form-row">
+                <div className="modern-form-group">
+                  <label>Tipo de Unidade</label>
                   <select 
-                    value={selectedMatrizId} 
+                    className="modern-input"
+                    value={isBranch ? 'Filial' : 'Matriz'} 
                     onChange={(e) => {
-                      setSelectedMatrizId(e.target.value);
-                      handleInputChange('parentId', e.target.value);
+                      const branch = e.target.value === 'Filial';
+                      setIsBranch(branch);
+                      handleInputChange('isMatriz', !branch);
+                      if (!branch) {
+                        handleInputChange('parentId', undefined);
+                        setSelectedMatrizId('');
+                      } else if (matrizes.length > 0 && !selectedMatrizId) {
+                        setSelectedMatrizId(matrizes[0].id);
+                        handleInputChange('parentId', matrizes[0].id);
+                      }
                     }}
+                    disabled={!!editingCompany && editingCompany.isMatriz && getBranches(editingCompany.id).length > 0}
                   >
-                    <option value="">Selecione a matriz...</option>
-                    {matrizes.filter(m => m.id !== editingCompany?.id).map((m: Company) => (
-                      <option key={m.id} value={m.id}>{m.razaoSocial}</option>
-                    ))}
+                    <option value="Matriz">Matriz</option>
+                    <option value="Filial">Filial</option>
                   </select>
                 </div>
-              )}
-            </div>
-          )}
- 
-          {activeTab === 'fiscal' && (
-            <div className="form-grid">
-              <div className="form-group col-6">
-                <label>CPF / CNPJ</label>
-                <div className="input-with-action">
-                  <input type="text" value={formData.cnpj || ''} onChange={(e) => handleInputChange('cnpj', e.target.value)} onBlur={handleCnpjLookup} placeholder="00.000.000/0000-00" />
-                  <button className="action-inline-btn" onClick={handleCnpjLookup} disabled={isLoadingCnpj}>{isLoadingCnpj ? <Loader2 size={16} className="spinning" /> : <RefreshCw size={16} />}</button>
+                <div className="modern-form-group">
+                  <label>Status</label>
+                  <select 
+                    className={`modern-input ${formData.status === 'Inativa' ? 'text-red-500 font-bold' : 'text-green-600 font-bold'}`}
+                    value={formData.status || 'Ativa'} 
+                    onChange={(e) => handleInputChange('status', e.target.value)}
+                  >
+                    <option value="Ativa">Ativa</option>
+                    <option value="Inativa">Inativa</option>
+                  </select>
                 </div>
               </div>
-              <div className="form-group col-6">
-                <label>Inscrição Estadual</label>
-                <input type="text" value={formData.inscricaoEstadual || ''} onChange={(e) => handleInputChange('inscricaoEstadual', e.target.value)} placeholder="Número ou Isento" />
-              </div>
-              <div className="form-group col-6">
-                <label>Inscrição Municipal</label>
-                <input type="text" value={formData.inscricaoMunicipal || ''} onChange={(e) => handleInputChange('inscricaoMunicipal', e.target.value)} placeholder="Número" />
-              </div>
-              <div className="form-group col-6">
-                <label>Regime Tributário</label>
-                <select value={formData.regimeTributario || ''} onChange={(e) => handleInputChange('regimeTributario', e.target.value)}>
-                  <option value="">Selecione...</option>
-                  <option value="Simples Nacional">Simples Nacional</option>
-                  <option value="Lucro Presumido">Lucro Presumido</option>
-                  <option value="Lucro Real">Lucro Real</option>
-                  <option value="Produtor Rural">Produtor Rural</option>
-                </select>
-              </div>
-              <div className="form-group col-6">
-                <label>CRT (Código de Regime Tributário)</label>
-                <select value={formData.crt || '1'} onChange={(e) => handleInputChange('crt', e.target.value)}>
-                  <option value="1">1 - Simples Nacional</option>
-                  <option value="2">2 - Simples Nacional (Excesso)</option>
-                  <option value="3">3 - Regime Normal</option>
-                </select>
+
+              <div className="modern-form-row">
+                <div className="modern-form-group">
+                  <label>Logotipo (URL)</label>
+                  <input type="text" className="modern-input" value={formData.logotipo || ''} onChange={(e) => handleInputChange('logotipo', e.target.value)} placeholder="https://..." />
+                </div>
+                {isBranch && (
+                  <div className="modern-form-group">
+                    <label>Matriz Vinculada</label>
+                    <select 
+                      className="modern-input"
+                      value={selectedMatrizId} 
+                      onChange={(e) => {
+                        setSelectedMatrizId(e.target.value);
+                        handleInputChange('parentId', e.target.value);
+                      }}
+                    >
+                      <option value="">Selecione a matriz...</option>
+                      {matrizes.filter(m => m.id !== editingCompany?.id).map((m: Company) => (
+                        <option key={m.id} value={m.id}>{m.razaoSocial}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
           )}
- 
+
+          {activeTab === 'fiscal' && (
+            <div className="form-content-active fade-in">
+              <div className="modern-form-row">
+                <div className="modern-form-group">
+                  <label>CPF / CNPJ</label>
+                  <div className="modern-input-wrapper">
+                    <input type="text" className="modern-input" value={formData.cnpj || ''} onChange={(e) => handleInputChange('cnpj', e.target.value)} onBlur={handleCnpjLookup} placeholder="00.000.000/0000-00" />
+                    <button className="action-inline-btn" onClick={handleCnpjLookup} disabled={isLoadingCnpj}>{isLoadingCnpj ? <Loader2 size={16} className="spinning" /> : <RefreshCw size={16} />}</button>
+                  </div>
+                </div>
+                <div className="modern-form-group">
+                  <label>Inscrição Estadual</label>
+                  <input type="text" className="modern-input" value={formData.inscricaoEstadual || ''} onChange={(e) => handleInputChange('inscricaoEstadual', e.target.value)} placeholder="Número ou Isento" />
+                </div>
+              </div>
+
+              <div className="modern-form-row three-cols">
+                <div className="modern-form-group">
+                  <label>Inscrição Municipal</label>
+                  <input type="text" className="modern-input" value={formData.inscricaoMunicipal || ''} onChange={(e) => handleInputChange('inscricaoMunicipal', e.target.value)} placeholder="Número" />
+                </div>
+                <div className="modern-form-group">
+                  <label>Regime Tributário</label>
+                  <select className="modern-input" value={formData.regimeTributario || ''} onChange={(e) => handleInputChange('regimeTributario', e.target.value)}>
+                    <option value="">Selecione...</option>
+                    <option value="Simples Nacional">Simples Nacional</option>
+                    <option value="Lucro Presumido">Lucro Presumido</option>
+                    <option value="Lucro Real">Lucro Real</option>
+                    <option value="Produtor Rural">Produtor Rural</option>
+                  </select>
+                </div>
+                <div className="modern-form-group">
+                  <label>CRT</label>
+                  <select className="modern-input" value={formData.crt || '1'} onChange={(e) => handleInputChange('crt', e.target.value)}>
+                    <option value="1">1 - Simples Nacional</option>
+                    <option value="2">2 - Simples Nacional (Excesso)</option>
+                    <option value="3">3 - Regime Normal</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'endereco' && (
-            <div className="form-grid">
-              <div className="form-group col-4">
-                <label>CEP</label>
-                <input type="text" value={formData.cep || ''} onChange={(e) => handleInputChange('cep', e.target.value)} placeholder="00000-000" />
+            <div className="form-content-active fade-in">
+              <div className="modern-form-row three-cols">
+                <div className="modern-form-group">
+                  <label>CEP</label>
+                  <div className="modern-input-wrapper">
+                    <input type="text" className="modern-input" value={formData.cep || ''} onChange={(e) => handleInputChange('cep', e.target.value)} placeholder="00000-000" />
+                    <Search size={16} className="modern-field-icon" />
+                  </div>
+                </div>
+                <div className="modern-form-group col-span-2">
+                  <label>Logradouro / Rua</label>
+                  <input type="text" className="modern-input" value={formData.logradouro || ''} onChange={(e) => handleInputChange('logradouro', e.target.value)} />
+                </div>
               </div>
-              <div className="form-group col-8">
-                <label>Logradouro / Rua</label>
-                <input type="text" value={formData.logradouro || ''} onChange={(e) => handleInputChange('logradouro', e.target.value)} />
+              <div className="modern-form-row three-cols">
+                <div className="modern-form-group">
+                  <label>Número</label>
+                  <input type="text" className="modern-input" value={formData.numero || ''} onChange={(e) => handleInputChange('numero', e.target.value)} />
+                </div>
+                <div className="modern-form-group">
+                  <label>Bairro</label>
+                  <input type="text" className="modern-input" value={formData.bairro || ''} onChange={(e) => handleInputChange('bairro', e.target.value)} />
+                </div>
+                <div className="modern-form-group">
+                  <label>Cidade</label>
+                  <input type="text" className="modern-input" value={formData.cidade || ''} onChange={(e) => handleInputChange('cidade', e.target.value)} />
+                </div>
               </div>
-              <div className="form-group col-4">
-                <label>Número</label>
-                <input type="text" value={formData.numero || ''} onChange={(e) => handleInputChange('numero', e.target.value)} />
-              </div>
-              <div className="form-group col-8">
-                <label>Bairro</label>
-                <input type="text" value={formData.bairro || ''} onChange={(e) => handleInputChange('bairro', e.target.value)} />
-              </div>
-              <div className="form-group col-6">
-                <label>Cidade</label>
-                <input type="text" value={formData.cidade || ''} onChange={(e) => handleInputChange('cidade', e.target.value)} />
-              </div>
-              <div className="form-group col-6">
+              <div className="modern-form-group">
                 <label>Estado</label>
-                <select value={formData.estado || 'MT'} onChange={(e) => handleInputChange('estado', e.target.value)}>
+                <select className="modern-input" value={formData.estado || 'MT'} onChange={(e) => handleInputChange('estado', e.target.value)}>
                   <option value="MT">Mato Grosso</option>
                   <option value="MS">Mato Grosso do Sul</option>
                   <option value="GO">Goiás</option>
@@ -540,77 +582,88 @@ export const Empresa: React.FC = () => {
               </div>
             </div>
           )}
- 
+
           {activeTab === 'contato' && (
-            <div className="form-grid">
-              <div className="form-group col-12">
+            <div className="form-content-active fade-in">
+              <div className="modern-form-group full-width">
                 <label>Responsável Legal</label>
-                <div className="input-with-icon">
-                  <User size={18} strokeWidth={3} className="icon-field" />
-                  <input type="text" value={formData.responsavel || ''} onChange={(e) => handleInputChange('responsavel', e.target.value)} placeholder="Nome completo" />
+                <div className="modern-input-wrapper">
+                  <input type="text" className="modern-input" value={formData.responsavel || ''} onChange={(e) => handleInputChange('responsavel', e.target.value)} placeholder="Nome completo" />
+                  <User size={18} className="modern-field-icon" />
                 </div>
               </div>
-              <div className="form-group col-6">
-                <label>Telefone</label>
-                <div className="input-with-icon">
-                  <Phone size={18} strokeWidth={3} className="icon-field" />
-                  <input type="text" value={formData.telefone || ''} onChange={(e) => handleInputChange('telefone', e.target.value)} placeholder="(00) 00000-0000" />
+              <div className="modern-form-row">
+                <div className="modern-form-group">
+                  <label>Telefone</label>
+                  <div className="modern-input-wrapper">
+                    <input type="text" className="modern-input" value={formData.telefone || ''} onChange={(e) => handleInputChange('telefone', e.target.value)} placeholder="(00) 00000-0000" />
+                    <Phone size={18} className="modern-field-icon" />
+                  </div>
                 </div>
-              </div>
-              <div className="form-group col-6">
-                <label>E-mail Corporativo</label>
-                <div className="input-with-icon">
-                  <Mail size={18} strokeWidth={3} className="icon-field" />
-                  <input type="email" value={formData.email || ''} onChange={(e) => handleInputChange('email', e.target.value)} placeholder="exemplo@empresa.com" />
+                <div className="modern-form-group">
+                  <label>E-mail Corporativo</label>
+                  <div className="modern-input-wrapper">
+                    <input type="email" className="modern-input" value={formData.email || ''} onChange={(e) => handleInputChange('email', e.target.value)} placeholder="exemplo@empresa.com" />
+                    <Mail size={18} className="modern-field-icon" />
+                  </div>
                 </div>
               </div>
             </div>
           )}
- 
+
           {activeTab === 'rural' && (
-            <div className="form-grid">
-              <div className="form-group col-6">
-                <label>INCRA</label>
-                <input type="text" value={formData.incra || ''} onChange={(e) => handleInputChange('incra', e.target.value)} />
+            <div className="form-content-active fade-in">
+              <div className="modern-form-row">
+                <div className="modern-form-group">
+                  <label>INCRA</label>
+                  <input type="text" className="modern-input" value={formData.incra || ''} onChange={(e) => handleInputChange('incra', e.target.value)} />
+                </div>
+                <div className="modern-form-group">
+                  <label>NIRF</label>
+                  <input type="text" className="modern-input" value={formData.nirf || ''} onChange={(e) => handleInputChange('nirf', e.target.value)} />
+                </div>
               </div>
-              <div className="form-group col-6">
-                <label>NIRF</label>
-                <input type="text" value={formData.nirf || ''} onChange={(e) => handleInputChange('nirf', e.target.value)} />
+
+              <div className="modern-form-row">
+                <div className="modern-form-group">
+                  <label>Latitude</label>
+                  <input type="text" className="modern-input" value={formData.latitude || ''} onChange={(e) => handleInputChange('latitude', e.target.value)} />
+                </div>
+                <div className="modern-form-group">
+                  <label>Longitude</label>
+                  <input type="text" className="modern-input" value={formData.longitude || ''} onChange={(e) => handleInputChange('longitude', e.target.value)} />
+                </div>
               </div>
-              <div className="form-group col-6">
-                <label>Latitude</label>
-                <input type="text" value={formData.latitude || ''} onChange={(e) => handleInputChange('latitude', e.target.value)} />
+
+              <div className="modern-form-row four-cols">
+                <div className="modern-form-group">
+                  <label>Área Total (ha)</label>
+                  <input type="number" className="modern-input text-center" value={formData.areaTotal || ''} onChange={(e) => handleInputChange('areaTotal', parseFloat(e.target.value))} placeholder="0.00" />
+                </div>
+                <div className="modern-form-group">
+                  <label>Área Pasto (ha)</label>
+                  <input type="number" className="modern-input text-center" value={formData.areaPasto || ''} onChange={(e) => handleInputChange('areaPasto', parseFloat(e.target.value))} placeholder="0.00" />
+                </div>
+                <div className="modern-form-group">
+                  <label>Área Reserva (ha)</label>
+                  <input type="number" className="modern-input text-center" value={formData.areaReserva || ''} onChange={(e) => handleInputChange('areaReserva', parseFloat(e.target.value))} placeholder="0.00" />
+                </div>
+                <div className="modern-form-group">
+                  <label>Área APP (ha)</label>
+                  <input type="number" className="modern-input text-center" value={formData.areaApp || ''} onChange={(e) => handleInputChange('areaApp', parseFloat(e.target.value))} placeholder="0.00" />
+                </div>
               </div>
-              <div className="form-group col-6">
-                <label>Longitude</label>
-                <input type="text" value={formData.longitude || ''} onChange={(e) => handleInputChange('longitude', e.target.value)} />
-              </div>
-              <div className="form-group col-3">
-                <label>Área Total (ha)</label>
-                <input type="number" value={formData.areaTotal || ''} onChange={(e) => handleInputChange('areaTotal', parseFloat(e.target.value))} placeholder="0.00" />
-              </div>
-              <div className="form-group col-3">
-                <label>Área Pasto (ha)</label>
-                <input type="number" value={formData.areaPasto || ''} onChange={(e) => handleInputChange('areaPasto', parseFloat(e.target.value))} placeholder="0.00" />
-              </div>
-              <div className="form-group col-3">
-                <label>Área Reserva (ha)</label>
-                <input type="number" value={formData.areaReserva || ''} onChange={(e) => handleInputChange('areaReserva', parseFloat(e.target.value))} placeholder="0.00" />
-              </div>
-              <div className="form-group col-3">
-                <label>Área APP (ha)</label>
-                <input type="number" value={formData.areaApp || ''} onChange={(e) => handleInputChange('areaApp', parseFloat(e.target.value))} placeholder="0.00" />
-              </div>
-              <div className="form-group col-12">
-                <div className="info-box info">
-                  <Globe size={18} strokeWidth={3} />
-                  <p>As coordenadas são essenciais para o mapeamento das áreas e visualização no Dashboard.</p>
+
+              <div className="info-box-premium mt-6">
+                <Globe size={20} />
+                <div className="text-sm">
+                  <strong>Geolocalização:</strong> As coordenadas são essenciais para o mapeamento das áreas e visualização no Dashboard.
                 </div>
               </div>
             </div>
           )}
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

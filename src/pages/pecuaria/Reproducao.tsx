@@ -24,9 +24,11 @@ import {
   PackageCheck,
   ChevronLeft,
   ChevronRight,
-  Hash
+  Hash,
+  Beef,
+  Package
 } from 'lucide-react';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
@@ -41,6 +43,7 @@ import './Reproducao.css';
 // Removed mockSessions
 
 import { DiagnosticoReproducao } from './DiagnosticoReproducao';
+import { SearchableSelect } from '../../components/SearchableSelect';
 
 export const Reproducao = () => {
   const [view, setView] = useState<'list' | 'diagnostico'>('list');
@@ -51,6 +54,7 @@ export const Reproducao = () => {
   const [selectedSession, setSelectedSession] = useState<ReproducaoType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
   const [activeTab, setActiveTab] = useState('geral');
+  const [formData, setFormData] = useState<Partial<ReproducaoType>>({});
 
   const { activeCompanyId } = useCompany();
   
@@ -71,7 +75,18 @@ export const Reproducao = () => {
   });
 
   const handleOpenModal = (session: ReproducaoType | null = null, viewOnly = false) => {
-    setSelectedSession(session);
+    if (session) {
+      setSelectedSession(session);
+      setFormData({ ...session });
+    } else {
+      setSelectedSession(null);
+      setFormData({
+        dataInicio: new Date().toISOString().split('T')[0],
+        status: 'Em Protocolo',
+        protocolo: 'IATF 3 Manejos',
+        insumos: [],
+      });
+    }
     setIsViewMode(viewOnly);
     setIsModalOpen(true);
     setActiveTab('geral');
@@ -80,7 +95,24 @@ export const Reproducao = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedSession(null);
+    setFormData({});
     setIsViewMode(false);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.animal_id || !formData.protocolo) return;
+
+    const newReproducao: ReproducaoType = {
+      ...formData,
+      id: formData.id || Math.random().toString(36).substr(2, 9),
+      empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : (formData.empresaId || undefined),
+      tenant_id: 'default',
+      insumos: formData.insumos || []
+    } as ReproducaoType;
+
+    await dataService.saveItem('reproducao', newReproducao);
+    handleCloseModal();
   };
 
   const totalSessions = reproducoes.length;
@@ -151,19 +183,19 @@ export const Reproducao = () => {
           </div>
         </div>
         <div className="action-buttons">
-          <button className="btn-premium-outline h-11 px-6 gap-2" onClick={() => setView('diagnostico')}>
+          <button className="btn-premium-outline" onClick={() => setView('diagnostico')}>
             <Stethoscope size={20} strokeWidth={3} />
             Central de Diagnósticos
           </button>
-          <button className="btn-premium-solid indigo h-11 px-6 gap-2" onClick={() => handleOpenModal()}>
+          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
             <Plus size={20} strokeWidth={3} />
-            Novo Protocolo
+            <span>Novo Protocolo</span>
           </button>
         </div>
       </div>
 
       <div className="summary-grid">
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0s' }}>
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0s' }}>
           <div className="summary-info">
             <span className="summary-label">Taxa de Prenhez</span>
             <span className="summary-value">{taxaPrenhez}%</span>
@@ -171,12 +203,12 @@ export const Reproducao = () => {
               <TrendingUp size={18} strokeWidth={2.5} /> +5% vs meta
             </p>
           </div>
-          <div className="summary-icon" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>
-            <Heart size={36} strokeWidth={3} color="#10b981" />
+          <div className="summary-icon emerald">
+            <Heart size={24} strokeWidth={3} />
           </div>
         </div>
 
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="summary-info">
             <span className="summary-label">IEP Médio</span>
             <span className="summary-value">13.5 <small className="text-xl text-slate-400">meses</small></span>
@@ -184,12 +216,12 @@ export const Reproducao = () => {
               <Calendar size={18} strokeWidth={2.5} /> Ciclo Reprodutivo
             </p>
           </div>
-          <div className="summary-icon" style={{ background: 'rgba(245, 158, 11, 0.1)' }}>
-            <Calendar size={36} strokeWidth={3} color="#f59e0b" />
+          <div className="summary-icon amber">
+            <Calendar size={24} strokeWidth={3} />
           </div>
         </div>
 
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.2s' }}>
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="summary-info">
             <span className="summary-label">Eficácia IATF</span>
             <span className="summary-value">{eficaciaIATF}%</span>
@@ -197,12 +229,12 @@ export const Reproducao = () => {
               <Zap size={18} strokeWidth={2.5} /> Base: {iatfSessions.length} prot.
             </p>
           </div>
-          <div className="summary-icon" style={{ background: 'rgba(14, 165, 233, 0.1)' }}>
-            <Zap size={36} strokeWidth={3} color="#0ea5e9" />
+          <div className="summary-icon sky">
+            <Zap size={24} strokeWidth={3} />
           </div>
         </div>
 
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.3s' }}>
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <div className="summary-info">
             <span className="summary-label">Partos Previstos</span>
             <span className="summary-value">{partosPrevistos} <small className="text-xl text-slate-400">cab.</small></span>
@@ -210,8 +242,8 @@ export const Reproducao = () => {
               <Baby size={18} strokeWidth={2.5} /> Próximos 60 dias
             </p>
           </div>
-          <div className="summary-icon" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>
-            <Baby size={36} strokeWidth={3} color="#10b981" />
+          <div className="summary-icon rose">
+            <Baby size={24} strokeWidth={3} />
           </div>
         </div>
       </div>
@@ -224,7 +256,7 @@ export const Reproducao = () => {
           actionsLabel="Filtragem"
         >
           <button 
-            className={`btn-premium-outline h-11 px-6 gap-2 ${isFiltersOpen ? 'filter-active' : ''}`}
+            className={`btn-premium-outline ${isFiltersOpen ? 'filter-active' : ''}`}
             onClick={() => setIsFiltersOpen(!isFiltersOpen)}
           >
             <Filter size={18} strokeWidth={3} />
@@ -343,67 +375,61 @@ export const Reproducao = () => {
       </div>
 
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title={isViewMode ? 'Detalhes Reprodutivos' : (selectedSession ? 'Editar Protocolo' : 'Novo Protocolo / Estação')}
         subtitle="Acompanhamento técnico e gestão de estoque de sêmen e hormônios."
         icon={Baby}
-        size="lg"
         footer={
-          <div className="flex gap-3">
-            <button type="button" className="btn-premium-outline" onClick={handleCloseModal}>Cancelar</button>
-            {!isViewMode && <button type="submit" form="reproducao-form" className="btn-premium-solid indigo">Salvar e Atualizar Estoque</button>}
-          </div>
+          <>
+            <button type="button" className="btn-premium-outline" onClick={handleCloseModal}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
+            </button>
+            {!isViewMode && (
+              <button type="submit" form="reproducao-form" className="btn-premium-solid indigo">
+                <span>Salvar e Atualizar Estoque</span>
+                <CheckCircle2 size={18} strokeWidth={3} />
+              </button>
+            )}
+          </>
         }
       >
-        <div className="modal-tabs">
-          <button className={activeTab === 'geral' ? 'active' : ''} onClick={() => setActiveTab('geral')}>Geral</button>
-          <button className={activeTab === 'estoque' ? 'active' : ''} onClick={() => setActiveTab('estoque')}>Consumo de Insumos</button>
-          <button className={activeTab === 'evolucao' ? 'active' : ''} onClick={() => setActiveTab('evolucao')}>Evolução Ciclo</button>
+        <div className="modal-tabs mb-6">
+          <button className={`tab-btn ${activeTab === 'geral' ? 'active' : ''}`} onClick={() => setActiveTab('geral')}>Geral</button>
+          <button className={`tab-btn ${activeTab === 'estoque' ? 'active' : ''}`} onClick={() => setActiveTab('estoque')}>Consumo de Insumos</button>
+          <button className={`tab-btn ${activeTab === 'evolucao' ? 'active' : ''}`} onClick={() => setActiveTab('evolucao')}>Evolução Ciclo</button>
         </div>
         
-        <div className="modal-body scrollable">
-          <form id="reproducao-form" onSubmit={async (e) => { 
-            e.preventDefault(); 
-            const formData = new FormData(e.currentTarget);
-            const newReproducao: ReproducaoType = {
-              ...selectedSession!,
-              id: selectedSession?.id || Math.random().toString(36).substr(2, 9),
-              animal_id: formData.get('animal_id') as string,
-              protocolo: formData.get('protocolo') as string,
-              dataInicio: formData.get('dataInicio') as string,
-              previsaoDiagnostico: formData.get('previsaoDiagnostico') as string,
-              status: formData.get('status') as any,
-              insumos: selectedSession?.insumos || [],
-              empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : (selectedSession?.empresaId || undefined),
-              tenant_id: 'default'
-            };
-
-            await dataService.saveItem('reproducao', newReproducao);
-            handleCloseModal(); 
-          }}>
+        <div className="modal-content-scrollable">
+          <form id="reproducao-form" onSubmit={handleSave}>
             {activeTab === 'geral' && (
               <div className="form-sections-grid">
                 <div className="form-section">
-                  <h4>Informações Básicas</h4>
+                  <div className="form-section-title">
+                    <Beef size={20} />
+                    <span>Informações Básicas</span>
+                  </div>
                   <div className="form-grid">
                     <div className="form-group col-12">
-                      <label>Animal (Matriz)</label>
-                      <div className="input-with-icon">
-                        <select name="animal_id" defaultValue={selectedSession?.animal_id} disabled={isViewMode} required>
-                          <option value="">Selecione o animal...</option>
-                          {animais.map(a => (
-                            <option key={a.id} value={a.id}>{a.brinco} - {a.lote}</option>
-                          ))}
-                        </select>
-                        <Hash size={18} className="field-icon" />
-                      </div>
+                      <SearchableSelect
+                        label="Animal (Matriz)"
+                        options={animais.map(a => ({ id: a.id, label: a.brinco, sublabel: `Lote: ${a.lote}` }))}
+                        value={formData.animal_id || ''}
+                        onChange={(val) => setFormData({ ...formData, animal_id: val })}
+                        disabled={isViewMode}
+                        required
+                      />
                     </div>
                     <div className="form-group col-6">
                       <label>Tipo de Protocolo</label>
                       <div className="input-with-icon">
-                        <select name="protocolo" defaultValue={selectedSession?.protocolo} disabled={isViewMode}>
+                        <select 
+                          value={formData.protocolo || 'IATF 3 Manejos'} 
+                          onChange={(e) => setFormData({ ...formData, protocolo: e.target.value })} 
+                          disabled={isViewMode}
+                        >
                           <option>IATF 3 Manejos</option>
                           <option>Monta Natural</option>
                           <option>Transferência de Embrião (TE)</option>
@@ -415,21 +441,36 @@ export const Reproducao = () => {
                     <div className="form-group col-6">
                       <label>Data de Início</label>
                       <div className="input-with-icon">
-                        <input type="date" name="dataInicio" defaultValue={selectedSession?.dataInicio || new Date().toLocaleDateString('en-CA')} disabled={isViewMode} required />
+                        <input 
+                          type="date" 
+                          value={formData.dataInicio || ''} 
+                          onChange={(e) => setFormData({ ...formData, dataInicio: e.target.value })} 
+                          disabled={isViewMode} 
+                          required 
+                        />
                         <Calendar size={18} className="field-icon" />
                       </div>
                     </div>
                     <div className="form-group col-6">
                       <label>Previsão Diagnóstico (DG)</label>
                       <div className="input-with-icon">
-                        <input type="date" name="previsaoDiagnostico" defaultValue={selectedSession?.previsaoDiagnostico} disabled={isViewMode} />
+                        <input 
+                          type="date" 
+                          value={formData.previsaoDiagnostico || ''} 
+                          onChange={(e) => setFormData({ ...formData, previsaoDiagnostico: e.target.value })} 
+                          disabled={isViewMode} 
+                        />
                         <Calendar size={18} className="field-icon" />
                       </div>
                     </div>
                     <div className="form-group col-6">
                       <label>Status Atual</label>
                       <div className="input-with-icon">
-                        <select name="status" defaultValue={selectedSession?.status} disabled={isViewMode}>
+                        <select 
+                          value={formData.status || 'Em Protocolo'} 
+                          onChange={(e) => setFormData({ ...formData, status: e.target.value as any })} 
+                          disabled={isViewMode}
+                        >
                           <option>Em Protocolo</option>
                           <option>Prenhe</option>
                           <option>Vazia</option>
@@ -447,7 +488,10 @@ export const Reproducao = () => {
               <div className="inventory-integration">
                 <div className="integration-header">
                   <FlaskConical size={20} />
-                  <h4>Insumos Vinculados (Baixa Automática)</h4>
+                <div className="form-section-title">
+                  <Package size={20} />
+                  <span>Insumos Vinculados (Baixa Automática)</span>
+                </div>
                 </div>
                 
                 <div className="selected-inputs">
@@ -459,7 +503,7 @@ export const Reproducao = () => {
                     </div>
                   ))}
                   {!isViewMode && (
-                    <button type="button" className="btn-premium-outline w-full py-3">
+                    <button type="button" className="btn-premium-outline w-full">
                       <Plus size={16} strokeWidth={3} /> Adicionar Item do Estoque
                     </button>
                   )}
@@ -503,7 +547,7 @@ export const Reproducao = () => {
             )}
           </form>
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

@@ -23,10 +23,12 @@ import {
   User,
   Zap,
   Hash,
-  AlertCircle
+  AlertCircle,
+  CheckCircle2,
+  Info
 } from 'lucide-react';
 import './Pesagem.css';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal'; 
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
@@ -36,6 +38,10 @@ import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { Pesagem as PesagemType, Animal, Lote } from '../../types';
 import { useCompany } from '../../contexts/CompanyContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { SummaryCard } from '../../components/SummaryCard';
+import { SearchableSelect } from '../../components/SearchableSelect';
+import { StatusBadge } from '../../components/StatusBadge';
 
 import { HistoricoPesagem } from './HistoricoPesagem';
 
@@ -46,10 +52,15 @@ export const Pesagem = () => {
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [filterLote, setFilterLote] = useState('Todos');
   const [filterManejo, setFilterManejo] = useState('Todos');
+  const { activeCompanyId } = useCompany();
+  const { currentOrg } = useAuth();
   const [selectedPesagem, setSelectedPesagem] = useState<PesagemType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
-
-  const { activeCompanyId } = useCompany();
+  
+  const [formData, setFormData] = useState<Partial<PesagemType>>({
+    data: new Date().toISOString().substring(0, 10),
+    manejo: 'Pesagem Rotina'
+  });
   
   // Live Queries
   const allPesagens = useLiveQuery(() => db.pesagens.toArray()) || [];
@@ -70,7 +81,17 @@ export const Pesagem = () => {
   });
 
   const handleOpenModal = (pesagem: PesagemType | null = null, viewOnly = false) => {
-    setSelectedPesagem(pesagem);
+    if (pesagem) {
+      setSelectedPesagem(pesagem);
+      setFormData({ ...pesagem });
+    } else {
+      setSelectedPesagem(null);
+      setFormData({
+        data: new Date().toISOString().substring(0, 10),
+        manejo: 'Pesagem Rotina',
+        empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : undefined
+      });
+    }
     setIsViewMode(viewOnly);
     setIsModalOpen(true);
   };
@@ -79,6 +100,10 @@ export const Pesagem = () => {
     setIsModalOpen(false);
     setSelectedPesagem(null);
     setIsViewMode(false);
+    setFormData({
+        data: new Date().toISOString().substring(0, 10),
+        manejo: 'Pesagem Rotina'
+    });
   };
 
   const gmdMedio = pesagens.length > 0
@@ -139,7 +164,7 @@ export const Pesagem = () => {
       </nav>
       <div className="page-header-row">
         <div className="title-section">
-          <div className="icon-badge secondary">
+          <div className="icon-badge indigo">
             <Scale size={32} strokeWidth={3} />
           </div>
           <div>
@@ -148,11 +173,11 @@ export const Pesagem = () => {
           </div>
         </div>
         <div className="action-buttons">
-          <button className="btn-premium-outline h-11 px-6 gap-2" onClick={() => setView('history')}>
+          <button className="btn-premium-outline" onClick={() => setView('history')}>
             <History size={20} strokeWidth={3} />
             <span>Histórico Analítico</span>
           </button>
-          <button className="btn-premium-solid indigo h-11 px-6 gap-2" onClick={() => handleOpenModal()}>
+          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
             <Plus size={20} strokeWidth={3} />
             <span>Nova Pesagem</span>
           </button>
@@ -160,44 +185,30 @@ export const Pesagem = () => {
       </div>
 
       <div className="summary-grid">
-        <div className="summary-card animate-slide-up" style={{ '--summary-accent': '#10b981' } as any}>
-          <div className="summary-info">
-            <span className="summary-label">GMD Médio (Rebanho)</span>
-            <span className="summary-value">{gmdMedio} <small className="text-xl text-slate-400">kg/dia</small></span>
-            <p className="mt-4 text-emerald-600 font-extrabold flex items-center gap-2">
-              <ArrowUpRight size={18} strokeWidth={3} /> +0.05 vs ideal
-            </p>
-          </div>
-          <div className="summary-icon" style={{ '--accent-rgb': '16, 185, 129' } as any}>
-            <TrendingUp size={36} strokeWidth={3} />
-          </div>
-        </div>
-
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.1s', '--summary-accent': '#0ea5e9' } as any}>
-          <div className="summary-info">
-            <span className="summary-label">Eficiência de Ganho</span>
-            <span className="summary-value">1.42 <small className="text-xl text-slate-400">@/mês</small></span>
-            <p className="mt-4 text-sky-600 font-extrabold flex items-center gap-2">
-              <Zap size={18} strokeWidth={2.5} /> Meta de engorda atingida
-            </p>
-          </div>
-          <div className="summary-icon" style={{ '--accent-rgb': '14, 165, 233' } as any}>
-            <Activity size={36} strokeWidth={3} />
-          </div>
-        </div>
-
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.2s', '--summary-accent': '#f43f5e' } as any}>
-          <div className="summary-info">
-            <span className="summary-label">Animais Estagnados</span>
-            <span className="summary-value">{perdaPeso} <small className="text-xl text-slate-400">cab.</small></span>
-            <p className="mt-4 text-rose-500 font-black flex items-center gap-2">
-              <TrendingDown size={18} strokeWidth={3} /> Alerta crítico de manejo
-            </p>
-          </div>
-          <div className="summary-icon" style={{ '--accent-rgb': '244, 63, 94' } as any}>
-            <AlertCircle size={36} strokeWidth={3} />
-          </div>
-        </div>
+        <SummaryCard 
+          label="GMD Médio (Rebanho)"
+          value={`${gmdMedio} kg/dia`}
+          trend={{ value: '+0.05 vs ideal', type: 'up', icon: ArrowUpRight }}
+          icon={TrendingUp}
+          color="emerald"
+          delay="0s"
+        />
+        <SummaryCard 
+          label="Eficiência de Ganho"
+          value="1.42 @/mês"
+          subtext="Meta de engorda atingida"
+          icon={Activity}
+          color="sky"
+          delay="0.1s"
+        />
+        <SummaryCard 
+          label="Animais Estagnados"
+          value={`${perdaPeso} cab.`}
+          trend={{ value: 'Alerta de manejo', type: 'down', icon: AlertCircle }}
+          icon={AlertCircle}
+          color="rose"
+          delay="0.2s"
+        />
       </div>
 
       <div className="data-section">
@@ -311,120 +322,144 @@ export const Pesagem = () => {
         </div>
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={isViewMode ? 'Detalhes da Pesagem' : (selectedPesagem ? 'Editar Pesagem' : 'Nova Pesagem')}
-        subtitle="Registro individual de performance e ganho de peso."
+        title={isViewMode ? 'Dossiê da Pesagem' : (selectedPesagem ? 'Editar Pesagem' : 'Nova Pesagem')}
+        subtitle="Registro analítico de performance e ganho de peso."
         icon={Scale}
-        size="md"
         footer={
-          <div className="flex gap-3">
-            <button type="button" className="btn-premium-outline" onClick={handleCloseModal}>Cancelar</button>
-            {!isViewMode && <button type="submit" form="pesagem-form" className="btn-premium-solid indigo">Salvar Registro</button>}
-          </div>
+          <>
+            <button type="button" className="btn-premium-outline" onClick={handleCloseModal}>
+              <X size={18} strokeWidth={3} />
+              <span>{isViewMode ? 'Fechar' : 'Cancelar'}</span>
+            </button>
+            {!isViewMode && (
+              <button 
+                type="button" 
+                className="btn-premium-solid emerald" 
+                onClick={async () => {
+                  if (!formData.animal_id || !formData.pesoAtual || !formData.data) {
+                    alert('Por favor, preencha os campos obrigatórios.');
+                    return;
+                  }
+
+                  const animalId = formData.animal_id;
+                  const animal = animais.find(a => a.id === animalId);
+                  const pesoAtual = parseFloat(formData.pesoAtual.toString());
+                  const pesoAnterior = animal?.peso || 0;
+                  const data = formData.data;
+                  
+                  // GMD calculation
+                  let gmd = 0;
+                  if (animal?.dataNasc) {
+                    const dataAnterior = animal.created_at ? new Date(animal.created_at) : new Date(animal.dataNasc);
+                    const days = Math.max(1, Math.ceil((new Date(data).getTime() - dataAnterior.getTime()) / (1000 * 60 * 60 * 24)));
+                    gmd = (pesoAtual - pesoAnterior) / days;
+                  }
+
+                  const newPesagem: any = {
+                    ...selectedPesagem!,
+                    id: selectedPesagem?.id || Math.random().toString(36).substr(2, 9),
+                    animal_id: animalId,
+                    brinco: animal?.brinco || '',
+                    data: data,
+                    pesoAtual: pesoAtual,
+                    pesoAnterior: pesoAnterior,
+                    gmd: gmd,
+                    lote_id: animal?.lote_id || '',
+                    manejo: formData.manejo || 'Pesagem Rotina',
+                    empresaId: formData.empresaId || activeCompanyId,
+                    tenant_id: currentOrg?.id || 'default'
+                  };
+
+                  await dataService.saveItem('pesagens', newPesagem);
+                  if (animal) {
+                    await dataService.saveItem('animais', { ...animal, peso: pesoAtual });
+                  }
+                  
+                  handleCloseModal();
+                }}
+              >
+                <span>{selectedPesagem ? 'Salvar Alterações' : 'Salvar Registro'}</span>
+                {selectedPesagem ? <CheckCircle2 size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
+              </button>
+            )}
+          </>
         }
       >
-            
-            <div className="modal-body scrollable">
-              <form id="pesagem-form" onSubmit={async (e) => { 
-                e.preventDefault(); 
-                const formData = new FormData(e.currentTarget);
-                const animalId = formData.get('animal_id') as string;
-                const animal = animais.find(a => a.id === animalId);
-                
-                const pesoAtual = parseFloat(formData.get('pesoAtual') as string);
-                const pesoAnterior = animal?.peso || 0;
-                const data = formData.get('data') as string;
-                
-                // GMD calculation
-                let gmd = 0;
-                if (animal?.dataNasc) {
-                  const dataAnterior = animal.created_at ? new Date(animal.created_at) : new Date(animal.dataNasc);
-                  const days = Math.max(1, Math.ceil((new Date(data).getTime() - dataAnterior.getTime()) / (1000 * 60 * 60 * 24)));
-                  gmd = (pesoAtual - pesoAnterior) / days;
-                }
-
-                const newPesagem: PesagemType = {
-                  ...selectedPesagem!,
-                  id: selectedPesagem?.id || Math.random().toString(36).substr(2, 9),
-                  animal_id: animalId,
-                  brinco: animal?.brinco || '',
-                  data: data,
-                  pesoAtual: pesoAtual,
-                  pesoAnterior: pesoAnterior,
-                  gmd: gmd,
-                  lote_id: animal?.lote_id || '',
-                  manejo: formData.get('manejo') as string,
-                  empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : (selectedPesagem?.empresaId || undefined),
-                  tenant_id: 'default'
-                };
-
-                await dataService.saveItem('pesagens', newPesagem);
-                // Update animal weight too
-                if (animal) {
-                  await dataService.saveItem('animais', { ...animal, peso: pesoAtual });
-                }
-                
-                handleCloseModal(); 
-              }}>
-                <div className="form-sections-grid">
-                  <div className="form-section">
-                    <h4>Informações da Pesagem</h4>
-                    <div className="form-grid">
-                      <div className="form-group col-6">
-                        <label>Animal (Brinco)</label>
-                        <div className="input-with-icon">
-                          <select name="animal_id" defaultValue={selectedPesagem?.animal_id} disabled={isViewMode} required>
-                            <option value="">Selecione um animal...</option>
-                            {animais.map(a => (
-                                <option key={a.id} value={a.id}>{a.brinco} - {a.raca}</option>
-                            ))}
-                          </select>
-                          <Hash size={18} className="field-icon" />
-                        </div>
-                      </div>
-                      <div className="form-group col-6">
-                        <label>Data da Pesagem</label>
-                        <div className="input-with-icon">
-                          <input type="date" name="data" defaultValue={selectedPesagem?.data || new Date().toLocaleDateString('en-CA')} disabled={isViewMode} required />
-                          <Calendar size={18} className="field-icon" />
-                        </div>
-                      </div>
-                      <div className="form-group col-6">
-                        <label>Peso Atual (kg)</label>
-                        <div className="input-with-icon">
-                          <input type="number" name="pesoAtual" step="0.1" defaultValue={selectedPesagem?.pesoAtual} disabled={isViewMode} required placeholder="0.0" />
-                          <Scale size={18} className="field-icon" />
-                        </div>
-                      </div>
-                      <div className="form-group col-6">
-                        <label>Tipo de Manejo</label>
-                        <div className="input-with-icon">
-                          <select name="manejo" defaultValue={selectedPesagem?.manejo} disabled={isViewMode}>
-                            <option value="Pesagem Rotina">Pesagem Rotina</option>
-                            <option value="Entrada Pasto">Entrada Pasto</option>
-                            <option value="Saída Pasto">Saída Pasto</option>
-                            <option value="Vacinação">Vacinação</option>
-                          </select>
-                          <Layers size={18} className="field-icon" />
-                        </div>
-                      </div>
-                      {!isViewMode && (
-                        <div className="form-group col-12">
-                          <div className="info-box indigo">
-                            <Activity size={18} />
-                            <p><strong>Cálculo Automático:</strong> O GMD será calculado automaticamente com base no peso anterior registrado no sistema.</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </form>
+        <div className="modern-form-section">
+          <div className="modern-form-row four-cols">
+            <div className="modern-form-group col-span-2">
+              <SearchableSelect
+                label="Animal (Brinco)"
+                options={animais.map(a => ({ id: a.id, label: a.brinco, sublabel: `${a.raca} - ${a.peso}kg` }))}
+                value={formData.animal_id || ''}
+                onChange={(val) => setFormData({ ...formData, animal_id: val })}
+                disabled={isViewMode}
+                required
+              />
             </div>
+            <div className="modern-form-group col-span-2">
+              <label>Data da Pesagem</label>
+              <div className="modern-input-wrapper">
+                <input 
+                  type="date" 
+                  className="modern-input"
+                  value={formData.data || ''} 
+                  onChange={(e) => setFormData({ ...formData, data: e.target.value })}
+                  disabled={isViewMode} 
+                  required 
+                />
+                <Calendar size={18} className="modern-field-icon" />
+              </div>
+            </div>
+          </div>
 
-      </StandardModal>
+          <div className="modern-form-row four-cols">
+            <div className="modern-form-group col-span-2">
+              <label>Peso Atual (kg)</label>
+              <div className="modern-input-wrapper">
+                <input 
+                  type="number" 
+                  className="modern-input text-lg font-bold"
+                  step="0.1" 
+                  value={formData.pesoAtual || ''} 
+                  onChange={(e) => setFormData({ ...formData, pesoAtual: parseFloat(e.target.value) || 0 })}
+                  disabled={isViewMode} 
+                  required 
+                  placeholder="0.0" 
+                />
+                <Scale size={18} className="modern-field-icon" />
+              </div>
+            </div>
+            <div className="modern-form-group col-span-2">
+              <SearchableSelect
+                label="Tipo de Manejo"
+                options={[
+                  { id: 'Pesagem Rotina', label: 'Pesagem Rotina' },
+                  { id: 'Entrada Pasto', label: 'Entrada Pasto' },
+                  { id: 'Saída Pasto', label: 'Saída Pasto' },
+                  { id: 'Vacinação', label: 'Vacinação' }
+                ]}
+                value={formData.manejo || ''}
+                onChange={(val) => setFormData({ ...formData, manejo: val })}
+                disabled={isViewMode}
+                required
+              />
+            </div>
+          </div>
+
+          {!isViewMode && (
+            <div className="modern-info-tag indigo mt-4 full-width">
+              <Activity size={18} />
+              <p className="text-sm font-semibold">
+                <strong>Cálculo Automático:</strong> O GMD será calculado automaticamente com base no peso anterior.
+              </p>
+            </div>
+          )}
+        </div>
+      </ModernModal>
     </div>
   );
 };

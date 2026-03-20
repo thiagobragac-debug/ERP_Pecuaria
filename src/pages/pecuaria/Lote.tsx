@@ -19,12 +19,14 @@ import {
   X,
   Users,
   Activity, 
-  Info
+  Info,
+  CheckCircle2,
+  History as HistoryIcon
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import './Lote.css';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
@@ -34,6 +36,7 @@ import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCompany } from '../../contexts/CompanyContext';
+import { SearchableSelect } from '../../components/SearchableSelect';
 
 export const LotePage = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,6 +46,7 @@ export const LotePage = () => {
   const [isViewMode, setIsViewMode] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const { activeCompanyId } = useCompany();
+  const [formData, setFormData] = useState<Partial<LoteType>>({});
 
   // Live Queries
   const allLotes = useLiveQuery(() => db.lotes.toArray()) || [];
@@ -62,12 +66,24 @@ export const LotePage = () => {
     pasto: '',
     qtd: '',
     peso: '',
-    data: '',
+    get data() { return ''; }, // Compatibility with old structure if needed
     status: 'Todos'
   });
 
   const handleOpenModal = (lote: LoteType | null = null, viewOnly = false) => {
-    setSelectedLote(lote);
+    if (lote) {
+      setSelectedLote(lote);
+      setFormData({ ...lote });
+    } else {
+      setSelectedLote(null);
+      setFormData({
+        dataCriacao: new Date().toISOString().split('T')[0],
+        status: 'Ativo',
+        cor: '#2E7D32',
+        categoria: 'Recria',
+        empresaId: activeCompanyId === 'Todas' ? undefined : activeCompanyId,
+      });
+    }
     setIsViewMode(viewOnly);
     setActiveTab('geral');
     setIsModalOpen(true);
@@ -76,7 +92,24 @@ export const LotePage = () => {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedLote(null);
+    setFormData({});
     setIsViewMode(false);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.nome || !formData.categoria) return;
+
+    const updatedLote: LoteType = {
+      ...formData,
+      id: formData.id || Math.random().toString(36).substr(2, 9),
+      tenant_id: 'default',
+      qtdAnimais: formData.qtdAnimais || 0,
+      pesoMedio: formData.pesoMedio || 0
+    } as LoteType;
+
+    await dataService.saveItem('lotes', updatedLote);
+    handleCloseModal();
   };
 
   const handleDelete = async (id: string) => {
@@ -145,11 +178,11 @@ export const LotePage = () => {
         <div className="connectivity-section mr-4">
         </div>
         <div className="action-buttons">
-          <button className="btn-premium-outline h-11 px-6 gap-2">
+          <button className="btn-premium-outline">
             <Download size={20} strokeWidth={3} />
             <span>Exportar</span>
           </button>
-          <button className="btn-premium-solid indigo h-11 px-6 gap-2" onClick={() => handleOpenModal()}>
+          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
             <Plus size={20} strokeWidth={3} />
             <span>Novo Lote</span>
           </button>
@@ -157,7 +190,7 @@ export const LotePage = () => {
       </div>
 
       <div className="summary-grid">
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0s' }}>
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0s' }}>
           <div className="summary-info">
             <span className="summary-label">Lotes Ativos</span>
             <span className="summary-value">{lotesAtivos}</span>
@@ -165,12 +198,12 @@ export const LotePage = () => {
               <ArrowUpRight size={18} strokeWidth={2.5} /> +{lotesAtivos} este mês
             </p>
           </div>
-          <div className="summary-icon" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>
-            <Layers size={36} strokeWidth={3} color="#10b981" />
+          <div className="summary-icon emerald">
+            <Layers size={24} strokeWidth={3} />
           </div>
         </div>
 
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="summary-info">
             <span className="summary-label">Animais em Lote</span>
             <span className="summary-value">{totalAnimais.toLocaleString()}</span>
@@ -178,12 +211,12 @@ export const LotePage = () => {
               <Users size={18} strokeWidth={2.5} /> 95% do rebanho
             </p>
           </div>
-          <div className="summary-icon" style={{ background: 'rgba(14, 165, 233, 0.1)' }}>
-            <Users size={36} strokeWidth={3} color="#0ea5e9" />
+          <div className="summary-icon sky">
+            <Users size={24} strokeWidth={3} />
           </div>
         </div>
 
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.2s' }}>
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="summary-info">
             <span className="summary-label">Peso Médio Global</span>
             <span className="summary-value">{pesoMedioGlobal} <small className="text-xl text-slate-400">kg</small></span>
@@ -191,12 +224,12 @@ export const LotePage = () => {
               <TrendingUp size={18} strokeWidth={2.5} /> +1.2 kg GMD
             </p>
           </div>
-          <div className="summary-icon" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>
-            <TrendingUp size={36} strokeWidth={3} color="#10b981" />
+          <div className="summary-icon emerald">
+            <TrendingUp size={24} strokeWidth={3} />
           </div>
         </div>
 
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.3s' }}>
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <div className="summary-info">
             <span className="summary-label">Eficiência Pasto</span>
             {(() => {
@@ -213,8 +246,8 @@ export const LotePage = () => {
                 );
             })()}
           </div>
-          <div className="summary-icon" style={{ background: 'rgba(245, 158, 11, 0.1)' }}>
-            <ArrowUpRight size={36} strokeWidth={3} color="#f59e0b" />
+          <div className="summary-icon amber">
+            <ArrowUpRight size={24} strokeWidth={3} />
           </div>
         </div>
       </div>
@@ -321,62 +354,66 @@ export const LotePage = () => {
         />
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title={isViewMode ? `Detalhes do Lote: ${selectedLote?.nome}` : (selectedLote ? 'Editar Lote' : 'Novo Lote')}
         subtitle={isViewMode ? 'Informações técnicas do lote e histórico.' : 'Gerencie as propriedades do lote e sua localização.'}
         icon={Layers}
-        size="lg"
         footer={
-          <div className="flex gap-3">
-            <button type="button" className="btn-premium-outline" onClick={handleCloseModal}>Cancelar</button>
-            {!isViewMode && <button type="submit" form="lote-form" className="btn-premium-solid indigo">Salvar Alterações</button>}
-          </div>
+          <>
+            <button type="button" className="btn-premium-outline" onClick={handleCloseModal}>
+              <X size={18} strokeWidth={3} />
+              <span>{isViewMode ? 'Fechar' : 'Cancelar'}</span>
+            </button>
+            {!isViewMode && (
+              <button type="submit" form="lote-form" className="btn-premium-solid indigo">
+                <span>{selectedLote ? 'Salvar Alterações' : 'Salvar Lote'}</span>
+                {selectedLote ? <CheckCircle2 size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
+              </button>
+            )}
+          </>
         }
       >
-        <div className="modal-tabs">
-          <button className={activeTab === 'geral' ? 'active' : ''} onClick={() => setActiveTab('geral')}>Propriedades</button>
-          <button className={activeTab === 'sanidade' ? 'active' : ''} onClick={() => setActiveTab('sanidade')}>Sanidade</button>
-          <button className={activeTab === 'nutricao' ? 'active' : ''} onClick={() => setActiveTab('nutricao')}>Nutrição</button>
+        <div className="modal-tabs mb-6">
+          <button className={`tab-btn ${activeTab === 'geral' ? 'active' : ''}`} onClick={() => setActiveTab('geral')}>Propriedades</button>
+          <button className={`tab-btn ${activeTab === 'sanidade' ? 'active' : ''}`} onClick={() => setActiveTab('sanidade')}>Sanidade</button>
+          <button className={`tab-btn ${activeTab === 'nutricao' ? 'active' : ''}`} onClick={() => setActiveTab('nutricao')}>Nutrição</button>
         </div>
             
-            <div className="modal-body scrollable">
-              <form id="lote-form" onSubmit={async (e) => { 
-                e.preventDefault(); 
-                const formData = new FormData(e.currentTarget);
-                const updatedLote: LoteType = {
-                  ...selectedLote!,
-                  id: selectedLote?.id || Math.random().toString(36).substr(2, 9),
-                  nome: formData.get('nome') as string,
-                  categoria: formData.get('categoria') as string,
-                  pasto: formData.get('pasto') as string,
-                  dataCriacao: formData.get('dataCriacao') as string,
-                  cor: formData.get('cor') as string,
-                  status: formData.get('status') as any || 'Ativo',
-                  empresaId: selectedLote?.empresaId || (activeCompanyId === 'Todas' ? undefined : activeCompanyId),
-                  tenant_id: 'default',
-                  qtdAnimais: selectedLote?.qtdAnimais || 0,
-                  pesoMedio: selectedLote?.pesoMedio || 0
-                };
-                await dataService.saveItem('lotes', updatedLote);
-                handleCloseModal(); 
-              }}>
+        <div className="modal-content-scrollable">
+              <form id="lote-form" onSubmit={handleSave}>
                 <div className="form-sections-grid">
                   {activeTab === 'geral' && (
                     <div className="form-section">
+                      <div className="form-section-title">
+                        <Info size={20} />
+                        <span>Propriedades do Lote</span>
+                      </div>
                       <div className="form-grid">
                         <div className="form-group col-12">
                           <label>Nome do Lote</label>
                           <div className="input-with-icon">
-                            <input type="text" name="nome" defaultValue={selectedLote?.nome} placeholder="Ex: Lote 05 - Engorda" required disabled={isViewMode} />
+                            <input 
+                              type="text" 
+                              value={formData.nome || ''} 
+                              onChange={(e) => setFormData({ ...formData, nome: e.target.value })} 
+                              placeholder="Ex: Lote 05 - Engorda" 
+                              required 
+                              disabled={isViewMode} 
+                            />
                             <Layers size={18} className="field-icon" />
                           </div>
                         </div>
                         <div className="form-group col-6">
                           <label>Categoria</label>
                           <div className="input-with-icon">
-                            <select name="categoria" defaultValue={selectedLote?.categoria || 'Recria'} required disabled={isViewMode}>
+                            <select 
+                              value={formData.categoria || 'Recria'} 
+                              onChange={(e) => setFormData({ ...formData, categoria: e.target.value })} 
+                              required 
+                              disabled={isViewMode}
+                            >
                               <option value="Recria">Recria</option>
                               <option value="Engorda">Engorda</option>
                               <option value="Reprodução">Reprodução</option>
@@ -385,16 +422,25 @@ export const LotePage = () => {
                           </div>
                         </div>
                         <div className="form-group col-6">
-                          <label>Pasto/Piquete</label>
-                          <div className="input-with-icon">
-                            <input type="text" name="pasto" defaultValue={selectedLote?.pasto} placeholder="Ex: Pasto das Flores" required disabled={isViewMode} />
-                            <MapPin size={18} className="field-icon" />
-                          </div>
+                          <SearchableSelect
+                            label="Pasto/Piquete"
+                            options={pastos.map(p => ({ id: p.nome, label: p.nome, sublabel: `Capacidade: ${p.capacidade_ua} UA` }))}
+                            value={formData.pasto || ''}
+                            onChange={(val) => setFormData({ ...formData, pasto: val })}
+                            disabled={isViewMode}
+                            required
+                          />
                         </div>
                         <div className="form-group col-4">
                           <label>Data Início</label>
                           <div className="input-with-icon">
-                            <input type="date" name="dataCriacao" defaultValue={selectedLote?.dataCriacao || new Date().toLocaleDateString('en-CA')} required disabled={isViewMode} />
+                            <input 
+                              type="date" 
+                              value={formData.dataCriacao || ''} 
+                              onChange={(e) => setFormData({ ...formData, dataCriacao: e.target.value })} 
+                              required 
+                              disabled={isViewMode} 
+                            />
                             <Calendar size={18} className="field-icon" />
                           </div>
                         </div>
@@ -419,7 +465,10 @@ export const LotePage = () => {
                         </div>
                       </div>
 
-                      <h4 className="mt-24">Metas e Planejamento</h4>
+                      <div className="form-section-title mt-24">
+                        <TrendingUp size={20} />
+                        <span>Metas e Planejamento</span>
+                      </div>
                       <div className="form-grid">
                         <div className="form-group col-4">
                           <label>Meta GMD (kg/dia)</label>
@@ -439,7 +488,10 @@ export const LotePage = () => {
 
                   {activeTab === 'sanidade' && (
                     <div className="form-section">
-                      <h4>Monitoramento Sanitário</h4>
+                      <div className="form-section-title">
+                        <Activity size={20} />
+                        <span>Monitoramento Sanitário</span>
+                      </div>
                       {(() => {
                         const lotRegistros = registros.filter((r: any) => r.lote_id === selectedLote?.id || r.loteId === selectedLote?.id);
                         const activeOccurrences = lotRegistros.filter((r: any) => r.status !== 'Concluído').length;
@@ -468,7 +520,10 @@ export const LotePage = () => {
                             </div>
                             
                             <div className="embedded-history">
-                              <h4>Histórico Sanitário do Lote</h4>
+                              <div className="form-section-title">
+                                <HistoryIcon size={20} />
+                                <span>Histórico Sanitário do Lote</span>
+                              </div>
                               <table className="mini-table">
                                 <thead>
                                   <tr>
@@ -505,7 +560,10 @@ export const LotePage = () => {
 
                   {activeTab === 'nutricao' && (
                     <div className="form-section">
-                      <h4>Estratégia Nutricional</h4>
+                      <div className="form-section-title">
+                        <TrendingUp size={20} />
+                        <span>Estratégia Nutricional</span>
+                      </div>
                       {(() => {
                         const lotDieta = dietas.find((d: any) => d.loteId === selectedLote?.id || d.lote_id === selectedLote?.id);
                         const historico = lotDieta?.historicoTrato || [];
@@ -525,7 +583,10 @@ export const LotePage = () => {
                             </div>
                             
                             <div className="embedded-history">
-                              <h4>Logs de Trato (Últimos registros)</h4>
+                              <div className="form-section-title">
+                                <Activity size={20} />
+                                <span>Logs de Trato</span>
+                              </div>
                               <div className="feeding-mini-chart">
                                 {last7Days.length > 0 ? last7Days.map((trato: any, idx: number) => {
                                     const percentage = Math.min(100, (trato.quantidadeEntregue / (lotDieta?.cmsProjetado || 1)) * 100);
@@ -550,7 +611,7 @@ export const LotePage = () => {
                 </div>
               </form>
             </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

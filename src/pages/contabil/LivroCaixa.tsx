@@ -12,13 +12,14 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Plus,
+  X,
   ChevronRight
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
 import { AccountingEntry } from '../../types';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
@@ -119,12 +120,12 @@ export const LivroCaixa = () => {
         </div>
         <div className="action-buttons">
           <button className="btn-premium-outline">
-            <Download size={18} strokeWidth={3} />
             <span>Exportar LCDPR</span>
+            <Download size={18} strokeWidth={3} />
           </button>
           <button className="btn-premium-solid indigo" onClick={() => setIsModalOpen(true)}>
-            <Plus size={18} strokeWidth={3} />
             <span>Novo Lançamento</span>
+            <Plus size={18} strokeWidth={3} />
           </button>
         </div>
       </div>
@@ -136,7 +137,7 @@ export const LivroCaixa = () => {
             <span className="summary-value text-emerald">R$ {(summary.entradas / 1000).toFixed(1)}k</span>
             <span className="summary-trend up"><TrendingUp size={14} /> +0%</span>
           </div>
-          <div className="summary-icon green">
+          <div className="summary-icon emerald">
             <ArrowUpRight size={28} />
           </div>
         </div>
@@ -180,7 +181,7 @@ export const LivroCaixa = () => {
           actionsLabel="Filtragem"
         >
           <button 
-            className={`btn-premium-outline h-11 px-6 ${isFiltersOpen ? 'filter-active' : ''}`}
+            className={`btn-premium-outline ${isFiltersOpen ? 'filter-active' : ''}`}
             onClick={() => setIsFiltersOpen(!isFiltersOpen)}
           >
             <Filter size={18} strokeWidth={3} />
@@ -246,18 +247,20 @@ export const LivroCaixa = () => {
           label="registros"
         />
       </div>
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Novo Lançamento Contábil"
         subtitle="Escrituração manual para o Livro Caixa Digital"
         icon={BookOpen}
-        size="md"
         footer={
-          <div className="flex gap-3">
-            <button className="btn-premium-outline px-8" onClick={() => setIsModalOpen(false)}>Cancelar</button>
+          <>
+            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
+            </button>
             <button 
-              className="btn-premium-solid indigo px-8" 
+              className="btn-premium-solid indigo" 
               onClick={() => {
                 dataService.saveItem('lancamentos_contabeis', { 
                   ...formData, 
@@ -268,12 +271,19 @@ export const LivroCaixa = () => {
                 setIsModalOpen(false);
               }}
             >
-              Confirmar Lançamento
+              <span>Confirmar Lançamento</span>
+              <Plus size={18} strokeWidth={3} />
             </button>
-          </div>
+          </>
         }
       >
-        <div className="form-grid">
+        <div className="form-sections-grid">
+          <div className="form-section">
+            <div className="form-section-title">
+              <BookOpen size={20} />
+              <span>Dados do Lançamento</span>
+            </div>
+            <div className="form-grid">
           <div className="form-group col-6">
             <label>Data</label>
             <input 
@@ -331,8 +341,10 @@ export const LivroCaixa = () => {
               onChange={(e) => setFormData({...formData, valor: Number(e.target.value)})}
             />
           </div>
+            </div>
+          </div>
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

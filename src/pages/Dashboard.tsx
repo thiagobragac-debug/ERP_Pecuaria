@@ -47,9 +47,9 @@ export const Dashboard = () => {
 
     return [
       { title: 'Total Rebanho', value: total.toLocaleString(), icon: Beef, colorClass: 'indigo', trend: total > 0 ? '+12' : '0', trendUp: true },
-      { title: 'Peso Médio', value: `${pesoMedio} kg`, icon: Activity, colorClass: 'success', trend: '+0.8', trendUp: true },
-      { title: 'Saldo Operacional', value: `R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`, icon: Wallet, colorClass: 'primary', trend: '+5.2', trendUp: true },
-      { title: 'Produtos em Alerta', value: `${lowStock} itens`, icon: Zap, colorClass: 'warning', trend: lowStock > 0 ? 'CRÍTICO' : 'NORMAL', trendUp: false }
+      { title: 'Peso Médio', value: `${pesoMedio} kg`, icon: Activity, colorClass: 'emerald', trend: '+0.8', trendUp: true },
+      { title: 'Saldo Operacional', value: `R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`, icon: Wallet, colorClass: 'indigo', trend: '+5.2', trendUp: true },
+      { title: 'Produtos em Alerta', value: `${lowStock} itens`, icon: Zap, colorClass: 'amber', trend: lowStock > 0 ? 'CRÍTICO' : 'NORMAL', trendUp: false }
     ];
   }, [animais, transacoes, insumos]);
 
@@ -67,8 +67,13 @@ export const Dashboard = () => {
       </nav>
       <div className="page-header-row">
         <div className="title-section">
-          <h1>Command Center 2.0</h1>
-          <p className="description">Inteligência estratégica e visão global do ecossistema produtivo.</p>
+          <div className="icon-badge indigo">
+            <Activity size={40} strokeWidth={3} />
+          </div>
+          <div>
+            <h1>Command Center 2.0</h1>
+            <p className="description">Inteligência estratégica e visão global do ecossistema produtivo.</p>
+          </div>
         </div>
         <div className="header-actions">
            <button className="btn-icon-pulse" title="Notificações Estratégicas">
@@ -76,9 +81,9 @@ export const Dashboard = () => {
               <div className="pulse-marker"></div>
               <div className="pulse-ring"></div>
            </button>
-           <button className="btn-primary">
-              <LineChartIcon size={18} />
-              Relatório Consolidado
+           <button className="btn-premium-solid indigo h-11 px-6 flex items-center gap-2">
+              <span>Relatório Consolidado</span>
+              <LineChartIcon size={18} strokeWidth={3} />
            </button>
         </div>
       </div>
@@ -96,8 +101,8 @@ export const Dashboard = () => {
                 </div>
               )}
             </div>
-            <div className={`summary-icon ${stat.colorClass}`}>
-              <stat.icon size={32} />
+            <div className={`summary-icon ${stat.colorClass} ${stat.colorClass === 'emerald' ? 'emerald' : (stat.colorClass === 'amber' ? 'amber' : 'sky')}`}>
+              <stat.icon size={32} strokeWidth={3} />
             </div>
           </div>
         ))}

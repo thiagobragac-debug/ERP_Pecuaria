@@ -10,17 +10,17 @@ import {
   Eye, 
   Edit2, 
   Trash2, 
-  X,
+  Filter,
+  CheckCircle2,
   Check,
-  AlertCircle,
-  Filter
+  X
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { AccountingAccount } from '../../types';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TableFilters } from '../../components/TableFilters';
 import './PlanoContas.css';
 
@@ -178,12 +178,12 @@ export const PlanoContas: React.FC = () => {
         </div>
         <div className="header-actions">
           <button className="btn-premium-outline">
-            <Download size={18} strokeWidth={3} />
             <span>Exportar</span>
+            <Download size={18} strokeWidth={3} />
           </button>
           <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
-            <Plus size={18} strokeWidth={3} />
             <span>Nova Conta</span>
+            <Plus size={18} strokeWidth={3} />
           </button>
         </div>
       </div>
@@ -196,13 +196,13 @@ export const PlanoContas: React.FC = () => {
           actionsLabel="Filtragem"
         >
           <button 
-            className={`btn-premium-outline h-11 px-4 ${isFiltersOpen ? 'filter-active' : ''}`}
+            className={`btn-premium-outline ${isFiltersOpen ? 'filter-active' : ''}`}
             onClick={() => setIsFiltersOpen(!isFiltersOpen)}
           >
             <Filter size={18} strokeWidth={3} />
             <span>{isFiltersOpen ? 'Fechar Filtros' : 'Filtros Avançados'}</span>
           </button>
-          <button className="action-btn-global h-11 px-6">
+          <button className="action-btn-global">
             <Printer size={18} strokeWidth={3} />
           </button>
         </TableFilters>
@@ -347,27 +347,35 @@ export const PlanoContas: React.FC = () => {
         </div>
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={isViewMode ? 'Visualizar Conta' : editingConta ? 'Editar Conta' : 'Nova Conta Contábil'}
         subtitle="Gerencie a estrutura hierárquica do plano de contas"
         icon={FileText}
-        size="lg"
         footer={
-          <div className="flex gap-3">
-            <button className="btn-premium-outline px-8" onClick={() => setIsModalOpen(false)}>
-              {isViewMode ? 'Fechar' : 'Cancelar'}
+          <>
+            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>{isViewMode ? 'Fechar' : 'Cancelar'}</span>
             </button>
             {!isViewMode && (
-              <button className="btn-premium-solid indigo px-8" onClick={handleSave}>
+              <button className="btn-premium-solid indigo" onClick={handleSave}>
                 <span>{editingConta ? 'Salvar Alterações' : 'Salvar Conta'}</span>
+                {editingConta ? <CheckCircle2 size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
               </button>
             )}
-          </div>
+          </>
         }
       >
-        <form className="form-grid" onSubmit={(e) => e.preventDefault()}>
+        <div className="modal-content-scrollable">
+          <form className="form-sections-grid" onSubmit={(e) => e.preventDefault()}>
+            <div className="form-section">
+              <div className="form-section-title">
+                <FileText size={20} />
+                <span>Informações da Conta</span>
+              </div>
+              <div className="form-grid">
           <div className="form-group mb-4">
             <label>Código Estrutural</label>
             <input 
@@ -469,8 +477,11 @@ export const PlanoContas: React.FC = () => {
               </div>
             </div>
           </div>
-        </form>
-      </StandardModal>
+              </div>
+            </div>
+          </form>
+        </div>
+      </ModernModal>
     </div>
   );
 };

@@ -144,9 +144,9 @@ export const Configuracoes: React.FC = () => {
           </div>
         </div>
         <div className="header-actions">
-          <button className="btn-premium-solid indigo h-11 px-8 gap-2" onClick={handleSave} disabled={isSaving}>
-            {isSaving ? <RefreshCw size={18} className="spinning" /> : <Save size={18} strokeWidth={3} />}
+          <button className="btn-premium-solid indigo h-11 px-8 flex items-center gap-2" onClick={handleSave} disabled={isSaving}>
             <span>{isSaving ? 'Salvando...' : 'Salvar Alterações'}</span>
+            {isSaving ? <RefreshCw size={18} className="spinning" /> : <Save size={18} strokeWidth={3} />}
           </button>
         </div>
       </div>

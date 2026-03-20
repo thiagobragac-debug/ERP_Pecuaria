@@ -16,9 +16,11 @@ import {
   ChevronLeft,
   UserCheck,
   MoreVertical,
+  X,
+  Plus,
   Filter
 } from 'lucide-react';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -130,10 +132,27 @@ export const Usuario: React.FC = () => {
   return (
     <div className="page-container fade-in">
       <nav className="subpage-breadcrumb">
-        <Link to="/admin/usuarios">Admin</Link>
+        <Link to="/dashboard">Admin</Link>
         <ChevronRight size={14} />
-        <span>Usuários</span>
+        <span>Gestão de Acessos</span>
       </nav>
+      <div className="page-header-row">
+        <div className="title-section">
+          <div className="icon-badge primary">
+            <Users size={40} strokeWidth={3} />
+          </div>
+          <div>
+            <h1>Controle de Usuários</h1>
+            <p className="description">Administração de perfis, permissões e segurança operacional.</p>
+          </div>
+        </div>
+        <div className="header-actions">
+           <button className="btn-premium-solid indigo h-11 px-6 flex items-center gap-2" onClick={() => handleOpenModal()}>
+              <span>Convidar Usuário</span>
+              <Mail size={18} strokeWidth={3} />
+           </button>
+        </div>
+      </div>
       <div className="summary-grid">
         <div className="summary-card animate-slide-up" style={{ animationDelay: '0s' }}>
           <div className="summary-info">
@@ -310,20 +329,23 @@ export const Usuario: React.FC = () => {
         />
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingProfile ? 'Editar Perfil Profissional' : 'Novo Usuário Profissional'}
         subtitle="Configure credenciais e acessos do colaborador"
         icon={UserCheck}
-        size="lg"
         footer={
-          <div className="footer-actions flex gap-3">
-            <button className="btn-premium-outline px-8" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-            <button className="btn-premium-solid indigo px-8" onClick={handleSave}>
-              <span>Salvar Alterações</span>
+          <>
+            <button className="btn-modal-cancel" onClick={() => setIsModalOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
             </button>
-          </div>
+            <button className="btn-modal-save" onClick={handleSave}>
+              <span>{editingProfile ? 'Salvar Alterações' : 'Confirmar Cadastro'}</span>
+              {editingProfile ? <CheckCircle2 size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
+            </button>
+          </>
         }
       >
         <div className="modal-tabs mb-6">
@@ -331,52 +353,78 @@ export const Usuario: React.FC = () => {
           <button className={`tab-btn ${activeTab === 'acesso' ? 'active' : ''}`} onClick={() => setActiveTab('acesso')}>Perfil & Segurança</button>
         </div>
 
-        <div className="modal-body-content">
+        <div className="modern-form-section">
           {activeTab === 'geral' && (
-            <div className="form-grid">
-              <div className="form-group col-12">
+            <div className="form-content-active fade-in">
+              <div className="modern-form-group full-width">
                 <label>Nome Completo</label>
-                <input type="text" placeholder="Ex: João da Silva" value={formData.full_name || ''} onChange={(e) => setFormData({...formData, full_name: e.target.value})} />
-              </div>
-              <div className="form-group col-12">
-                <label>E-mail (Login)</label>
-                <div className="input-with-icon">
-                  <Mail size={18} strokeWidth={3} className="icon-field" />
-                  <input type="email" placeholder="contato@empresa.com.br" value={formData.email || ''} disabled />
+                <div className="modern-input-wrapper">
+                  <input type="text" className="modern-input" placeholder="Ex: João da Silva" value={formData.full_name || ''} onChange={(e) => setFormData({...formData, full_name: e.target.value})} />
+                  <Users size={18} className="modern-field-icon" />
                 </div>
               </div>
-              <div className="form-group col-12">
+              <div className="modern-form-group full-width">
+                <label>E-mail (Login)</label>
+                <div className="modern-input-wrapper">
+                  <input type="email" className="modern-input bg-slate-50 cursor-not-allowed" placeholder="contato@empresa.com.br" value={formData.email || ''} disabled />
+                  <Mail size={18} className="modern-field-icon" />
+                </div>
+              </div>
+
+              <div className="modern-form-group full-width mt-4">
                 <label>Status do Usuário</label>
                 <div className="status-toggle-premium">
-                  <button className={`toggle-btn ${formData.is_active ? 'active' : ''}`} onClick={() => setFormData({...formData, is_active: true})}>Ativo</button>
-                  <button className={`toggle-btn ${!formData.is_active ? 'inactive' : ''}`} onClick={() => setFormData({...formData, is_active: false})}>Inativo</button>
+                  <button 
+                    className={`toggle-btn ${formData.is_active ? 'active' : ''}`} 
+                    onClick={() => setFormData({...formData, is_active: true})}
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>Ativo</span>
+                  </button>
+                  <button 
+                    className={`toggle-btn ${!formData.is_active ? 'inactive' : ''}`} 
+                    onClick={() => setFormData({...formData, is_active: false})}
+                  >
+                    <X size={16} />
+                    <span>Inativo</span>
+                  </button>
                 </div>
               </div>
             </div>
           )}
 
           {activeTab === 'acesso' && (
-            <div className="form-grid">
-              <div className="form-group col-12">
+            <div className="form-content-active fade-in">
+              <div className="modern-form-group full-width">
                 <label>Perfil de Acesso</label>
                 <div className="profiles-select-grid">
                   {USER_ROLES.filter(r => currentUser?.role === 'MASTER' || r.id !== 'MASTER').map(role => (
-                    <div key={role.id} className={`profile-card-premium ${formData.role === role.id ? 'selected' : ''}`} onClick={() => setFormData({...formData, role: role.id as any})}>
+                    <div 
+                      key={role.id} 
+                      className={`profile-card-premium ${formData.role === role.id ? 'selected' : ''}`} 
+                      onClick={() => setFormData({...formData, role: role.id as any})}
+                    >
                       <div className="check-box">{formData.role === role.id && <CheckCircle2 size={16} />}</div>
-                      <Shield size={20} strokeWidth={3} className="profile-icon" />
-                      <span>{role.nome}</span>
+                      <Shield size={22} strokeWidth={3} className="profile-icon" />
+                      <div className="profile-info">
+                        <strong>{role.nome}</strong>
+                        <span className="text-[10px] opacity-70">Nível de acesso operacional</span>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="info-box info">
-                <Lock size={18} strokeWidth={3} />
-                <p>O perfil selecionado define quais módulos o usuário poderá acessar. Somente usuários MASTER podem promover outros a MASTER.</p>
+              
+              <div className="info-box-premium mt-6">
+                <Lock size={20} />
+                <div className="text-sm">
+                  <strong>Segurança:</strong> O perfil selecionado define quais módulos o usuário poderá acessar. Somente usuários MASTER podem promover outros a MASTER.
+                </div>
               </div>
             </div>
           )}
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

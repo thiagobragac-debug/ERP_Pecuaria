@@ -12,11 +12,13 @@ import {
   ChevronRight,
   Activity,
   Check,
+  CheckCircle2,
+  X,
   Globe,
   Hash,
   CreditCard
 } from 'lucide-react';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TransferModal } from '../../components/TransferModal';
 import { ExtratoModal } from '../../components/ExtratoModal';
 import { TablePagination } from '../../components/TablePagination';
@@ -27,6 +29,9 @@ import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { BankAccount, Transacao } from '../../types';
 import './Financeiro.css';
+import { useAuth } from '../../contexts/AuthContext';
+import { StatusBadge } from '../../components/StatusBadge';
+import { SummaryCard } from '../../components/SummaryCard';
 
 const BANK_COLORS = [
   { name: 'Emerald', value: '#10b981' },
@@ -42,6 +47,7 @@ export const Bancos = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const isOnline = useOnlineStatus();
+  const { currentOrg } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedBankIdOperacao, setSelectedBankIdOperacao] = useState<string | undefined>(undefined);
   const [isExtratoOpen, setIsExtratoOpen] = useState(false);
@@ -141,21 +147,31 @@ export const Bancos = () => {
   };
 
   const handleSave = async () => {
-    const data: BankAccount = {
-      ...(selectedBank || {}),
-      id: selectedBank?.id || crypto.randomUUID(),
-      banco: bancoNome,
-      tipo,
-      agencia,
-      conta,
-      saldo,
-      color,
-      status,
-      tenant_id: 'default'
-    } as BankAccount;
-    
-    await saveMutation.mutateAsync(data);
-    setIsModalOpen(false);
+    if (!bancoNome || !agencia || !conta) {
+      alert('Por favor, preencha o nome do banco, agência e conta.');
+      return;
+    }
+
+    try {
+      const data: BankAccount = {
+        ...(selectedBank || {}),
+        id: selectedBank?.id || crypto.randomUUID(),
+        banco: bancoNome,
+        tipo,
+        agencia,
+        conta,
+        saldo,
+        color,
+        status,
+        tenant_id: currentOrg?.id || 'default'
+      } as BankAccount;
+      
+      await saveMutation.mutateAsync(data);
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving bank account:', error);
+      alert('Erro ao salvar conta bancária.');
+    }
   };
 
   return (
@@ -168,8 +184,8 @@ export const Bancos = () => {
 
       <div className="page-header-row">
         <div className="title-section">
-          <div className="icon-badge emerald">
-            <Landmark size={40} strokeWidth={3} />
+          <div className="icon-badge indigo">
+            <Landmark size={32} strokeWidth={3} />
           </div>
           <div>
             <div className="flex items-center gap-3">
@@ -192,12 +208,37 @@ export const Bancos = () => {
           </button>
         </div>
       </div>
+      <div className="summary-grid mb-8">
+        <SummaryCard 
+          label="Saldo Consolidado"
+          value={`R$ ${banks.reduce((acc, b) => acc + b.saldo, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          icon={DollarSign}
+          color="indigo"
+          delay="0s"
+        />
+        <SummaryCard 
+          label="Entradas (Mês)"
+          value={`R$ ${transactions.filter(t => t.tipo === 'in').reduce((acc, t) => acc + t.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          trend={{ value: '+8%', type: 'up', icon: TrendingUp }}
+          icon={TrendingUp}
+          color="emerald"
+          delay="0.1s"
+        />
+        <SummaryCard 
+          label="Saídas (Mês)"
+          value={`R$ ${transactions.filter(t => t.tipo === 'out').reduce((acc, t) => acc + t.valor, 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          trend={{ value: '+3%', type: 'down', icon: TrendingDown }}
+          icon={TrendingDown}
+          color="rose"
+          delay="0.2s"
+        />
+      </div>
 
       <div className="bank-cards-grid">
         {banks.map(banco => (
           <div 
             key={banco.id} 
-            className="bank-card animate-slide-up"
+            className="bank-card glass animate-slide-up"
             style={{ 
               '--bank-color': banco.color,
               '--bank-brand-color': banco.brandColor || banco.color 
@@ -238,7 +279,7 @@ export const Bancos = () => {
 
             <div className="bank-card-footer">
               <button 
-                className="premium-btn" 
+                className="btn-premium-outline flex-1" 
                 onClick={() => {
                   setSelectedBankIdOperacao(banco.id);
                   setIsExtratoOpen(true);
@@ -247,7 +288,7 @@ export const Bancos = () => {
                 <Activity size={16} strokeWidth={3} /> Extrato
               </button>
               <button 
-                className="premium-btn primary"
+                className="btn-premium-solid emerald flex-1"
                 onClick={() => {
                   setSelectedBankIdOperacao(banco.id);
                   setIsTransferModalOpen(true);
@@ -317,9 +358,7 @@ export const Bancos = () => {
                     </div>
                   </td>
                   <td>
-                    <span className={`status-badge ${t.tipo === 'in' ? 'recebido' : 'atrasado'}`}>
-                       {t.tipo === 'in' ? 'Entrada' : 'Saída'}
-                    </span>
+                    <StatusBadge status={t.tipo === 'in' ? 'Entrada' : 'Saída'} color={t.tipo === 'in' ? 'emerald' : 'rose'} />
                   </td>
                   <td className={`text-right font-black ${t.tipo === 'in' ? 'text-green-600' : 'text-slate-800'}`}>
                     {t.tipo === 'in' ? '+' : '-'} R$ {t.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -354,59 +393,83 @@ export const Bancos = () => {
         </div>
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={selectedBank ? 'Configuração' : 'Nova Conta'}
         subtitle="Gerenciamento de contas bancárias."
-        icon={Landmark}
         footer={
-          <div className="footer-actions flex gap-3">
-            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-            <button className="btn-premium-solid indigo px-8" onClick={handleSave}>
-              <Check size={18} strokeWidth={3} />
-              <span>Salvar</span>
+          <>
+            <button type="button" className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
             </button>
-          </div>
+            <button type="button" className="btn-premium-solid indigo" onClick={handleSave}>
+              <span>{selectedBank ? 'Salvar Alterações' : 'Salvar Conta'}</span>
+              {selectedBank ? <CheckCircle2 size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
+            </button>
+          </>
         }
-        size="lg"
       >
-        <div className="refined-form-container">
-          <div className="form-block">
-             <div className="form-grid-refined">
-                <div className="form-field-wrapper col-span-8">
-                   <label>Instituição</label>
-                   <input value={bancoNome} onChange={e => setBancoNome(e.target.value)} />
+            <div className="modern-form-row three-cols">
+              <div className="modern-form-group col-span-2">
+                <label>Nome do Banco / Instituição</label>
+                <div className="modern-input-wrapper">
+                  <input className="modern-input" value={bancoNome} onChange={e => setBancoNome(e.target.value)} placeholder="Ex: Banco do Brasil" />
+                  <Building2 size={18} className="modern-field-icon" />
                 </div>
-                <div className="form-field-wrapper col-span-4">
-                   <label>Tipo</label>
-                   <select value={tipo} onChange={e => setTipo(e.target.value as any)}>
-                      <option value="Corrente">Corrente</option>
-                      <option value="Poupança">Poupança</option>
-                      <option value="Investimento">Investimento</option>
-                      <option value="Caixa">Caixa</option>
+              </div>
+              <div className="modern-form-group">
+                <label>Tipo de Conta</label>
+                <div className="modern-input-wrapper">
+                  <select className="modern-input" value={tipo} onChange={e => setTipo(e.target.value as any)}>
+                    <option value="Corrente">Corrente</option>
+                    <option value="Poupança">Poupança</option>
+                    <option value="Investimento">Investimento</option>
+                    <option value="Caixa">Caixa</option>
+                  </select>
+                  <Activity size={18} className="modern-field-icon" />
+                </div>
+              </div>
+            </div>
+
+            <div className="modern-form-row three-cols mt-4">
+              <div className="modern-form-group">
+                <label>Agência</label>
+                <div className="modern-input-wrapper">
+                  <input className="modern-input" value={agencia} onChange={e => setAgencia(e.target.value)} placeholder="0000" />
+                  <Hash size={18} className="modern-field-icon" />
+                </div>
+              </div>
+              <div className="modern-form-group">
+                <label>Número da Conta</label>
+                <div className="modern-input-wrapper">
+                  <input className="modern-input" value={conta} onChange={e => setConta(e.target.value)} placeholder="00000-0" />
+                  <CreditCard size={18} className="modern-field-icon" />
+                </div>
+              </div>
+              <div className="modern-form-group">
+                <label>Saldo Inicial (R$)</label>
+                <div className="modern-input-wrapper">
+                  <input type="number" className="modern-input" value={saldo} onChange={e => setSaldo(parseFloat(e.target.value))} placeholder="0,00" />
+                  <DollarSign size={18} className="modern-field-icon" />
+                </div>
+              </div>
+            </div>
+
+            <div className="modern-form-row mt-4">
+              <div className="modern-form-group">
+                 <label>Status da Conta</label>
+                 <div className="modern-input-wrapper">
+                   <select className="modern-input" value={status} onChange={e => setStatus(e.target.value as any)}>
+                      <option value="Ativa">Ativa</option>
+                      <option value="Inativa">Inativa</option>
                    </select>
-                </div>
-             </div>
-          </div>
-          <div className="form-block border-t pt-8">
-             <div className="form-grid-refined">
-                <div className="form-field-wrapper col-span-4">
-                   <label>Agência</label>
-                   <input value={agencia} onChange={e => setAgencia(e.target.value)} />
-                </div>
-                <div className="form-field-wrapper col-span-4">
-                   <label>Conta</label>
-                   <input value={conta} onChange={e => setConta(e.target.value)} />
-                </div>
-                <div className="form-field-wrapper col-span-4">
-                   <label>Saldo (R$)</label>
-                   <input type="number" value={saldo} onChange={e => setSaldo(parseFloat(e.target.value))} />
-                </div>
-             </div>
-          </div>
-        </div>
-      </StandardModal>
+                   <CheckCircle2 size={18} className="modern-field-icon" />
+                 </div>
+              </div>
+            </div>
+      </ModernModal>
 
       <TransferModal 
         isOpen={isTransferModalOpen} 

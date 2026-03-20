@@ -13,9 +13,10 @@ import {
   ShieldCheck, 
   UserCheck, 
   Clock,
-  ExternalLink
+  ExternalLink,
+  X
 } from 'lucide-react';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
@@ -118,7 +119,7 @@ export const TeamManagement = () => {
           </div>
         </div>
         <button 
-          className="action-btn-global btn-add h-11 px-6 gap-2"
+          className="btn-premium-solid indigo"
           onClick={() => setShowInviteModal(true)}
         >
           <UserPlus size={20} strokeWidth={3} />
@@ -168,7 +169,7 @@ export const TeamManagement = () => {
           actionsLabel="Filtragem"
         >
           <button 
-            className={`action-btn-global btn-view h-11 px-6 gap-2 ${isFiltersOpen ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : ''}`}
+            className={`btn-premium-outline ${isFiltersOpen ? 'filter-active' : ''}`}
             onClick={() => setIsFiltersOpen(!isFiltersOpen)}
           >
             <Filter size={18} strokeWidth={3} />
@@ -187,7 +188,7 @@ export const TeamManagement = () => {
               Convide seus colaboradores para gerenciar juntos os dados e operações da sua fazenda.
             </p>
             <button 
-              className="action-btn-global btn-add h-11 px-6 gap-2"
+              className="btn-premium-solid indigo"
               onClick={() => setShowInviteModal(true)}
             >
               <UserPlus size={22} strokeWidth={3} />
@@ -293,84 +294,97 @@ export const TeamManagement = () => {
         )}
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={showInviteModal}
         onClose={() => setShowInviteModal(false)}
         title="Convidar Novo Membro"
         subtitle="O convidado receberá um e-mail para acessar esta empresa"
         icon={UserPlus}
-        size="lg"
+        footer={
+          <>
+            <button className="btn-premium-outline" onClick={() => setShowInviteModal(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
+            </button>
+            <button className="btn-premium-solid indigo" onClick={(e) => {
+              const form = document.getElementById('invite-form') as HTMLFormElement;
+              if (form) form.requestSubmit();
+            }}>
+              <span>Enviar Convite</span>
+              <Mail size={18} strokeWidth={3} />
+            </button>
+          </>
+        }
       >
-        <form onSubmit={handleInvite} className="p-6">
-          <div className="mb-8">
-            <label className="block text-sm font-extrabold text-main uppercase tracking-wider mb-3">E-mail do Convidado</label>
-            <div className="relative group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-muted group-focus-within:text-emerald-500 transition-colors">
-                <Mail size={22} strokeWidth={2} />
+        <form id="invite-form" onSubmit={handleInvite} className="modal-content-scrollable">
+          <div className="form-sections-grid">
+            <div className="form-section">
+              <div className="form-section-title">
+                <Mail size={16} />
+                <span>Destinatário</span>
               </div>
-              <input 
-                type="email" 
-                className="w-full bg-slate-50 border border-slate-200 p-4 pl-14 rounded-2xl outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 transition-all text-lg font-semibold text-slate-800"
-                placeholder="exemplo@email.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="mb-10">
-            <label className="block text-sm font-extrabold text-main uppercase tracking-wider mb-4">Papel e Permissões</label>
-            <div className="grid grid-cols-1 gap-4">
-              {[
-                { id: 'ADMIN', label: 'Administrador', icon: ShieldCheck, color: 'text-blue-400', desc: 'Acesso total ao sistema, gestão de membros e faturamento.' },
-                { id: 'MEMBER', label: 'Editor / Membro', icon: UserCheck, color: 'text-emerald-400', desc: 'Pode gerenciar animais, lotes, dietas e lançamentos financeiros.' },
-                { id: 'VIEWER', label: 'Apenas Leitura', icon: ExternalLink, color: 'text-slate-400', desc: 'Acesso para ver dados e relatórios, sem permissão de alteração.' }
-              ].map((role) => (
-                <label 
-                  key={role.id}
-                  className={`flex items-start gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative overflow-hidden ${inviteRole === role.id ? 'border-emerald-500 bg-emerald-50 shadow-sm' : 'border-slate-100 bg-white hover:border-slate-200'}`}
-                >
-                  <input 
-                    type="radio" 
-                    name="role" 
-                    className="hidden"
-                    checked={inviteRole === role.id}
-                    onChange={() => setInviteRole(role.id as any)}
-                  />
-                  <div className={`mt-1 ${role.color}`}>
-                    <role.icon size={24} strokeWidth={2.5} />
+              <div className="form-grid mb-6">
+                <div className="form-group col-12">
+                  <label>E-mail do Convidado</label>
+                  <div className="input-with-icon">
+                    <Mail size={18} strokeWidth={3} className="icon-field" />
+                    <input 
+                      type="email" 
+                      placeholder="exemplo@email.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      required
+                    />
                   </div>
-                  <div>
-                    <div className="font-extrabold text-lg text-slate-800 flex items-center gap-2">
-                      {role.label}
-                      {inviteRole === role.id && <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />}
-                    </div>
-                    <div className="text-sm text-slate-500 font-semibold leading-relaxed mt-1">{role.desc}</div>
-                  </div>
-                  {inviteRole === role.id && <div className="absolute right-4 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-emerald-500 flex items-center justify-center text-slate-900"><UserCheck size={14} strokeWidth={4} /></div>}
-                </label>
-              ))}
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="flex gap-4 p-6 pt-0">
-            <button 
-              type="button"
-              className="btn-premium-outline flex-1 h-12"
-              onClick={() => setShowInviteModal(false)}
-            >
-              Cancelar
-            </button>
-            <button 
-              type="submit"
-              className="btn-premium-solid indigo flex-[2] h-12"
-            >
-              Enviar Convite
-            </button>
+            <div className="form-section">
+              <div className="form-section-title">
+                <Shield size={16} />
+                <span>Papel e Permissões</span>
+              </div>
+              <div className="form-grid mb-6">
+                <div className="form-group col-12">
+                  <div className="grid grid-cols-1 gap-4">
+                    {[
+                      { id: 'ADMIN', label: 'Administrador', icon: ShieldCheck, color: 'text-blue-400', desc: 'Acesso total ao sistema, gestão de membros e faturamento.' },
+                      { id: 'MEMBER', label: 'Editor / Membro', icon: UserCheck, color: 'text-emerald-400', desc: 'Pode gerenciar animais, lotes, dietas e lançamentos financeiros.' },
+                      { id: 'VIEWER', label: 'Apenas Leitura', icon: ExternalLink, color: 'text-slate-400', desc: 'Acesso para ver dados e relatórios, sem permissão de alteração.' }
+                    ].map((role) => (
+                      <label 
+                        key={role.id}
+                        className={`flex items-start gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300 relative overflow-hidden ${inviteRole === role.id ? 'border-emerald-500 bg-emerald-50 shadow-sm' : 'border-slate-100 bg-white hover:border-slate-200'}`}
+                        onClick={() => setInviteRole(role.id as any)}
+                      >
+                        <input 
+                          type="radio" 
+                          name="role" 
+                          className="hidden"
+                          checked={inviteRole === role.id}
+                          readOnly
+                        />
+                        <div className={`mt-1 ${role.color}`}>
+                          <role.icon size={24} strokeWidth={2.5} />
+                        </div>
+                        <div>
+                          <div className="font-extrabold text-lg text-slate-800 flex items-center gap-2">
+                            {role.label}
+                            {inviteRole === role.id && <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />}
+                          </div>
+                          <div className="text-sm text-slate-500 font-semibold leading-relaxed mt-1">{role.desc}</div>
+                        </div>
+                        {inviteRole === role.id && <div className="absolute right-4 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-emerald-500 flex items-center justify-center text-slate-900"><UserCheck size={14} strokeWidth={4} /></div>}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </form>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

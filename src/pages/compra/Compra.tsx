@@ -47,8 +47,8 @@ export const Compra = () => {
 
       <div className="page-header-row">
         <div className="title-section">
-          <div className="icon-badge secondary">
-            <ShoppingCart size={32} strokeWidth={3} />
+          <div className="icon-badge indigo">
+            <ShoppingCart size={40} strokeWidth={3} />
           </div>
           <div>
             <h1>Compra & Cotação</h1>
@@ -64,7 +64,7 @@ export const Compra = () => {
             <span className="summary-value">{pendingOrders.toString().padStart(2, '0')}</span>
             <span className="summary-subtext">Aguardando aprovação</span>
           </div>
-          <div className="summary-icon blue">
+          <div className="summary-icon sky">
             <ShoppingCart size={32} strokeWidth={3} />
           </div>
         </div>
@@ -74,7 +74,7 @@ export const Compra = () => {
             <span className="summary-value">{activeQuotes.toString().padStart(2, '0')}</span>
             <span className="summary-subtext">Em negociação</span>
           </div>
-          <div className="summary-icon primary">
+          <div className="summary-icon amber">
             <TrendingUp size={32} strokeWidth={3} />
           </div>
         </div>
@@ -84,7 +84,7 @@ export const Compra = () => {
             <span className="summary-value">R$ {(totalMonth / 1000).toFixed(0)}k</span>
             <span className="summary-subtext">Volume de suprimentos</span>
           </div>
-          <div className="summary-icon orange">
+          <div className="summary-icon emerald">
             <CreditCard size={32} strokeWidth={3} />
           </div>
         </div>

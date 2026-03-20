@@ -26,10 +26,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
-  Beef
+  Beef,
+  Info
 } from 'lucide-react';
 import './Nutricao.css';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
@@ -140,7 +141,7 @@ export const Nutricao = () => {
       </nav>
       <div className="page-header-row">
         <div className="title-section">
-          <div className="icon-badge secondary">
+          <div className="icon-badge indigo">
             <Utensils size={32} />
           </div>
           <div>
@@ -161,7 +162,7 @@ export const Nutricao = () => {
       </div>
 
       <div className="summary-grid">
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0s' }}>
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0s' }}>
           <div className="summary-info">
             <span className="summary-label">Animais em Dieta</span>
             <span className="summary-value">{totalAnimaisDieta} <small className="text-xl text-slate-400">cab.</small></span>
@@ -169,12 +170,12 @@ export const Nutricao = () => {
               <CheckCircle2 size={18} strokeWidth={2.5} /> Nutrição ativa
             </p>
           </div>
-          <div className="summary-icon" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>
-            <Beef size={36} strokeWidth={3} color="#10b981" />
+          <div className="summary-icon emerald">
+            <Beef size={24} strokeWidth={3} />
           </div>
         </div>
 
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="summary-info">
             <span className="summary-label">Custo Médio/Animal</span>
             <span className="summary-value">R$ {custoMedio}</span>
@@ -182,12 +183,12 @@ export const Nutricao = () => {
               <DollarSign size={18} strokeWidth={2.5} /> Base 30 dias
             </p>
           </div>
-          <div className="summary-icon" style={{ background: 'rgba(245, 158, 11, 0.1)' }}>
-            <DollarSign size={36} strokeWidth={3} color="#f59e0b" />
+          <div className="summary-icon amber">
+            <DollarSign size={24} strokeWidth={3} />
           </div>
         </div>
 
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.2s' }}>
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="summary-info">
             <span className="summary-label">Consumo Matéria Seca</span>
             <span className="summary-value">2.4<small className="text-xl text-slate-400">% PV</small></span>
@@ -195,12 +196,12 @@ export const Nutricao = () => {
               <Zap size={18} strokeWidth={2.5} /> PV Otimizado
             </p>
           </div>
-          <div className="summary-icon" style={{ background: 'rgba(14, 165, 233, 0.1)' }}>
-            <Zap size={36} strokeWidth={3} color="#0ea5e9" />
+          <div className="summary-icon sky">
+            <Zap size={24} strokeWidth={3} />
           </div>
         </div>
 
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.3s' }}>
+        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <div className="summary-info">
             <span className="summary-label">Eficiência Alimentar</span>
             <span className="summary-value">1.45 <small className="text-xl text-slate-400">GMD</small></span>
@@ -208,8 +209,8 @@ export const Nutricao = () => {
               <Activity size={18} strokeWidth={2.5} /> Méd. Rebanho
             </p>
           </div>
-          <div className="summary-icon" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>
-            <TrendingUp size={36} strokeWidth={3} color="#10b981" />
+          <div className="summary-icon emerald">
+            <TrendingUp size={24} strokeWidth={3} />
           </div>
         </div>
       </div>
@@ -301,281 +302,219 @@ export const Nutricao = () => {
           label="dietas"
         />
       </div>
-    
-      <StandardModal
+
+      <ModernModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={isViewMode ? 'Detalhes Nutricionais' : (selectedDieta ? 'Editar Dieta' : 'Nova Formulação Dietética')}
-        subtitle="Gestão de ingredientes e integração direta com o estoque de grãos e núcleos."
+        title={isViewMode ? 'Dossiê Nutricional' : (selectedDieta ? 'Editar Formulação' : 'Manejo Nutricional')}
+        subtitle="Gestão estratégica de ingredientes e performance de ganho."
         icon={Apple}
-        size="lg"
         footer={
-          <div className="flex gap-3">
-            <button type="button" className="btn-premium-outline" onClick={handleCloseModal}>Fechar</button>
-            {!isViewMode && <button type="submit" form="diet-form" className="btn-premium-solid indigo">Salvar e Atualizar Custo</button>}
-          </div>
+          <>
+            <button type="button" className="btn-modern-secondary" onClick={handleCloseModal}>
+              <X size={18} />
+              <span>{isViewMode ? 'Fechar' : 'Cancelar'}</span>
+            </button>
+            {!isViewMode && (
+              <button type="submit" form="nutricao-form" className="btn-modern-primary">
+                <span>{selectedDieta ? 'Salvar Alterações' : 'Cadastrar Dieta'}</span>
+                {selectedDieta ? <CheckCircle2 size={18} /> : <Plus size={18} />}
+              </button>
+            )}
+          </>
         }
       >
-        <div className="modal-tabs">
-          <button className={activeTab === 'geral' ? 'active' : ''} onClick={() => setActiveTab('geral')}>Geral</button>
-          <button className={activeTab === 'composicao' ? 'active' : ''} onClick={() => setActiveTab('composicao')}>Composição</button>
-          <button className={activeTab === 'eficiencia' ? 'active' : ''} onClick={() => setActiveTab('eficiencia')}>Eficiência</button>
+        <div className="modal-tabs mb-6">
+          <button className={`tab-btn ${activeTab === 'geral' ? 'active' : ''}`} onClick={() => setActiveTab('geral')}>Geral</button>
+          <button className={`tab-btn ${activeTab === 'composicao' ? 'active' : ''}`} onClick={() => setActiveTab('composicao')}>Composição</button>
+          <button className={`tab-btn ${activeTab === 'eficiencia' ? 'active' : ''}`} onClick={() => setActiveTab('eficiencia')}>Eficiência</button>
           {selectedDieta?.loteId && (
-            <button className={activeTab === 'detalhamento' ? 'active' : ''} onClick={() => setActiveTab('detalhamento')}>Detalhamento</button>
+            <button className={`tab-btn ${activeTab === 'detalhamento' ? 'active' : ''}`} onClick={() => setActiveTab('detalhamento')}>Detalhamento</button>
           )}
         </div>
             
-                <form id="diet-form" onSubmit={async (e) => { 
-                  e.preventDefault(); 
-                  const formData = new FormData(e.currentTarget);
-                  const updatedDieta: Dieta = {
-                    ...selectedDieta!,
-                    id: selectedDieta?.id || Math.random().toString(36).substr(2, 9),
-                    empresaId: selectedDieta?.empresaId || (activeCompanyId !== 'Todas' ? activeCompanyId : undefined),
-                    nome: formData.get('nome') as string,
-                    categoria: formData.get('categoria') as string,
-                    cmsProjetado: Number(formData.get('cmsProjetado')),
-                    status: formData.get('status') as any,
-                    loteId: formData.get('loteId') as string,
-                    ingredientes: selectedDieta?.ingredientes || [],
-                    historicoTrato: selectedDieta?.historicoTrato || [],
-                    custoPorCab: selectedDieta?.custoPorCab || 0,
-                    tenant_id: 'default'
-                  };
-                  await dataService.saveItem('dietas', updatedDieta);
-                  handleCloseModal(); 
-                }}>
-                {activeTab === 'geral' && (
-                  <div className="form-grid">
-                    <div className="form-group col-12">
-                      <label>Título da Dieta / Identificação</label>
-                      <div className="input-with-icon">
-                        <input type="text" name="nome" defaultValue={selectedDieta?.nome} disabled={isViewMode} required placeholder="Ex: Dieta Acabamento V2" />
-                        <Activity size={18} className="field-icon" />
-                      </div>
-                    </div>
-                    <div className="form-group col-6">
-                      <label>Vincular a Lote (Opcional)</label>
-                      <div className="input-with-icon">
-                        <select name="loteId" defaultValue={selectedDieta?.loteId} disabled={isViewMode}>
-                          <option value="">Nenhum Lote</option>
-                          <option value="1">Lote 01 - Recria Nelore</option>
-                          <option value="2">Lote 02 - Engorda Machos</option>
-                          <option value="3">Lote 03 - Novilhas Reprod.</option>
-                        </select>
-                        <Layers size={18} className="field-icon" />
-                      </div>
-                    </div>
-                    <div className="form-group col-6">
-                      <label>Categoria Animal</label>
-                      <div className="input-with-icon">
-                        <select name="categoria" defaultValue={selectedDieta?.categoria} disabled={isViewMode}>
-                          <option>Engorda Intensiva</option>
-                          <option>Recria</option>
-                          <option>Adaptação</option>
-                          <option>Bezerros (Creep)</option>
-                        </select>
-                        <Beef size={18} className="field-icon" />
-                      </div>
-                    </div>
-                    <div className="form-group col-6">
-                      <label>CMS Projetado (kg/dia)</label>
-                      <div className="input-with-icon">
-                        <input type="number" name="cmsProjetado" step="0.1" defaultValue={selectedDieta?.cmsProjetado} disabled={isViewMode} required />
-                        <Scale size={18} className="field-icon" />
-                      </div>
-                    </div>
-                    <div className="form-group col-6">
-                      <label>Status Operacional</label>
-                      <div className="input-with-icon">
-                        <select name="status" defaultValue={selectedDieta?.status} disabled={isViewMode}>
-                          <option>Ativa</option>
-                          <option>Ajuste Necessário</option>
-                          <option>Programada</option>
-                        </select>
-                        <CheckCircle2 size={18} className="field-icon" />
-                      </div>
-                    </div>
-                  </div>
-                )}
+        <div className="sidesheet-body-content">
+            
+        <form id="nutricao-form" className="modern-form-section" onSubmit={async (e) => { 
+          e.preventDefault(); 
+          const formData = new FormData(e.currentTarget);
+          const updatedDieta: Dieta = {
+            ...selectedDieta!,
+            id: selectedDieta?.id || Math.random().toString(36).substr(2, 9),
+            empresaId: selectedDieta?.empresaId || (activeCompanyId !== 'Todas' ? activeCompanyId : undefined),
+            nome: formData.get('nome') as string,
+            categoria: formData.get('categoria') as string,
+            cmsProjetado: Number(formData.get('cmsProjetado')),
+            status: formData.get('status') as any,
+            loteId: formData.get('loteId') as string,
+            ingredientes: selectedDieta?.ingredientes || [],
+            historicoTrato: selectedDieta?.historicoTrato || [],
+            custoPorCab: selectedDieta?.custoPorCab || 0,
+            tenant_id: 'default'
+          };
+          await dataService.saveItem('dietas', updatedDieta);
+          handleCloseModal(); 
+        }}>
+          {activeTab === 'geral' && (
+            <div className="modern-form-section">
+              <div className="modern-form-group full-width">
+                <label>Título da Dieta / Identificação</label>
+                <div className="modern-input-wrapper">
+                  <input type="text" name="nome" className="modern-input text-lg font-bold" defaultValue={selectedDieta?.nome} disabled={isViewMode} required placeholder="Ex: Dieta Acabamento V2" />
+                  <Activity size={18} className="modern-field-icon" />
+                </div>
+              </div>
 
-                {activeTab === 'composicao' && (
-                  <div className="inventory-integration">
-                    <div className="integration-header">
-                      <FlaskConical size={20} />
-                      <h4>Ingredientes Selecionados do Estoque</h4>
+              <div className="modern-form-row four-cols">
+                <div className="modern-form-group col-span-2">
+                  <label>Vincular a Lote (Opcional)</label>
+                  <div className="modern-input-wrapper">
+                    <select name="loteId" className="modern-input" defaultValue={selectedDieta?.loteId} disabled={isViewMode}>
+                      <option value="">Nenhum Lote</option>
+                      <option value="1">Lote 01 - Recria Nelore</option>
+                      <option value="2">Lote 02 - Engorda Machos</option>
+                      <option value="3">Lote 03 - Novilhas Reprod.</option>
+                    </select>
+                    <Layers size={18} className="modern-field-icon" />
+                  </div>
+                </div>
+                <div className="modern-form-group col-span-2">
+                  <label>Categoria Animal</label>
+                  <div className="modern-input-wrapper">
+                    <select name="categoria" className="modern-input" defaultValue={selectedDieta?.categoria} disabled={isViewMode}>
+                      <option>Engorda Intensiva</option>
+                      <option>Recria</option>
+                      <option>Adaptação</option>
+                      <option>Bezerros (Creep)</option>
+                    </select>
+                    <Beef size={18} className="modern-field-icon" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="modern-form-row four-cols">
+                <div className="modern-form-group col-span-2">
+                  <label>CMS Projetado (kg/dia)</label>
+                  <div className="modern-input-wrapper">
+                    <input type="number" name="cmsProjetado" className="modern-input" step="0.1" defaultValue={selectedDieta?.cmsProjetado} disabled={isViewMode} required />
+                    <Scale size={18} className="modern-field-icon" />
+                  </div>
+                </div>
+                <div className="modern-form-group col-span-2">
+                  <label>Status Operacional</label>
+                  <div className="modern-input-wrapper">
+                    <select name="status" className="modern-input" defaultValue={selectedDieta?.status} disabled={isViewMode}>
+                      <option>Ativa</option>
+                      <option>Ajuste Necessário</option>
+                      <option>Programada</option>
+                    </select>
+                    <CheckCircle2 size={18} className="modern-field-icon" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'composicao' && (
+            <div className="modern-form-section">
+              <div className="modern-form-group-title flex items-center gap-2 mb-2">
+                <FlaskConical size={18} className="text-indigo-500" />
+                <span className="font-bold text-slate-700">Composição do Trato</span>
+              </div>
+              <div className="ingredient-list-modern">
+                {selectedDieta?.ingredientes.map((ing, idx) => (
+                  <div key={idx} className="modern-ingredient-card animate-slide-in">
+                    <div className="ing-info">
+                      <span className="ing-name-modern">{ing.nome}</span>
+                      <span className="ing-sub">{ing.custoUnitario.toFixed(2)} / kg</span>
                     </div>
+                    <div className="ing-perc-badge">{ing.proporcao}%</div>
+                    {!isViewMode && <button type="button" className="ing-remove-btn"><X size={14} /></button>}
+                  </div>
+                ))}
+                {!isViewMode && (
+                  <button type="button" className="btn-modern-secondary w-full py-4 mt-2">
+                    <Plus size={16} /> Vincular Item do Estoque
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'eficiencia' && (
+            <div className="modern-form-section">
+              <div className="modern-form-row">
+                <div className="modern-form-group col-6">
+                  <label>GMD Esperado (kg/dia)</label>
+                  <div className="modern-input-wrapper">
+                    <input type="number" className="modern-input" step="0.001" defaultValue={1.450} disabled={isViewMode} />
+                    <TrendingUp size={18} className="modern-field-icon" />
+                  </div>
+                </div>
+                <div className="modern-form-group col-6">
+                  <label>Conversão Alimentar Meta</label>
+                  <div className="modern-input-wrapper">
+                    <input type="number" className="modern-input" step="0.1" defaultValue={6.5} disabled={isViewMode} />
+                    <Activity size={18} className="modern-field-icon" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="modern-info-tag emerald mb-6 full-width">
+                 <Zap size={20} />
+                 <div className="flex flex-col">
+                   <span className="text-[10px] uppercase opacity-70">Custo Arroba Produzida (@)</span>
+                   <span className="text-lg font-bold">R$ {((selectedDieta?.custoPorCab || 0) / (1.450 / 30) * 30).toFixed(2)}</span>
+                 </div>
+              </div>
+
+              <div className="historico-trato-modern mt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-sm font-bold text-slate-500 uppercase tracking-wider">Histórico de Cocho</span>
+                  {!isViewMode && (
+                    <button type="button" className="btn-modern-secondary btn-sm h-8 px-3 text-xs">
+                      Nova Entrega
+                    </button>
+                  )}
+                </div>
+                <div className="trato-list-modern">
+                  {selectedDieta?.historicoTrato.map(trato => (
+                    <div key={trato.id} className="trato-row-modern">
+                      <div className="trato-date">{new Date(trato.data).toLocaleDateString('pt-BR')}</div>
+                      <div className="trato-qty font-bold">{trato.quantidadeEntregue} kg</div>
+                      <div className={`status-dot ${trato.status.toLowerCase()}`}></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'detalhamento' && (
+            <div className="modern-form-section">
+              <div className="animal-cost-modern">
+                 {(() => {
+                    const matchingLoteId = selectedDieta?.loteId;
+                    const lotAnimals = animais.filter(a => {
+                      if (!matchingLoteId) return false;
+                      const searchStr = `Lote ${matchingLoteId.padStart(2, '0')}`;
+                      return a.lote.startsWith(searchStr);
+                    });
                     
-                    <div className="ingredient-list">
-                      <div className="list-header">
-                        <span>Ingrediente</span>
-                        <span>Part. (%)</span>
-                        <span>Custo/kg</span>
+                    return lotAnimals.map(animal => (
+                      <div key={animal.id} className="animal-cost-row-modern">
+                        <div className="animal-brinco-tag">{animal.brinco}</div>
+                        <div className="animal-weight">{animal.peso} kg</div>
+                        <div className="animal-daily-cost">R$ {(selectedDieta?.custoPorCab || 0).toFixed(2)}</div>
                       </div>
-                      {selectedDieta?.ingredientes.map((ing, idx) => (
-                        <div key={idx} className="ingredient-row">
-                          <span className="ing-name">{ing.nome}</span>
-                          <span className="ing-perc">{ing.proporcao}%</span>
-                          <span className="ing-cost">R$ {ing.custoUnitario.toFixed(2)}</span>
-                          {!isViewMode && <button type="button" className="remove-ing"><X size={14} /></button>}
-                        </div>
-                      ))}
-                      {!isViewMode && (
-                        <button type="button" className="btn-premium-outline w-full py-3">
-                          <Plus size={16} strokeWidth={3} /> Vincular Item do Estoque
-                        </button>
-                      )}
-                    </div>
-
-                    {!isViewMode && (
-                      <div className="info-box primary">
-                        <p><strong>Integração Financeira:</strong> O custo total da dieta é recalculado automaticamente com base nos valores de entrada do Estoque.</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {activeTab === 'eficiencia' && (
-                  <div className="efficiency-form">
-                    <div className="form-grid">
-                      <div className="form-group col-6">
-                        <label>GMD Esperado (kg/dia)</label>
-                        <div className="input-with-icon">
-                          <input type="number" step="0.001" defaultValue={1.450} disabled={isViewMode} />
-                          <TrendingUp size={18} className="field-icon" />
-                        </div>
-                      </div>
-                      <div className="form-group col-6">
-                        <label>Conversão Alimentar Meta</label>
-                        <div className="input-with-icon">
-                          <input type="number" step="0.1" defaultValue={6.5} disabled={isViewMode} />
-                          <Activity size={18} className="field-icon" />
-                        </div>
-                      </div>
-                      <div className="form-group full-width">
-                         <div className="efficiency-indicator-box">
-                            <Zap size={24} className="text-warning" />
-                            <div>
-                               <strong>Inteligência Estimada: Custo de Arroba Produzida</strong>
-                               <p>Com base no CMS de {selectedDieta?.cmsProjetado || 0}kg e GMD de 1.450kg, o custo projetado por arroba produzida é de:</p>
-                            </div>
-                            <div className="arroba-badge">
-                               R$ {((selectedDieta?.custoPorCab || 0) / (1.450 / 30) * 30).toFixed(2)}
-                            </div>
-                         </div>
-                      </div>
-                    </div>
-                    
-                    <div className="historico-trato-section">
-                      <h4>Log de Trato Recente (Baixa de Estoque)</h4>
-                      <div className="trato-list">
-                        <div className="trato-header">
-                          <span>Data</span>
-                          <span>Quantidade</span>
-                          <span>Status</span>
-                        </div>
-                        {selectedDieta?.historicoTrato.map(trato => (
-                          <div key={trato.id} className="trato-row">
-                            <span>{new Date(trato.data).toLocaleDateString('pt-BR')}</span>
-                            <span className="font-bold">{trato.quantidadeEntregue} kg</span>
-                            <span className={`status-tag ${trato.status.toLowerCase()}`}>{trato.status}</span>
-                          </div>
-                        ))}
-                        {!isViewMode && (
-                          <button type="button" className="btn-premium-outline w-full py-3 mt-4">
-                            <Plus size={16} strokeWidth={3} /> Registrar Entrega de Trato
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'detalhamento' && (
-                  <div className="animal-detail-pane fade-in">
-                    <div className="detail-controls">
-                       <div className="detail-header-info">
-                          <Users size={18} />
-                          <span>Animais vinculados ao <strong>Lote {selectedDieta?.loteId}</strong></span>
-                       </div>
-                       <div className="cost-mode-toggle">
-                          <label className={costCalculationMode === 'fixed' ? 'active' : ''}>
-                             <input 
-                               type="radio" 
-                               name="costMode" 
-                               value="fixed" 
-                               checked={costCalculationMode === 'fixed'} 
-                               onChange={() => setCostCalculationMode('fixed')} 
-                             />
-                             Custo Fixo
-                          </label>
-                          <label className={costCalculationMode === 'proportional' ? 'active' : ''}>
-                             <input 
-                               type="radio" 
-                               name="costMode" 
-                               value="proportional" 
-                               checked={costCalculationMode === 'proportional'} 
-                               onChange={() => setCostCalculationMode('proportional')} 
-                             />
-                             Custo por Peso
-                          </label>
-                       </div>
-                    </div>
-
-                    <div className="animal-cost-table">
-                       <div className="table-header">
-                          <span>Brinco</span>
-                          <span>Peso Est.</span>
-                          <span>Custo/Dia</span>
-                          <span>Custo Acumulado</span>
-                       </div>
-                       <div className="table-body">
-                          {(() => {
-                            const matchingLoteId = selectedDieta?.loteId;
-                            // Match "Lote 01", "Lote 1", "Lote 01 - ..."
-                            const lotAnimals = animais.filter(a => {
-                               if (!matchingLoteId) return false;
-                               const searchStr = `Lote ${matchingLoteId.padStart(2, '0')}`;
-                               return a.lote.startsWith(searchStr);
-                            });
-                            const totalWeight = lotAnimals.reduce((acc, a) => acc + a.peso, 0);
-                            
-                            return lotAnimals.map(animal => {
-                               const animalDailyCost = financialService.calculateNutritionCost(
-                                 animal,
-                                 selectedDieta ?? undefined,
-                                 lotAnimals,
-                                 1, // Daily cost
-                                 costCalculationMode
-                               );
-                               
-                               return (
-                                 <div key={animal.id} className="animal-cost-row">
-                                    <span>{animal.brinco}</span>
-                                    <span>{animal.peso} kg {costCalculationMode === 'proportional' && <small>({(animal.peso / (totalWeight || 1) * 100).toFixed(1)}%)</small>}</span>
-                                    <span className="text-primary font-bold">R$ {animalDailyCost.toFixed(2)}</span>
-                                    <span className="muted">R$ {(animalDailyCost * 15).toFixed(2)} <small>(15 d)</small></span>
-                                 </div>
-                               );
-                            });
-                          })()}
-                       </div>
-                    </div>
-
-                    <div className="detail-footer-box info">
-                       <DollarSign size={16} />
-                       <p>
-                         {costCalculationMode === 'proportional' 
-                           ? "O custo é atribuído proporcionalmente ao peso do animal em relação ao total do lote."
-                           : "O custo é atribuído de forma igualitária (per capita) para todos os animais do lote."
-                         }
-                       </p>
-                    </div>
-                  </div>
-                )}
-
-              </form>
-      </StandardModal>
+                    ));
+                 })()}
+              </div>
+            </div>
+          )}
+        </form>
+        </div>
+      </ModernModal>
     </div>
   );
 };

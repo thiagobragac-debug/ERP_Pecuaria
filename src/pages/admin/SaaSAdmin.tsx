@@ -112,13 +112,13 @@ export const SaaSAdmin: React.FC = () => {
           <p className="text-muted">Monitoramento de receita, churn e saúde do ecossistema Pecuária 4.0</p>
         </div>
         <div className="header-actions">
-          <button className="btn-premium-outline">
-            <Download size={18} strokeWidth={3} />
+          <button className="btn-premium-outline h-11 px-6 flex items-center gap-2">
             <span>Exportar Relatório</span>
+            <Download size={18} strokeWidth={3} />
           </button>
-          <button className="btn-premium-solid indigo">
-            <Zap size={18} strokeWidth={3} />
+          <button className="btn-premium-solid indigo h-11 px-6 flex items-center gap-2">
             <span>Ações Rápidas</span>
+            <Zap size={18} strokeWidth={3} />
           </button>
         </div>
       </div>
@@ -156,7 +156,7 @@ export const SaaSAdmin: React.FC = () => {
         </div>
 
         <div className="metric-card premium animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="metric-icon emerald">
+          <div className="metric-icon blue">
             <Building2 size={24} strokeWidth={3} />
           </div>
           <div className="metric-details">
@@ -169,7 +169,7 @@ export const SaaSAdmin: React.FC = () => {
         </div>
 
         <div className="metric-card premium animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <div className="metric-icon purple">
+          <div className="metric-icon indigo">
             <CreditCard size={24} strokeWidth={3} />
           </div>
           <div className="metric-details">

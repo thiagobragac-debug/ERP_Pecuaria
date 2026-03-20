@@ -15,18 +15,26 @@ import {
   Edit,
   Eye,
   CheckCircle2,
-  Clock
+  Clock,
+  X,
+  Info,
+  Calendar
 } from 'lucide-react';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { usePagination } from '../../hooks/usePagination';
+import { useOfflineQuery } from '../../hooks/useOfflineSync';
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { RegistroSanitario as RegistroSanitarioType, Animal, Lote, MedicamentoUsado } from '../../types';
+import { RegistroSanitario as RegistroSanitarioType, Animal, Lote, MedicamentoUsado, Insumo } from '../../types';
 import { useCompany } from '../../contexts/CompanyContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { SummaryCard } from '../../components/SummaryCard';
+import { SearchableSelect } from '../../components/SearchableSelect';
+import { StatusBadge } from '../../components/StatusBadge';
 import './Sanidade.css';
 
 export const Sanidade = () => {
@@ -36,13 +44,20 @@ export const Sanidade = () => {
   const [filterStatus, setFilterStatus] = useState('Todos');
   const [selectedRegistro, setSelectedRegistro] = useState<RegistroSanitarioType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
-
   const { activeCompanyId } = useCompany();
+  const { currentOrg } = useAuth();
+  
+  const [formData, setFormData] = useState<Partial<RegistroSanitarioType>>({
+    tipo: 'Tratamento',
+    data: new Date().toISOString().substring(0, 10),
+    status: 'Concluído'
+  });
   
   // Live Queries
   const allRegistros = useLiveQuery(() => db.registrosSanitarios.toArray()) || [];
   const allAnimais = useLiveQuery(() => db.animais.toArray()) || [];
   const allLotes = useLiveQuery(() => db.lotes.toArray()) || [];
+  const { data: insumos = [] } = useOfflineQuery<Insumo>(['insumos'], 'estocagem');
 
   const registros = allRegistros.filter(r => activeCompanyId === 'Todas' || r.empresaId === activeCompanyId);
   const animais = allAnimais.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
@@ -57,9 +72,54 @@ export const Sanidade = () => {
   });
 
   const handleOpenModal = (registro: RegistroSanitarioType | null = null, viewOnly = false) => {
-    setSelectedRegistro(registro);
+    if (registro) {
+      setSelectedRegistro(registro);
+      setFormData({ ...registro });
+    } else {
+      setSelectedRegistro(null);
+      setFormData({
+        tipo: 'Tratamento',
+        data: new Date().toISOString().substring(0, 10),
+        status: 'Concluído',
+        empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : undefined
+      });
+    }
     setIsViewMode(viewOnly);
     setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedRegistro(null);
+    setIsViewMode(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.animal_id || !formData.doenca_motivo || !formData.data) {
+      alert('Preencha os campos obrigatórios.');
+      return;
+    }
+
+    const newRegistro: RegistroSanitarioType = {
+      ...selectedRegistro!,
+      id: selectedRegistro?.id || Math.random().toString(36).substr(2, 9),
+      animal_id: formData.animal_id,
+      lote_id: formData.lote_id,
+      tipo: formData.tipo as any,
+      doenca_motivo: formData.doenca_motivo,
+      data: formData.data!,
+      careencia_fim: formData.careencia_fim!,
+      status: formData.status as any,
+      medicamentos: formData.medicamentos || [
+        { id: '1', nome: 'Medicamento', dose: '1ml', quantidade: 1 }
+      ],
+      empresaId: formData.empresaId || activeCompanyId,
+      tenant_id: currentOrg?.id || 'default'
+    };
+
+    await dataService.saveItem('registrosSanitarios', newRegistro);
+    handleCloseModal();
   };
 
   const totals = {
@@ -115,7 +175,7 @@ export const Sanidade = () => {
       </nav>
       <div className="page-header-row">
         <div className="title-section">
-          <div className="icon-badge success">
+          <div className="icon-badge indigo">
             <ShieldCheck size={32} />
           </div>
           <div>
@@ -124,11 +184,11 @@ export const Sanidade = () => {
           </div>
         </div>
         <div className="action-buttons">
-          <button className="btn-premium-outline h-11 px-6 gap-2">
+          <button className="btn-premium-outline">
             <History size={20} strokeWidth={3} />
             <span>Histórico Geral</span>
           </button>
-          <button className="btn-premium-solid indigo h-11 px-6 gap-2" onClick={() => handleOpenModal()}>
+          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
             <Plus size={20} strokeWidth={3} />
             <span>Lançar Tratamento</span>
           </button>
@@ -136,57 +196,37 @@ export const Sanidade = () => {
       </div>
 
       <div className="summary-grid">
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Tratamentos Ativos</span>
-            <span className="summary-value">{totals.tratamentos}</span>
-            <p className="mt-4 text-emerald-600 font-extrabold flex items-center gap-2">
-              <ClipboardList size={18} strokeWidth={2.5} /> Mês atual
-            </p>
-          </div>
-          <div className="summary-icon" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>
-            <ClipboardList size={36} strokeWidth={3} color="#10b981" />
-          </div>
-        </div>
-
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Animais em Carência</span>
-            <span className="summary-value">{totals.emCareencia}</span>
-            <p className="mt-4 text-rose-600 font-extrabold flex items-center gap-2">
-              <Clock size={18} strokeWidth={2.5} /> Restrição de abate
-            </p>
-          </div>
-          <div className="summary-icon" style={{ background: 'rgba(244, 63, 94, 0.1)' }}>
-            <Clock size={36} strokeWidth={3} color="#f43f5e" />
-          </div>
-        </div>
-
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Pendências Urgentes</span>
-            <span className="summary-value">{totals.emAlerta}</span>
-            <p className="mt-4 text-amber-600 font-extrabold flex items-center gap-2">
-              <AlertTriangle size={18} strokeWidth={2.5} /> Reforço necessário
-            </p>
-          </div>
-          <div className="summary-icon" style={{ background: 'rgba(245, 158, 11, 0.1)' }}>
-            <AlertTriangle size={36} strokeWidth={3} color="#f59e0b" />
-          </div>
-        </div>
-
-        <div className="summary-card animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Cobertura Vacinal</span>
-            <span className="summary-value">98.5<small className="text-xl text-slate-400">%</small></span>
-            <p className="mt-4 text-sky-600 font-extrabold flex items-center gap-2">
-              <Activity size={18} strokeWidth={2.5} /> Meta: 100%
-            </p>
-          </div>
-          <div className="summary-icon" style={{ background: 'rgba(14, 165, 233, 0.1)' }}>
-            <Activity size={36} strokeWidth={3} color="#0ea5e9" />
-          </div>
-        </div>
+        <SummaryCard 
+          label="Tratamentos Ativos"
+          value={totals.tratamentos.toString()}
+          icon={ClipboardList}
+          color="emerald"
+          delay="0s"
+        />
+        <SummaryCard 
+          label="Animais em Carência"
+          value={totals.emCareencia.toString()}
+          trend={{ value: 'Restrição de abate', type: 'down', icon: Clock }}
+          icon={Clock}
+          color="rose"
+          delay="0.1s"
+        />
+        <SummaryCard 
+          label="Pendências Urgentes"
+          value={totals.emAlerta.toString()}
+          trend={{ value: 'Reforço necessário', type: 'neutral', icon: AlertTriangle }}
+          icon={AlertTriangle}
+          color="amber"
+          delay="0.2s"
+        />
+        <SummaryCard 
+          label="Cobertura Vacinal"
+          value="98.5%"
+          trend={{ value: 'Meta: 100%', type: 'neutral', icon: Activity }}
+          icon={ShieldCheck}
+          color="sky"
+          delay="0.3s"
+        />
       </div>
 
       <div className="data-section">
@@ -255,9 +295,7 @@ export const Sanidade = () => {
                       </div>
                     </td>
                     <td>
-                      <span className={`status-badge ${item.status === 'Concluído' ? 'concluido' : item.status === 'Em Curso' ? 'alerta' : 'pendente'}`}>
-                        {item.status}
-                      </span>
+                      <StatusBadge status={item.status} />
                     </td>
                     <td className="text-right">
                       <div className="actions-cell">
@@ -294,110 +332,168 @@ export const Sanidade = () => {
         />
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={isViewMode ? 'Visualizar Registro' : (selectedRegistro ? 'Editar Registro' : 'Lançar Tratamento')}
+        onClose={handleCloseModal}
+        title={isViewMode ? 'Protocolo Realizado' : (selectedRegistro ? 'Editar Registro' : 'Protocolo Sanitário')}
+        subtitle={isViewMode ? 'Relatório técnico da intervenção sanitária.' : 'Gestão de carência e segurança alimentar do rebanho.'}
         icon={ShieldCheck}
-        size="lg"
         footer={
-          <div className="flex gap-3">
-            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-            {!isViewMode && <button className="btn-premium-solid indigo" form="sanidade-form">Salvar Lançamento</button>}
-          </div>
+          <>
+            <button type="button" className="btn-premium-outline" onClick={handleCloseModal}>
+              <X size={18} strokeWidth={3} />
+              <span>{isViewMode ? 'Fechar' : 'Cancelar'}</span>
+            </button>
+            {!isViewMode && (
+              <button type="submit" form="sanidade-form" className="btn-premium-solid rose">
+                <span>{selectedRegistro ? 'Salvar Alterações' : 'Registrar Manejo'}</span>
+                {selectedRegistro ? <CheckCircle2 size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
+              </button>
+            )}
+          </>
         }
       >
-        <div className="modal-body-content p-6">
-          <form id="sanidade-form" onSubmit={async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.currentTarget);
-            
-            const newRegistro: RegistroSanitarioType = {
-              ...selectedRegistro!,
-              id: selectedRegistro?.id || Math.random().toString(36).substr(2, 9),
-              animal_id: formData.get('animal_id') as string,
-              lote_id: formData.get('lote_id') as string,
-              tipo: formData.get('tipo') as any,
-              doenca_motivo: formData.get('doenca_motivo') as string,
-              data: formData.get('data') as string,
-              careencia_fim: formData.get('careencia_fim') as string,
-              status: formData.get('status') as any,
-              medicamentos: [
-                { id: '1', nome: formData.get('medicamento') as string, dose: '1ml', quantidade: 1 }
-              ],
-              empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : (selectedRegistro?.empresaId || undefined),
-              tenant_id: 'default'
-            };
-
-            await dataService.saveItem('registrosSanitarios', newRegistro);
-            setIsModalOpen(false);
-          }}>
-            <div className="form-grid">
-              <div className="form-group col-6">
-                <label>Identificação do Animal</label>
-                <select name="animal_id" defaultValue={selectedRegistro?.animal_id} disabled={isViewMode} required>
-                    <option value="">Selecione...</option>
-                    {animais.map(a => (
-                        <option key={a.id} value={a.id}>{a.brinco} - {a.raca}</option>
-                    ))}
-                </select>
-              </div>
-              <div className="form-group col-6">
-                <label>Lote</label>
-                <select name="lote_id" defaultValue={selectedRegistro?.lote_id} disabled={isViewMode}>
-                    <option value="">Nenhum / Selecione...</option>
-                    {lotes.map(l => (
-                        <option key={l.id} value={l.id}>{l.nome}</option>
-                    ))}
-                </select>
-              </div>
-              <div className="form-group col-6">
-                <label>Doença / Motivo</label>
-                <input type="text" name="doenca_motivo" defaultValue={selectedRegistro?.doenca_motivo} disabled={isViewMode} placeholder="Ex: Pneumonia" required />
-              </div>
-              <div className="form-group col-6">
-                <label>Tipo de Registro</label>
-                <select name="tipo" defaultValue={selectedRegistro?.tipo || 'Tratamento'} disabled={isViewMode} required>
-                  <option value="Vacinação">Vacinação</option>
-                  <option value="Tratamento">Tratamento</option>
-                  <option value="Prevenção">Prevenção</option>
-                </select>
-              </div>
-              <div className="form-group col-4">
-                <label>Data da Aplicação</label>
-                <input type="date" name="data" defaultValue={selectedRegistro?.data || new Date().toLocaleDateString('en-CA')} disabled={isViewMode} required />
-              </div>
-              <div className="form-group col-4">
-                <label>Fim do Período de Carência</label>
-                <input type="date" name="careencia_fim" defaultValue={selectedRegistro?.careencia_fim} disabled={isViewMode} />
-              </div>
-              <div className="form-group col-4">
-                <label>Status</label>
-                <select name="status" defaultValue={selectedRegistro?.status || 'Concluído'} disabled={isViewMode} required>
-                  <option value="Concluído">Concluído</option>
-                  <option value="Em Curso">Em Curso</option>
-                  <option value="Agendado">Agendado</option>
-                </select>
-              </div>
-              <div className="form-group col-12">
-                <label>Medicamento / Vacina Principal</label>
-                <input type="text" name="medicamento" defaultValue={selectedRegistro?.medicamentos?.[0]?.nome} disabled={isViewMode} placeholder="Ex: Terramicina 50mg" required />
-              </div>
-              <div className="form-group col-12">
-                <label>Observações Veterinárias</label>
-                <textarea rows={3} name="obs" defaultValue={selectedRegistro ? 'Animal em observação no piquete hospital.' : ''} disabled={isViewMode}></textarea>
-              </div>
-              <div className="form-group col-12">
-                <div className="info-box info">
-                  <CheckCircle2 size={18} />
-                  <p><strong>Atenção:</strong> Respeite rigorosamente o período de carência indicado pelo fabricante para garantir a segurança alimentar.</p>
+        <div className="sidesheet-body-content">
+          <form id="sanidade-form" onSubmit={handleSubmit}>
+            <div className="modern-form-section">
+              <div className="modern-form-row four-cols">
+                <div className="modern-form-group col-span-2">
+                  <SearchableSelect
+                    label="Animal (Brinco)"
+                    options={animais.map(a => ({ id: a.id, label: a.brinco, sublabel: `${a.raca} - ${a.peso}kg` }))}
+                    value={formData.animal_id || ''}
+                    onChange={(val) => setFormData({ ...formData, animal_id: val })}
+                    disabled={isViewMode}
+                    required
+                  />
                 </div>
+                <div className="modern-form-group">
+                  <SearchableSelect
+                    label="Lote"
+                    options={lotes.map(l => ({ id: l.id, label: l.nome, sublabel: `${l.qtdAnimais} animais` }))}
+                    value={formData.lote_id || ''}
+                    onChange={(val) => setFormData({ ...formData, lote_id: val })}
+                    disabled={isViewMode}
+                  />
+                </div>
+                <div className="modern-form-group">
+                  <SearchableSelect
+                    label="Tipo de Registro"
+                    options={[
+                      { id: 'Vacinação', label: 'Vacinação' },
+                      { id: 'Tratamento', label: 'Tratamento' },
+                      { id: 'Prevenção', label: 'Prevenção' }
+                    ]}
+                    value={formData.tipo || ''}
+                    onChange={(val) => setFormData({ ...formData, tipo: val as any })}
+                    disabled={isViewMode}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="modern-form-group full-width">
+                <label>Doença / Motivo</label>
+                <div className="modern-input-wrapper">
+                  <input 
+                    type="text" 
+                    className="modern-input text-lg font-bold"
+                    value={formData.doenca_motivo || ''} 
+                    onChange={(e) => setFormData({ ...formData, doenca_motivo: e.target.value })}
+                    disabled={isViewMode} 
+                    placeholder="Ex: Pneumonia" 
+                    required 
+                  />
+                  <Activity size={18} className="modern-field-icon" />
+                </div>
+              </div>
+
+              <div className="modern-form-row four-cols">
+                <div className="modern-form-group">
+                  <label>Data de Aplicação</label>
+                  <div className="modern-input-wrapper">
+                    <input 
+                      type="date" 
+                      className="modern-input"
+                      value={formData.data || ''} 
+                      onChange={(e) => setFormData({ ...formData, data: e.target.value })} 
+                      disabled={isViewMode} 
+                      required 
+                    />
+                    <Calendar size={18} className="modern-field-icon" />
+                  </div>
+                </div>
+                <div className="modern-form-group">
+                  <label>Fim da Carência</label>
+                  <div className="modern-input-wrapper">
+                    <input 
+                      type="date" 
+                      className="modern-input"
+                      value={formData.careencia_fim || ''} 
+                      onChange={(e) => setFormData({ ...formData, careencia_fim: e.target.value })} 
+                      disabled={isViewMode} 
+                    />
+                    <Clock size={18} className="modern-field-icon" />
+                  </div>
+                </div>
+                <div className="modern-form-group col-span-2">
+                  <SearchableSelect
+                    label="Status"
+                    options={[
+                      { id: 'Concluído', label: 'Concluído' },
+                      { id: 'Em Curso', label: 'Em Curso' },
+                      { id: 'Agendado', label: 'Agendado' }
+                    ]}
+                    value={formData.status || ''}
+                    onChange={(val) => setFormData({ ...formData, status: val as any })}
+                    disabled={isViewMode}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="modern-form-group full-width">
+                <SearchableSelect
+                  label="Medicamento / Vacina Principal"
+                  options={(insumos as Insumo[]).filter(i => i.categoria.includes('Veterinária') || i.categoria.includes('Medicamento')).map(i => ({ id: i.id, label: i.nome, sublabel: `Saldo: ${i.estoqueAtual} ${i.unidade}` }))}
+                  value={formData.medicamentos?.[0]?.id || ''}
+                  onChange={(val) => {
+                    const insumo = (insumos as Insumo[]).find(i => i.id === val);
+                    setFormData({
+                      ...formData,
+                      medicamentos: [{ id: val, nome: insumo?.nome || '', dose: '1ml', quantidade: 1 }]
+                    });
+                  }}
+                  disabled={isViewMode}
+                  required
+                />
+              </div>
+
+              <div className="modern-form-group full-width">
+                <label>Observações Veterinárias</label>
+                <div className="modern-input-wrapper">
+                  <textarea 
+                    className="modern-input"
+                    rows={3} 
+                    name="obs" 
+                    defaultValue={selectedRegistro ? 'Animal em observação no piquete hospital.' : ''} 
+                    disabled={isViewMode}
+                    placeholder="Descreva detalhes do quadro clínico ou observações de manejo..."
+                  ></textarea>
+                </div>
+              </div>
+
+              <div className="modern-info-tag amber mt-6 full-width">
+                 <AlertTriangle size={18} />
+                 <div className="flex flex-col">
+                   <span className="text-[10px] uppercase opacity-70">Segurança Alimentar</span>
+                   <span className="text-sm font-bold">Respeite rigorosamente o período de carência.</span>
+                 </div>
               </div>
             </div>
           </form>
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };
-

@@ -16,6 +16,7 @@ import {
   Trash2,
   FileText,
   Calculator,
+  Package,
   ChevronLeft,
   ChevronRight,
   BarChart3,
@@ -23,40 +24,51 @@ import {
   Eye,
   Edit
 } from 'lucide-react';
-import './PedidosVenda.css';
-import { StandardModal } from '../../../components/StandardModal';
+import { ModernModal } from '../../../components/ModernModal';
 import { TablePagination } from '../../../components/TablePagination';
 import { TableFilters } from '../../../components/TableFilters';
 import { usePagination } from '../../../hooks/usePagination';
 import { ColumnFilters } from '../../../components/ColumnFilters';
 import { db } from '../../../services/db';
-import { dataService } from '../../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCompany } from '../../../contexts/CompanyContext';
-import { SalesInvoice, InvoiceItem, SalesOrder, SalesItem, Cliente, Animal, Company } from '../../../types';
-
+import { useAuth } from '../../../contexts/AuthContext';
+import { useOfflineQuery, useOfflineMutation } from '../../../hooks/useOfflineSync';
+import { SummaryCard } from '../../../components/SummaryCard';
+import { StatusBadge } from '../../../components/StatusBadge';
+import { SalesInvoice, SalesItem, Cliente, Animal, Company } from '../../../types';
+import { SaleHeader } from './components/SaleHeader';
+import { SaleItems } from './components/SaleItems';
+import { SaleFooter } from './components/SaleFooter';
 
 export const PedidosVenda: React.FC = () => {
   const { activeCompanyId } = useCompany();
-  const allSales = useLiveQuery(() => db.pedidos_venda.toArray()) || [];
-  const sales = allSales.filter(s => activeCompanyId === 'Todas' || (s as any).empresaId === activeCompanyId);
-  const clientesList = useLiveQuery(() => db.clientes.toArray()) || [];
-  const allAnimais = useLiveQuery(() => db.animais.filter(a => a.status === 'Ativo').toArray()) || [];
-  const animaisList = allAnimais.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
-  const empresasList = useLiveQuery(() => db.empresas.toArray()) || [];
+  const { currentOrg } = useAuth();
+  const { data: allSales = [] } = useOfflineQuery<SalesInvoice>(['pedidos_venda'], 'pedidos_venda');
+  const sales = (allSales || []).filter(s => activeCompanyId === 'Todas' || (s as any).empresaId === activeCompanyId);
+  const { data: clientesList = [] } = useOfflineQuery<Cliente>(['clientes'], 'clientes');
+  const { data: allAnimais = [] } = useOfflineQuery<Animal>(['animais'], 'animais');
+  const animaisList = (allAnimais || []).filter(a => (activeCompanyId === 'Todas' || a.empresaId === activeCompanyId) && a.status === 'Ativo');
+  const { data: empresasList = [] } = useOfflineQuery<Company>(['empresas'], 'empresas');
+
+  const saveOrderMutation = useOfflineMutation<SalesInvoice>('pedidos_venda', [['pedidos_venda']]);
+  const saveAnimalMutation = useOfflineMutation<Animal>('animais', [['animais']]);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('Todos');
-  const [filterCliente, setFilterCliente] = useState('Todos');
-  const [items, setItems] = useState<any[]>([]);
-  const [gerarFinanceiro, setGerarFinanceiro] = useState(true);
-  const [dataVencimento, setDataVencimento] = useState('');
-  const [formaPagamento, setFormaPagamento] = useState('Boleto');
+  
+  const [formData, setFormData] = useState<Partial<SalesInvoice>>({
+    numero: '',
+    dataEmissao: new Date().toISOString().split('T')[0],
+    cliente_id: '',
+    status: 'Pendente',
+    empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : '',
+    itens: []
+  });
+
   const [isViewMode, setIsViewMode] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<SalesInvoice | null>(null);
-  const [selectedEmpresaId, setSelectedEmpresaId] = useState(activeCompanyId !== 'Todas' ? activeCompanyId : '');
   const [columnFilters, setColumnFilters] = useState({
     numero: '',
     cliente: '',
@@ -65,25 +77,9 @@ export const PedidosVenda: React.FC = () => {
     status: 'Todos'
   });
 
-  const handleAddAnimal = (animalId: string) => {
-    const animal = animaisList.find(a => a.id === animalId);
-    if (!animal) return;
-
-    if (items.some(i => i.brinco === animal.brinco)) {
-      alert('Este animal já foi adicionado ao pedido.');
-      return;
-    }
-
-    const newItem: SalesItem = {
-      id: Math.random().toString(36).substr(2, 9),
-      brinco: animal.brinco,
-      raca: animal.raca || 'N/A',
-      sexo: animal.sexo || 'N/A',
-      peso: animal.peso || 0,
-      valorKg: 15.00,
-      subtotal: (animal.peso || 0) * 15.00
-    };
-    setItems([...items, newItem]);
+  const calculateTotal = (itemList?: any[]) => {
+    const list = itemList || formData.itens || [];
+    return list.reduce((acc: number, item: any) => acc + (item.subtotal || 0), 0);
   };
 
   const filteredData = sales.filter(order => {
@@ -93,28 +89,15 @@ export const PedidosVenda: React.FC = () => {
 
     const matchesSearch = clientName.includes(searchLower) || 
                          (order.numero || '').toLowerCase().includes(searchLower) ||
-                         (order.data || '').toLowerCase().includes(searchLower) ||
-                         (order.status || '').toLowerCase().includes(searchLower) ||
-                         (order.qtdCabecas || 0).toString().includes(searchLower) ||
-                         (order.pesoTotal || 0).toString().includes(searchLower) ||
-                         (order.valorTotal || 0).toString().includes(searchLower);
-    const matchesStatus = filterStatus === 'Todos' || order.status === filterStatus;
-    const matchesCliente = filterCliente === 'Todos' || order.cliente_id === filterCliente;
+                         (order.status || '').toLowerCase().includes(searchLower);
     
     const matchesColumnFilters = 
-      (columnFilters.numero === '' || (order.numero || '').toLowerCase().includes(columnFilters.numero.toLowerCase()) || (order.data || '').toLowerCase().includes(columnFilters.numero.toLowerCase())) &&
+      (columnFilters.numero === '' || (order.numero || '').toLowerCase().includes(columnFilters.numero.toLowerCase())) &&
       (columnFilters.cliente === '' || clientName.includes(columnFilters.cliente.toLowerCase())) &&
-      (columnFilters.qtdPeso === '' || (order.qtdCabecas || 0).toString().includes(columnFilters.qtdPeso) || (order.pesoTotal || 0).toString().includes(columnFilters.qtdPeso)) &&
-      (columnFilters.valorTotal === '' || (order.valorTotal || 0).toString().includes(columnFilters.valorTotal)) &&
       (columnFilters.status === 'Todos' || order.status === columnFilters.status);
 
-    return matchesSearch && matchesStatus && matchesCliente && matchesColumnFilters;
+    return matchesSearch && matchesColumnFilters;
   });
-
-  const clienteOptions = Array.from(new Set(sales.map(s => {
-    const client = clientesList.find(c => c.id === s.cliente_id);
-    return client ? client.nome : 'Cliente não encontrado';
-  })));
 
   const {
     currentPage,
@@ -130,415 +113,310 @@ export const PedidosVenda: React.FC = () => {
     prevPage,
   } = usePagination({ data: filteredData, initialItemsPerPage: 10 });
 
-  const calculateTotal = () => items.reduce((acc: number, item: SalesItem) => acc + item.subtotal, 0);
+  const handleOpenModal = (order: SalesInvoice | null = null, view = false) => {
+    if (order) {
+      setSelectedOrder(order);
+      setFormData({ ...order });
+      setIsViewMode(view);
+    } else {
+      setSelectedOrder(null);
+      setFormData({
+        numero: `PV-${new Date().getFullYear()}-${(sales.length + 1).toString().padStart(3, '0')}`,
+        dataEmissao: new Date().toISOString().split('T')[0],
+        cliente_id: '',
+        status: 'Pendente',
+        empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : '',
+        itens: []
+      });
+      setIsViewMode(false);
+    }
+    setIsModalOpen(true);
+  };
 
   const handleSaveOrder = async () => {
-    if (!selectedClient || items.length === 0) {
+    if (!formData.cliente_id || (formData.itens?.length || 0) === 0) {
       alert('Selecione um cliente e adicione pelo menos um animal.');
       return;
     }
 
-    const order: SalesOrder = {
+    const order: SalesInvoice = {
+      ...formData,
       id: selectedOrder?.id || Math.random().toString(36).substr(2, 9),
-      numero: selectedOrder?.numero || `PV-${new Date().getFullYear()}-${(sales.length + 1).toString().padStart(3, '0')}`,
-      data: new Date().toISOString().split('T')[0],
-      cliente_id: selectedClient,
-      qtdCabecas: items.length,
-      pesoTotal: items.reduce((acc: number, i: SalesItem) => acc + i.peso, 0),
-      valorTotal: calculateTotal(),
-      status: (selectedOrder?.status as any) || 'Pendente',
-      itens: items,
-      empresaId: selectedEmpresaId,
-      tenant_id: 'default'
-    };
+      valorTotal: calculateTotal(formData.itens),
+      status: (formData.status as any) || 'Pendente',
+      tenant_id: currentOrg?.id || 'default'
+    } as SalesInvoice;
 
-    await dataService.saveItem('pedidos_venda', order);
-    
-    // If faturado, update animal status?
-    // For now just save the order.
-    
+    if (['Confirmado', 'Faturado'].includes(order.status)) {
+      for (const item of (order.itens as SalesItem[])) {
+        const animal = allAnimais.find(a => a.brinco === item.brinco);
+        if (animal && animal.status === 'Ativo') {
+          await saveAnimalMutation.mutateAsync({
+            ...animal,
+            status: 'Vendido',
+            valorVenda: item.subtotal
+          });
+        }
+      }
+    }
+
+    await saveOrderMutation.mutateAsync(order);
     setIsModalOpen(false);
   };
 
-  const [selectedClient, setSelectedClient] = useState('');
+  const handleDeleteOrder = async (id: string) => {
+    if (confirm('Deseja realmente excluir este pedido?')) {
+      await db.pedidos_venda.delete(id);
+    }
+  };
 
   return (
-    <div className="page-container fade-in">
-      <nav className="subpage-breadcrumb">
-        <Link to="/vendas">Vendas & Comercial</Link>
-        <ChevronRight size={14} />
-        <span>Pedidos de Venda</span>
-      </nav>
-
-      <div className="page-header-row">
-        <div className="title-section">
-          <div className="icon-badge indigo">
-            <TrendingUp size={32} strokeWidth={3} />
-          </div>
-          <div>
-            <h1>Pedidos de Venda</h1>
-            <p className="description">Emissão de ordens de venda, faturamento e romaneios de gado.</p>
-          </div>
-        </div>
-        <div className="header-actions">
-          <button className="btn-premium-outline">
-            <FileText size={18} strokeWidth={3} />
-            <span>Relatórios</span>
-          </button>
-          <button className="btn-premium-solid indigo" onClick={() => {
-            setSelectedOrder(null);
-            setIsViewMode(false);
-            setItems([]);
-            setIsModalOpen(true);
-          }}>
-            <Plus size={18} strokeWidth={3} />
-            <span>Novo Pedido</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="summary-grid">
-        <div className="summary-card glass animate-slide-up">
-          <div className="summary-info">
-            <span className="summary-label">Faturamento (Mês)</span>
-            <span className="summary-value">R$ 1.250k</span>
-            <span className="summary-subtext">Sales Target: 85%</span>
-          </div>
-          <div className="summary-icon indigo">
-             <BarChart3 size={28} strokeWidth={3} />
+    <div className="p-10 max-w-[1600px] mx-auto animate-premium-fade-up">
+      {/* Floating Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 sticky top-0 z-30 py-4 bg-slate-50/80 backdrop-blur-md -mx-10 px-10 border-b border-slate-200/50 shadow-sm">
+        <div>
+          <div className="flex items-center gap-4 mb-1">
+            <div className="w-12 h-12 bg-indigo-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 ring-4 ring-indigo-50">
+              <TrendingUp size={24} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight">Pedidos de Venda</h1>
+              <p className="text-slate-500 font-bold text-sm uppercase tracking-widest text-shadow-sm">Comercialização & Faturamento</p>
+            </div>
           </div>
         </div>
 
-        <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Pedidos Pendentes</span>
-            <span className="summary-value">03</span>
-            <span className="summary-subtext">Aguardando Faturamento</span>
+        <div className="flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-slate-200 shadow-sm">
+            <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">Empresa:</span>
+            <span className="text-xs font-black text-slate-700">{activeCompanyId === 'Todas' ? 'Visão Consolidada' : empresasList.find(e => e.id === activeCompanyId)?.razaoSocial || 'Unidade'}</span>
           </div>
-          <div className="summary-icon orange">
-            <Clock size={28} strokeWidth={3} />
-          </div>
-        </div>
-
-        <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Ticket Médio /@</span>
-            <span className="summary-value">R$ 315</span>
-            <span className="summary-subtext">Base: Nelore (Arroba)</span>
-          </div>
-          <div className="summary-icon green">
-            <Calculator size={28} strokeWidth={3} />
-          </div>
-        </div>
-      </div>
-
-      <div className="data-section">
-        <TableFilters
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          placeholder="Buscar por cliente ou número de pedido..."
-          actionsLabel="Filtragem"
-        >
           <button 
-            className={`btn-premium-outline h-11 px-6 ${isFiltersOpen ? 'filter-active' : ''}`}
-            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+            onClick={() => handleOpenModal()}
+            className="btn-premium-solid h-14 px-8 rounded-2xl indigo"
           >
-            <Filter size={18} strokeWidth={3} />
-            <span>{isFiltersOpen ? 'Fechar Filtros' : 'Filtros Avançados'}</span>
+            <Plus size={22} strokeWidth={3} />
+            <span className="text-base">Novo Pedido</span>
           </button>
-        </TableFilters>
-
-
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Pedido / Data</th>
-              <th>Cliente</th>
-              <th>Qtd/Peso</th>
-              <th>Vlr. Total</th>
-              <th>Status</th>
-              <th className="text-center">Ações</th>
-            </tr>
-            {isFiltersOpen && (
-              <ColumnFilters
-                columns={[
-                  { key: 'numero', type: 'text', placeholder: 'Filtrar...' },
-                  { key: 'cliente', type: 'text', placeholder: 'Filtrar...' },
-                  { key: 'qtdPeso', type: 'text', placeholder: 'Filtrar...' },
-                  { key: 'valorTotal', type: 'text', placeholder: 'Valor...' },
-                  { key: 'status', type: 'select', options: ['Pendente', 'Confirmado', 'Faturado', 'Entregue', 'Cancelado'] }
-                ]}
-                values={columnFilters}
-                onChange={(key, value) => setColumnFilters((prev: any) => ({ ...prev, [key]: value }))}
-                showActionsPadding={true}
-              />
-            )}
-          </thead>
-          <tbody>
-            {paginatedData.map((order) => (
-              <tr key={order.id}>
-                <td>
-                  <div className="flex items-center gap-2">
-                    <strong className="text-slate-900">{order.numero}</strong>
-                    <span className="text-slate-400 text-sm font-medium">— {new Date(order.data || '').toLocaleDateString('pt-BR')}</span>
-                  </div>
-                </td>
-                <td>
-                  <div className="client-cell flex items-center gap-2">
-                    <Users size={16} strokeWidth={3} className="text-indigo-500" />
-                    <span className="font-bold text-slate-700">
-                      {clientesList.find(c => c.id === order.cliente_id)?.nome || 'Cliente não encontrado'}
-                    </span>
-                  </div>
-                </td>
-                <td>
-                  <div className="flex items-center gap-2">
-                    <strong className="text-slate-800">{order.qtdCabecas} cab.</strong>
-                    <span className="text-slate-400 text-sm">{order.pesoTotal} kg</span>
-                  </div>
-                </td>
-                <td>
-                  <strong className="text-indigo-600 font-extrabold text-lg">R$ {order.valorTotal.toLocaleString()}</strong>
-                </td>
-                <td>
-                  <span className={`status-badge ${order.status.toLowerCase()}`}>
-                    <div className="dot"></div>
-                    {order.status}
-                  </span>
-                </td>
-                <td className="text-center">
-                  <div className="actions-cell justify-center">
-                    <button className="action-btn-global btn-view" title="Visualizar" onClick={() => { setSelectedOrder(order); setIsViewMode(true); setIsModalOpen(true); }}>
-                      <Eye size={18} strokeWidth={3} />
-                    </button>
-                    <button className="action-btn-global btn-edit" title="Editar" onClick={() => { setSelectedOrder(order); setIsViewMode(false); setIsModalOpen(true); }}>
-                      <Edit size={18} strokeWidth={3} />
-                    </button>
-                    <button className="action-btn-global btn-delete" title="Excluir">
-                      <Trash2 size={18} strokeWidth={3} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <TablePagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          itemsPerPage={itemsPerPage}
-          startIndex={startIndex}
-          endIndex={endIndex}
-          totalItems={totalItems}
-          onPageChange={goToPage}
-          onNextPage={nextPage}
-          onPrevPage={prevPage}
-          onItemsPerPageChange={setItemsPerPage}
-          label="pedidos"
-        />
-
+        </div>
       </div>
 
-      <StandardModal
+      {/* Modern Summary Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <SummaryCard 
+          label="Faturamento Mês"
+          value={`R$ ${sales
+            .filter(s => new Date(s.dataEmissao || (s as any).data || '').getMonth() === new Date().getMonth())
+            .reduce((acc, curr) => acc + (curr.valorTotal || 0), 0)
+            .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          icon={DollarSign}
+          color="indigo"
+          trend={{ value: '+18.2%', type: 'up', icon: TrendingUp }}
+        />
+        <SummaryCard 
+          label="Pedidos Pendentes"
+          value={sales.filter(s => s.status === 'Pendente').length.toString().padStart(2, '0')}
+          icon={Clock}
+          color="amber"
+          subtext="Aguardando Liberação"
+        />
+        <SummaryCard 
+          label="Volume Vendido"
+          value={`${sales.reduce((acc, curr) => acc + (curr.qtdCabecas || 0), 0)} cab.`}
+          icon={Beef}
+          color="rose"
+          subtext="Total Acumulado"
+        />
+        <SummaryCard 
+          label="Ticket Médio /@"
+          value="R$ 318,50"
+          icon={Calculator}
+          color="emerald"
+          subtext="Base: Nelore (Arroba)"
+        />
+      </div>
+
+      {/* Main List Section */}
+      <div className="glass-premium rounded-[40px] overflow-hidden shadow-soft-xl border border-white/40">
+        <div className="p-8 border-b border-slate-200/50 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 bg-white/50">
+          <div className="relative flex-1 max-w-md group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+            <input 
+              type="text"
+              placeholder="Buscar por cliente ou número de pedido..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-slate-700 font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+             <TableFilters 
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50">
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Pedido / Data</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Cliente</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Volume / Peso</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Valor Total</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Status</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white/30 backdrop-blur-sm">
+              {paginatedData.length > 0 ? paginatedData.map((order) => (
+                <tr key={order.id} className="group hover:bg-slate-50/50 transition-all duration-300 transform hover:scale-[1.002]">
+                  <td className="px-8 py-6">
+                    <div className="flex flex-col">
+                      <span className="font-black text-slate-800 text-base mb-1">{order.numero}</span>
+                      <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+                        <Calendar size={12} />
+                        {new Date(order.dataEmissao || (order as any).data || '').toLocaleDateString()}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-xs shadow-inner">
+                        {clientesList.find(c => c.id === order.cliente_id)?.nome.substring(0, 2).toUpperCase()}
+                      </div>
+                      <span className="font-bold text-slate-700">{clientesList.find(c => c.id === order.cliente_id)?.nome || 'Cliente não encontrado'}</span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-6">
+                    <div className="flex flex-col">
+                      <span className="font-black text-slate-700 text-sm">{order.qtdCabecas || 0} cab.</span>
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">{order.pesoTotal || 0} kg total</span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-6 text-right">
+                    <span className="font-black text-indigo-600 text-lg tabular-nums tracking-tighter">
+                      R$ {(order.valorTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </td>
+                  <td className="px-8 py-6 text-center">
+                    <StatusBadge status={order.status || 'Pendente'} />
+                  </td>
+                  <td className="px-8 py-6">
+                    <div className="flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-0 translate-x-4">
+                      <button 
+                        onClick={() => handleOpenModal(order, true)}
+                        className="action-btn-global btn-view" title="Visualizar"
+                      >
+                        <Eye size={18} strokeWidth={2.5} />
+                      </button>
+                      <button 
+                        onClick={() => handleOpenModal(order)}
+                        className="action-btn-global btn-edit" title="Editar"
+                      >
+                        <Edit size={18} strokeWidth={2.5} />
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteOrder(order.id)}
+                        className="action-btn-global btn-delete" title="Excluir"
+                      >
+                        <Trash2 size={18} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={6} className="px-8 py-20 text-center">
+                    <div className="flex flex-col items-center gap-4 opacity-40">
+                      <Package size={64} strokeWidth={1} />
+                      <p className="text-lg font-bold text-slate-400">Nenhum pedido encontrado</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="p-8 border-t border-slate-100 bg-slate-50/50">
+          <TablePagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            totalItems={totalItems}
+            onPageChange={goToPage}
+            onNextPage={nextPage}
+            onPrevPage={prevPage}
+            onItemsPerPageChange={setItemsPerPage}
+          />
+        </div>
+      </div>
+
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title="Lançar Pedido de Venda"
-        subtitle="Configure os itens da venda, cliente e condições comerciais"
+        title={isViewMode ? 'Visualizar Pedido' : selectedOrder ? 'Editar Pedido' : 'Novo Pedido de Venda'}
+        subtitle="Gerenciamento de ordens de venda, romaneios e integração com abate."
         icon={TrendingUp}
-        size="xl"
         footer={
-          <div className="footer-actions flex gap-3">
-            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>{isViewMode ? 'Fechar' : 'Cancelar'}</button>
-            {!isViewMode && (
-              <button className="btn-premium-solid indigo" onClick={handleSaveOrder}>
-                <CheckCircle2 size={18} strokeWidth={3} />
-                <span>Confirmar Pedido</span>
+          <div className="flex justify-between items-center w-full">
+             <div className="hidden sm:flex items-center gap-4 px-6 py-3 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden relative group">
+              <div className="absolute inset-0 bg-indigo-500/10 blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest relative z-10">Total da Venda:</span>
+              <span className="text-2xl font-black text-white tracking-tighter relative z-10 tabular-nums">
+                R$ {calculateTotal(formData.itens).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                className="btn-premium-outline h-12 px-8"
+                onClick={() => setIsModalOpen(false)}
+              >
+                {isViewMode ? 'Fechar' : 'Cancelar'}
               </button>
-            )}
+              {!isViewMode && (
+                <button
+                  type="button"
+                   className="btn-premium-solid h-12 px-8 indigo shadow-lg shadow-indigo-100"
+                  onClick={() => handleSaveOrder()}
+                >
+                  <CheckCircle2 size={18} />
+                  <span>Finalizar Pedido</span>
+                </button>
+              )}
+            </div>
           </div>
         }
       >
-        <div className="form-sections-grid">
-          <div className="form-section">
-            <h4 className="section-title">Informações Básicas</h4>
-            <div className="form-grid">
-              <div className="form-group col-12">
-                <label>Cliente (Destino)</label>
-                <select 
-                  value={selectedClient} 
-                  onChange={(e) => setSelectedClient(e.target.value)}
-                  disabled={isViewMode}
-                >
-                  <option value="">Selecione o cliente...</option>
-                  {clientesList.map(c => (
-                    <option key={c.id} value={c.id}>{c.nome}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group col-6">
-                <label>Data da Venda</label>
-                <input type="date" defaultValue={new Date().toISOString().split('T')[0]} />
-              </div>
-              <div className="form-group col-6">
-                <label>Previsão de Carregamento</label>
-                <input type="date" />
-              </div>
-              <div className="form-group col-6">
-                <label>Empresa / Unidade Emissora</label>
-                <select
-                  value={selectedEmpresaId}
-                  onChange={(e) => setSelectedEmpresaId(e.target.value)}
-                  disabled={isViewMode}
-                >
-                  <option value="">Selecione a empresa...</option>
-                  {empresasList.filter((c: Company) => c.status === 'Ativa').map((c: Company) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nomeFantasia} {!c.isMatriz ? '(Filial)' : '(Matriz)'}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group col-6">
-                <label>Local de Retirada / Fazenda</label>
-                <select
-                  value={selectedEmpresaId}
-                  onChange={(e) => setSelectedEmpresaId(e.target.value)}
-                  disabled={isViewMode}
-                >
-                  <option value="">Selecione a unidade...</option>
-                  {empresasList.filter((c: Company) => c.status === 'Ativa').map((c: Company) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nomeFantasia} ({c.cidade}/{c.estado})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group col-6">
-                <label>Condição de Pagamento</label>
-                <select>
-                  <option>À Vista</option>
-                  <option>30 Dias</option>
-                  <option>30/60 Dias</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <div className="form-section">
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="section-title">Animais / Lotes da Venda</h4>
-              {!isViewMode && (
-                <div className="flex gap-2">
-                  <select 
-                    className="form-control" 
-                    onChange={(e) => handleAddAnimal(e.target.value)}
-                    value=""
-                  >
-                    <option value="">Adicionar Animal (Brinco)...</option>
-                    {animaisList.map(a => (
-                      <option key={a.id} value={a.id}>{a.brinco} - {a.raca}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
-            
-            <div className="items-table-container">
-              <table className="items-table">
-                <thead>
-                  <tr>
-                    <th>Brinco</th>
-                    <th>Raça/Sexo</th>
-                    <th>Peso (Kg)</th>
-                    <th>Vlr. Kg (R$)</th>
-                    <th>Subtotal</th>
-                    {!isViewMode && <th></th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item: SalesItem) => (
-                    <tr key={item.id} className="animate-slide-in">
-                      <td><strong>{item.brinco}</strong></td>
-                      <td>{item.raca} / {item.sexo}</td>
-                      <td>{item.peso}</td>
-                      <td>{item.valorKg.toFixed(2)}</td>
-                      <td><strong>R$ {item.subtotal.toLocaleString()}</strong></td>
-                      {!isViewMode && (
-                        <td><button className="btn-icon-danger" onClick={() => setItems(items.filter((i: SalesItem) => i.id !== item.id))}><X size={14} /></button></td>
-                      )}
-                    </tr>
-                  ))}
-                  {items.length === 0 && (
-                    <tr>
-                      <td colSpan={6} style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-                        Nenhum animal adicionado à venda.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="integration-box mt-16 animate-fade-in" style={{ background: 'rgba(79, 70, 229, 0.05)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(79, 70, 229, 0.1)' }}>
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                 <div>
-                   <h4 style={{ margin: 0, color: 'var(--primary-indigo)', fontWeight: 700 }}>Integração Financeira</h4>
-                   <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>Gerar lançamento estratégico no Fluxo de Caixa</p>
-                 </div>
-                 <div className="custom-switch">
-                   <input 
-                     type="checkbox" 
-                     id="gerarFinanceiro" 
-                     checked={gerarFinanceiro} 
-                     onChange={(e) => setGerarFinanceiro(e.target.checked)}
-                     disabled={isViewMode}
-                   />
-                   <label htmlFor="gerarFinanceiro"></label>
-                 </div>
-               </div>
-
-               {gerarFinanceiro && (
-                 <div className="form-grid mt-16 animate-slide-up">
-                   <div className="form-group col-6">
-                     <label>Previsão de Recebimento</label>
-                     <input 
-                       type="date" 
-                       value={dataVencimento} 
-                       onChange={(e) => setDataVencimento(e.target.value)}
-                       disabled={isViewMode}
-                     />
-                   </div>
-                   <div className="form-group col-6">
-                     <label>Forma de Pagamento</label>
-                     <select 
-                       value={formaPagamento} 
-                       onChange={(e) => setFormaPagamento(e.target.value)}
-                       disabled={isViewMode}
-                     >
-                       <option value="Boleto">Boleto Bancário</option>
-                       <option value="Pix">Pix / Transferência</option>
-                       <option value="Cartao">Cartão de Crédito</option>
-                       <option value="Dinheiro">Dinheiro</option>
-                     </select>
-                   </div>
-                 </div>
-               )}
-            </div>
-
-            <div className="totals-card card glass mt-16">
-              <div className="total-row">
-                <span>Qtd. Cabeças:</span>
-                <span className="font-bold">{items.length}</span>
-              </div>
-              <div className="total-row grand-total mt-4 border-t pt-4">
-                <span>Total da Venda:</span>
-                <span className="value text-indigo">R$ {calculateTotal().toLocaleString()}</span>
-              </div>
-            </div>
-          </div>
+        <div className="space-y-12">
+          <SaleHeader 
+            data={formData} 
+            onChange={setFormData as any} 
+            isViewMode={isViewMode} 
+            clients={clientesList as any} 
+            companies={empresasList as any}
+          />
+          
+          <SaleItems 
+            data={formData} 
+            onChange={setFormData as any} 
+            isViewMode={isViewMode} 
+            animals={animaisList as any}
+          />
+          
+          <SaleFooter 
+            data={formData} 
+            onChange={setFormData as any} 
+            isViewMode={isViewMode}
+          />
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };
-

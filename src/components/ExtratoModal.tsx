@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { FileText, Download, Filter, Search, Calendar, Landmark, ArrowUpRight, ArrowDownLeft } from 'lucide-react';
-import { StandardModal } from './StandardModal';
+import { FileText, Download, Filter, Search, Calendar, Landmark, ArrowUpRight, ArrowDownLeft, X } from 'lucide-react';
+import { ModernModal } from './ModernModal';
 import { MOCK_BANKS } from '../data/bankData';
 
 interface ExtratoModalProps {
@@ -29,26 +29,26 @@ export const ExtratoModal: React.FC<ExtratoModalProps> = ({ isOpen, onClose, ini
   }, [initialBankId, isOpen]);
 
   return (
-    <StandardModal
+    <ModernModal
       isOpen={isOpen}
       onClose={onClose}
       title="Extrato Detalhado"
       subtitle="Visualize todo o histórico de movimentações financeiras."
       icon={FileText}
-      size="lg"
       footer={
         <div className="flex justify-between items-center w-full">
           <div className="export-options flex gap-2">
-            <button className="btn-premium-outline btn-sm">
+            <button className="btn-premium-outline">
               <Download size={16} strokeWidth={3} />
               <span>PDF</span>
             </button>
-            <button className="btn-premium-outline btn-sm">
+            <button className="btn-premium-outline">
               <Download size={16} strokeWidth={3} />
               <span>Excel</span>
             </button>
           </div>
           <button className="btn-premium-solid indigo" onClick={onClose}>
+            <X size={18} strokeWidth={3} />
             <span>Fechar</span>
           </button>
         </div>
@@ -176,6 +176,6 @@ export const ExtratoModal: React.FC<ExtratoModalProps> = ({ isOpen, onClose, ini
         .type-badge.entrada { background: rgba(16, 185, 129, 0.1); color: #10b981; }
         .type-badge.saida { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
       `}</style>
-    </StandardModal>
+    </ModernModal>
   );
 };

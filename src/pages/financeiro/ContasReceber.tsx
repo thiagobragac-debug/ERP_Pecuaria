@@ -14,13 +14,18 @@ import {
   Building2,
   Clock,
   ChevronRight,
+  ChevronLeft,
   Download,
-  Check
+  Check,
+  X,
+  Info,
+  Activity,
+  FileText
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
 import { INITIAL_COMPANIES } from '../../data/initialData';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
@@ -31,6 +36,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
 import { useCompany } from '../../contexts/CompanyContext';
 import { Transacao, BankAccount, Cliente, Company } from '../../types';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import './ContasReceber.css';
 import './Settlement.css';
 
@@ -152,7 +158,7 @@ export const ContasReceber = () => {
       setValor(conta.valor);
       setDataVencimento(conta.vencimento || '');
       setCategoria(conta.categoria);
-      setEmpresaId('default');
+      setEmpresaId(conta.empresaId || 'default');
       setIsViewMode(view);
     } else {
       setSelectedConta(null);
@@ -197,7 +203,7 @@ export const ContasReceber = () => {
 
       <div className="page-header-row">
         <div className="title-section">
-          <div className="icon-badge secondary">
+          <div className="icon-badge indigo">
             <TrendingUp size={32} />
           </div>
           <div>
@@ -215,7 +221,7 @@ export const ContasReceber = () => {
             <Download size={18} strokeWidth={3} />
             <span>Relatórios</span>
           </button>
-          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
+          <button className="btn-premium-solid emerald" onClick={() => handleOpenModal()}>
             <Plus size={18} strokeWidth={3} />
             <span>Novo Lançamento</span>
           </button>
@@ -223,7 +229,7 @@ export const ContasReceber = () => {
       </div>
 
       <div className="summary-grid">
-        <div className="summary-card pending animate-slide-up">
+        <div className="card glass animate-slide-up">
           <div className="summary-info">
             <span className="summary-label">Total a Receber</span>
             <span className="summary-value">R$ {totals.pending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
@@ -231,12 +237,12 @@ export const ContasReceber = () => {
               <Building2 size={16} strokeWidth={3} /> {contasReceber.filter(c => c.status === 'Pendente').length} pendentes
             </p>
           </div>
-          <div className="summary-icon" style={{ '--accent-rgb': '99, 102, 241' } as any}>
+          <div className="summary-icon sky">
             <DollarSign size={36} strokeWidth={3} />
           </div>
         </div>
 
-        <div className="summary-card overdue animate-slide-up" style={{ animationDelay: '0.1s' }}>
+        <div className="card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <div className="summary-info">
             <span className="summary-label">Em Atraso</span>
             <span className="summary-value">R$ {totals.overdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
@@ -244,7 +250,7 @@ export const ContasReceber = () => {
               <AlertCircle size={16} /> Cobrança prioritária
             </p>
           </div>
-          <div className="summary-icon" style={{ '--accent-rgb': '239, 68, 68' } as any}>
+          <div className="summary-icon rose">
             <Clock size={36} strokeWidth={3} />
           </div>
         </div>
@@ -397,7 +403,7 @@ export const ContasReceber = () => {
           <span className="count">{selectedIds.length}</span>
           selecionados — <span className="font-bold text-green-400">R$ {getSelectedTotal().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
         </div>
-        <button className="btn-premium-solid" onClick={() => setIsSettlementOpen(true)}>
+        <button className="btn-premium-solid emerald" onClick={() => setIsSettlementOpen(true)}>
           <Check size={18} strokeWidth={3} />
           <span>Confirmar Recebimento</span>
         </button>
@@ -406,100 +412,207 @@ export const ContasReceber = () => {
         </button>
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={isViewMode ? 'Detalhes' : (selectedConta ? 'Editar' : 'Novo')}
-        subtitle="Controle de faturamentos."
+        title={isViewMode ? 'Detalhes' : (selectedConta ? 'Editar' : 'Novo Lançamento')}
+        subtitle="Controle de faturamentos e recebíveis."
         icon={TrendingUp}
         footer={
-          <div className="footer-actions flex gap-3">
-            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
+          <>
+            <button type="button" className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
+            </button>
             {!isViewMode && (
-              <button className="btn-premium-solid indigo" onClick={handleSave}>
-                <Check size={18} strokeWidth={3} />
-                <span>Salvar</span>
+              <button type="submit" className="btn-premium-solid emerald" form="contas-receber-form">
+                <span>{selectedConta ? 'Salvar Alterações' : 'Confirmar Lançamento'}</span>
+                <CheckCircle2 size={18} strokeWidth={3} />
               </button>
             )}
-          </div>
+          </>
         }
-        size="lg"
       >
-        <div className="form-sections-grid">
-          <div className="form-section">
-            <div className="form-grid">
-              <div className="form-group col-12">
-                <label>Descrição</label>
-                <input value={descricao} onChange={e => setDescricao(e.target.value)} disabled={isViewMode} />
-              </div>
-              <div className="form-group col-4">
-                <label>Cliente</label>
-                <select value={clienteId} onChange={e => setClienteId(e.target.value)} disabled={isViewMode}>
-                  <option value="">Selecione...</option>
-                  {clientes.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                </select>
-              </div>
-              <div className="form-group col-4">
-                <label>Categoria</label>
-                <select value={categoria} onChange={e => setCategoria(e.target.value)} disabled={isViewMode}>
-                  <option value="">Selecione...</option>
-                  {categorias.map(c => <option key={c} value={c}>{c}</option>)}
-                  <option value="Venda Gado">Venda Gado</option>
-                  <option value="Serviços">Serviços</option>
-                </select>
-              </div>
-              <div className="form-group col-4">
-                <label>Empresa</label>
-                <select value={empresaId} onChange={e => setEmpresaId(e.target.value)} disabled={isViewMode}>
-                   <option value="">Selecione a empresa...</option>
-                   {empresasList.filter(c => c.status === 'Ativa').map(c => (
-                     <option key={c.id} value={c.id}>{c.nomeFantasia}</option>
-                   ))}
-                </select>
-              </div>
-              <div className="form-group col-6">
-                <label>Valor (R$)</label>
-                <input type="number" value={valor} onChange={e => setValor(parseFloat(e.target.value))} disabled={isViewMode} />
-              </div>
-              <div className="form-group col-6">
-                <label>Vencimento</label>
-                <input type="date" value={dataVencimento} onChange={e => setDataVencimento(e.target.value)} disabled={isViewMode} />
+        <div className="modern-form-section">
+          <form id="contas-receber-form" onSubmit={(e) => {
+            e.preventDefault();
+            handleSave();
+          }}>
+            <div className="modern-form-group full-width">
+              <label>Descrição do Recebível</label>
+              <div className="modern-input-wrapper">
+                <input 
+                  className="modern-input text-lg font-bold"
+                  value={descricao} 
+                  onChange={e => setDescricao(e.target.value)} 
+                  disabled={isViewMode} 
+                  placeholder="Ex: Venda de gado - Lote 12"
+                  required
+                />
+                <FileText size={18} className="modern-field-icon" />
               </div>
             </div>
-          </div>
-        </div>
-      </StandardModal>
 
-      <StandardModal
+            <div className="modern-form-row three-cols">
+              <div className="modern-form-group">
+                <SearchableSelect
+                  label="Cliente / Parceiro"
+                  options={clientes.map(c => ({ id: c.id, label: c.nome, sublabel: c.documento }))}
+                  value={clienteId}
+                  onChange={setClienteId}
+                  disabled={isViewMode}
+                  required
+                />
+              </div>
+
+              <div className="modern-form-group">
+                <SearchableSelect
+                  label="Categoria"
+                  options={[
+                    { id: 'Venda Gado', label: 'Venda Gado' },
+                    { id: 'Serviços', label: 'Serviços' },
+                    { id: 'Outros', label: 'Outros' }
+                  ]}
+                  value={categoria}
+                  onChange={setCategoria}
+                  disabled={isViewMode}
+                  required
+                />
+              </div>
+
+              <div className="modern-form-group">
+                <SearchableSelect
+                  label="Empresa Responsável"
+                  options={empresasList.filter(c => c.status === 'Ativa').map(c => ({ id: c.id, label: c.nomeFantasia }))}
+                  value={empresaId}
+                  onChange={setEmpresaId}
+                  disabled={isViewMode}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="modern-form-row">
+              <div className="modern-form-group">
+                <label>Valor Previsto (R$)</label>
+                <div className="modern-input-wrapper">
+                  <input 
+                    type="number" 
+                    className="modern-input"
+                    value={valor} 
+                    onChange={e => setValor(parseFloat(e.target.value))} 
+                    disabled={isViewMode} 
+                    step="0.01"
+                    required
+                  />
+                  <DollarSign size={18} className="modern-field-icon" />
+                </div>
+              </div>
+              <div className="modern-form-group">
+                <label>Data de Vencimento</label>
+                <div className="modern-input-wrapper">
+                  <input 
+                    type="date" 
+                    className="modern-input"
+                    value={dataVencimento} 
+                    onChange={e => setDataVencimento(e.target.value)} 
+                    disabled={isViewMode} 
+                    required
+                  />
+                  <Calendar size={18} className="modern-field-icon" />
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </ModernModal>
+
+      <ModernModal
         isOpen={isSettlementOpen}
         onClose={() => setIsSettlementOpen(false)}
-        title="Liquidação"
-        subtitle="O total será somado ao saldo da conta escolhida."
+        title="Liquidação de Recebíveis"
+        subtitle="Confirmação de entrada financeira no caixa."
         icon={CheckCircle2}
         footer={
-          <div className="footer-actions flex gap-3">
-            <button className="btn-premium-outline" onClick={() => setIsSettlementOpen(false)}>Cancelar</button>
-            <button className="btn-premium-solid indigo" onClick={() => { setIsSettlementOpen(false); setSelectedIds([]); }}>
-              <span>Confirmar Baixa</span>
+          <>
+            <button type="button" className="btn-premium-outline" onClick={() => setIsSettlementOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
             </button>
-          </div>
+            <button type="submit" className="btn-premium-solid emerald" form="liquidação-form">
+              <span>Confirmar Liquidação</span>
+              <Check size={18} strokeWidth={3} />
+            </button>
+          </>
         }
-        size="md"
       >
-        <div className="form-grid">
-           <div className="form-group col-12">
-              <label>Conta de Destino</label>
-              <select value={bankAccountId} onChange={e => setBankAccountId(e.target.value)}>
-                 <option value="">Selecione a conta...</option>
-                 {banks.map(b => <option key={b.id} value={b.id}>{b.banco} (R$ {b.saldo.toLocaleString()})</option>)}
-              </select>
-           </div>
-           <div className="form-group col-12">
-              <label>Total Líquido</label>
-              <div className="text-2xl font-black text-indigo-600">R$ {getSelectedTotal().toLocaleString()}</div>
-           </div>
+        <div className="modern-form-section">
+          <form id="liquidação-recebivel-form" onSubmit={(e) => {
+            e.preventDefault();
+            setIsSettlementOpen(false);
+            setSelectedIds([]);
+          }}>
+            <div className="selected-items-list mb-6">
+              <div className="form-section-title mb-4">
+                <Info size={20} className="text-indigo-500" />
+                <span>Resumo da Operação ({selectedIds.length})</span>
+              </div>
+              {contasReceber.filter(c => selectedIds.includes(c.id)).map(item => (
+                <div key={item.id} className="mini-item p-3 rounded-lg bg-slate-50 mb-2 flex justify-between items-center">
+                  <div>
+                    <span className="font-bold text-slate-700 block">{item.desc}</span>
+                    <span className="text-xs text-slate-400">Vencimento: {item.vencimento}</span>
+                  </div>
+                  <span className="text-emerald-600 font-black">R$ {item.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="modern-form-row">
+              <div className="modern-form-group">
+                <SearchableSelect
+                  label="Conta Bancária (Destino)"
+                  options={banks.map(b => ({ id: b.id, label: b.banco, sublabel: `Saldo: R$ ${b.saldo.toLocaleString('pt-BR')}` }))}
+                  value={bankAccountId}
+                  onChange={setBankAccountId}
+                  required
+                />
+              </div>
+              <div className="modern-form-group">
+                <label>Data do Recebimento</label>
+                <div className="modern-input-wrapper">
+                  <input type="date" className="modern-input" value={settlementDate} onChange={e => setSettlementDate(e.target.value)} required />
+                  <Calendar size={18} className="modern-field-icon" />
+                </div>
+              </div>
+            </div>
+
+            <div className="modern-form-group full-width">
+              <label>Forma de Recebimento</label>
+              <div className="modern-input-wrapper">
+                <select className="modern-input" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}>
+                  <option value="PIX">PIX</option>
+                  <option value="TED">Transferência (TED)</option>
+                  <option value="Boleto">Boleto Bancário</option>
+                  <option value="Cartão">Cartão de Crédito</option>
+                  <option value="Dinheiro">Espécie / Dinheiro</option>
+                </select>
+                <Activity size={18} className="modern-field-icon" />
+              </div>
+            </div>
+
+            <div className="settlement-total-banner p-6 bg-slate-900 text-white rounded-2xl flex justify-between items-center mt-6">
+              <div>
+                <span className="text-slate-400 text-sm">Total a Liquidar</span>
+                <p className="text-xs text-slate-500">{selectedIds.length} títulos selecionados</p>
+              </div>
+              <div className="text-3xl font-black text-emerald-400">
+                R$ {getSelectedTotal().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+          </form>
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

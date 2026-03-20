@@ -23,9 +23,10 @@ import {
   MonitorCheck,
   ChevronLeft,
   ChevronRight,
-  Hash
+  Hash,
+  Beef
 } from 'lucide-react';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters } from '../../components/ColumnFilters';
@@ -33,6 +34,7 @@ import { usePagination } from '../../hooks/usePagination';
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import { Confinamento as ConfinamentoType, Lote, Dieta } from '../../types';
 import { useCompany } from '../../contexts/CompanyContext';
 import './Confinamento.css';
@@ -72,12 +74,54 @@ export const Confinamento = () => {
     status: 'Todos'
   });
   const [activeTab, setActiveTab] = useState('geral');
+  const [formData, setFormData] = useState<Partial<ConfinamentoType>>({
+    status: 'Em Engorda',
+    dataEntrada: new Date().toISOString().split('T')[0],
+    qtdAnimais: 0,
+    imgAnterior: 0,
+    curral: '',
+    dieta: ''
+  });
 
   const handleOpenModal = (entry: ConfinamentoType | null = null, viewOnly = false) => {
+    if (entry) {
+      setFormData({ ...entry });
+    } else {
+      setFormData({
+        status: 'Em Engorda',
+        dataEntrada: new Date().toISOString().split('T')[0],
+        qtdAnimais: 0,
+        imgAnterior: 0,
+        curral: '',
+        dieta: ''
+      });
+    }
     setSelectedEntry(entry);
     setIsViewMode(viewOnly);
     setIsModalOpen(true);
     setActiveTab('geral');
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.lote_id) return alert('Selecione um lote!');
+
+    // Calculate days in feedlot
+    const start = new Date(formData.dataEntrada!);
+    const end = new Date();
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    const finalConfinamento: ConfinamentoType = {
+      ...formData,
+      id: selectedEntry?.id || Math.random().toString(36).substr(2, 9),
+      diasNoCochos: diffDays,
+      empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : (selectedEntry?.empresaId || undefined),
+      tenant_id: 'default'
+    } as ConfinamentoType;
+
+    await dataService.saveItem('confinamento', finalConfinamento);
+    handleCloseModal();
   };
 
   const handleCloseModal = () => {
@@ -155,11 +199,11 @@ export const Confinamento = () => {
           </div>
         </div>
         <div className="action-buttons">
-          <button className="btn-premium-outline h-11 px-6 gap-2" onClick={() => setView('monitor')}>
+          <button className="btn-premium-outline" onClick={() => setView('monitor')}>
             <MonitorCheck size={20} strokeWidth={3} />
             <span>Monitorar Cocho</span>
           </button>
-          <button className="btn-premium-solid indigo h-11 px-6 gap-2" onClick={() => handleOpenModal()}>
+          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
             <Plus size={20} strokeWidth={3} />
             <span>Novo Lote no Cocho</span>
           </button>
@@ -305,102 +349,118 @@ export const Confinamento = () => {
         />
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title={isViewMode ? 'Detalhes do Confinamento' : (selectedEntry ? 'Editar Lote no Cocho' : 'Nova Entrada de Confinamento')}
         subtitle="Gestão técnica de engorda intensiva e nutrição."
         icon={Home}
-        size="lg"
         footer={
-          <div className="flex gap-3">
-            <button type="button" className="btn-premium-outline" onClick={handleCloseModal}>Cancelar</button>
-            {!isViewMode && <button type="submit" form="confinamento-form" className="btn-premium-solid indigo">Salvar Alterações</button>}
-          </div>
+          <>
+            <button type="button" className="btn-premium-outline" onClick={handleCloseModal}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
+            </button>
+            {!isViewMode && (
+              <button type="submit" form="confinamento-form" className="btn-premium-solid indigo">
+                <span>{selectedEntry ? 'Gravar Alterações' : 'Confirmar Entrada'}</span>
+                <MonitorCheck size={18} strokeWidth={3} />
+              </button>
+            )}
+          </>
         }
       >
-        <div className="modal-tabs">
-          <button className={activeTab === 'geral' ? 'active' : ''} onClick={() => setActiveTab('geral')}>Geral</button>
-          <button className={activeTab === 'nutricao' ? 'active' : ''} onClick={() => setActiveTab('nutricao')}>Nutrição & Metas</button>
+        <div className="modal-tabs mb-6">
+          <button className={`tab-btn ${activeTab === 'geral' ? 'active' : ''}`} onClick={() => setActiveTab('geral')}>Geral</button>
+          <button className={`tab-btn ${activeTab === 'nutricao' ? 'active' : ''}`} onClick={() => setActiveTab('nutricao')}>Nutrição & Metas</button>
         </div>
         
-        <div className="modal-body scrollable">
-          <form id="confinamento-form" onSubmit={async (e) => { 
-            e.preventDefault(); 
-            const formData = new FormData(e.currentTarget);
-            
-            const dataEntrada = formData.get('dataEntrada') as string;
-            const previsaoSaida = formData.get('previsaoSaida') as string;
-            
-            // Calculate days in feedlot
-            const start = new Date(dataEntrada);
-            const end = new Date();
-            const diffTime = Math.abs(end.getTime() - start.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            const newConfinamento: ConfinamentoType = {
-              ...selectedEntry!,
-              id: selectedEntry?.id || Math.random().toString(36).substr(2, 9),
-              lote_id: formData.get('lote_id') as string,
-              curral: formData.get('curral') as string,
-              qtdAnimais: parseInt(formData.get('qtdAnimais') as string),
-              dataEntrada: dataEntrada,
-              previsaoSaida: previsaoSaida,
-              diasNoCochos: diffDays,
-              dieta: formData.get('dieta') as string,
-              imgAnterior: parseFloat(formData.get('imgAnterior') as string),
-              status: formData.get('status') as any || 'Em Engorda',
-              empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : (selectedEntry?.empresaId || undefined),
-              tenant_id: 'default'
-            };
-
-            await dataService.saveItem('confinamento', newConfinamento);
-            handleCloseModal(); 
-          }}>
+        <div className="modal-content-scrollable">
+          <form id="confinamento-form" onSubmit={handleSave}>
             <div className="form-sections-grid">
               {activeTab === 'geral' && (
                 <div className="form-section">
-                  <h4>Alocação e Identificação</h4>
+                  <div className="form-section-title">
+                    <Beef size={20} />
+                    <span>Alocação e Identificação</span>
+                  </div>
                   <div className="form-grid">
                     <div className="form-group col-12">
-                      <label>Lote</label>
-                      <div className="input-with-icon">
-                        <select name="lote_id" defaultValue={selectedEntry?.lote_id} disabled={isViewMode} required>
-                          <option value="">Selecione o lote...</option>
-                          {lotes.map(l => (
-                            <option key={l.id} value={l.id}>{l.nome}</option>
-                          ))}
-                        </select>
-                        <Layers size={18} className="field-icon" />
-                      </div>
+                      <SearchableSelect
+                        label="Lote"
+                        options={lotes.map(l => ({ id: l.id, label: l.nome, sublabel: `${l.qtdAnimais} animais` }))}
+                        value={formData.lote_id || ''}
+                        onChange={(val) => setFormData({ ...formData, lote_id: val })}
+                        disabled={isViewMode}
+                        required
+                      />
                     </div>
                     <div className="form-group col-6">
                       <label>Curral/Unidade</label>
                       <div className="input-with-icon">
-                        <input type="text" name="curral" defaultValue={selectedEntry?.curral} disabled={isViewMode} required placeholder="Ex: C-01" />
+                        <input 
+                          type="text" 
+                          value={formData.curral || ''} 
+                          onChange={(e) => setFormData({ ...formData, curral: e.target.value })}
+                          disabled={isViewMode} 
+                          required 
+                          placeholder="Ex: C-01" 
+                        />
                         <Home size={18} className="field-icon" />
                       </div>
                     </div>
                     <div className="form-group col-6">
                       <label>Quantidade de Animais</label>
                       <div className="input-with-icon">
-                        <input type="number" name="qtdAnimais" defaultValue={selectedEntry?.qtdAnimais} disabled={isViewMode} required />
+                        <input 
+                          type="number" 
+                          value={formData.qtdAnimais || 0} 
+                          onChange={(e) => setFormData({ ...formData, qtdAnimais: parseInt(e.target.value) || 0 })}
+                          disabled={isViewMode} 
+                          required 
+                        />
                         <Hash size={18} className="field-icon" />
                       </div>
                     </div>
                     <div className="form-group col-6">
                       <label>Data de Entrada</label>
                       <div className="input-with-icon">
-                        <input type="date" name="dataEntrada" defaultValue={selectedEntry?.dataEntrada || new Date().toLocaleDateString('en-CA')} disabled={isViewMode} required />
+                        <input 
+                          type="date" 
+                          value={formData.dataEntrada || ''} 
+                          onChange={(e) => setFormData({ ...formData, dataEntrada: e.target.value })}
+                          disabled={isViewMode} 
+                          required 
+                        />
                         <Calendar size={18} className="field-icon" />
                       </div>
                     </div>
                     <div className="form-group col-6">
                       <label>Previsão de Saída (Abate)</label>
                       <div className="input-with-icon">
-                        <input type="date" name="previsaoSaida" defaultValue={selectedEntry?.previsaoSaida} disabled={isViewMode} required />
+                        <input 
+                          type="date" 
+                          value={formData.previsaoSaida || ''} 
+                          onChange={(e) => setFormData({ ...formData, previsaoSaida: e.target.value })}
+                          disabled={isViewMode} 
+                          required 
+                        />
                         <Calendar size={18} className="field-icon" />
                       </div>
+                    </div>
+                    <div className="form-group col-12">
+                      <SearchableSelect
+                        label="Status do Lote no Cocho"
+                        options={[
+                          { id: 'Em Engorda', label: 'Em Engorda' },
+                          { id: 'Finalizando', label: 'Finalizando' },
+                          { id: 'Saída Programada', label: 'Saída Programada' }
+                        ]}
+                        value={formData.status || ''}
+                        onChange={(val) => setFormData({ ...formData, status: val as any })}
+                        disabled={isViewMode}
+                        required
+                      />
                     </div>
                   </div>
                 </div>
@@ -408,39 +468,43 @@ export const Confinamento = () => {
 
               {activeTab === 'nutricao' && (
                 <div className="form-section">
-                  <h4>Nutrição e Performance</h4>
+                  <div className="form-section-title">
+                    <Activity size={20} />
+                    <span>Nutrição e Performance</span>
+                  </div>
                   <div className="form-grid">
                     <div className="form-group col-12">
-                      <label>Dieta Atual</label>
-                      <div className="input-with-icon">
-                        <select name="dieta" defaultValue={selectedEntry?.dieta} disabled={isViewMode}>
-                          <option value="">Selecione a dieta...</option>
-                          {dietas.map(d => (
-                            <option key={d.id} value={d.nome}>{d.nome}</option>
-                          ))}
-                          {!dietas.length && (
-                            <>
-                              <option>Adaptação Fase 1</option>
-                              <option>Engorda Rápida V4</option>
-                              <option>Transição Elevada</option>
-                              <option>Acabamento Top</option>
-                            </>
-                          )}
-                        </select>
-                        <Utensils size={18} className="field-icon" />
-                      </div>
+                      <SearchableSelect
+                        label="Dieta Atual"
+                        options={dietas.length > 0 ? dietas.map(d => ({ id: d.nome, label: d.nome, sublabel: d.categoria })) : [
+                          { id: 'Adaptação Fase 1', label: 'Adaptação Fase 1' },
+                          { id: 'Engorda Rápida V4', label: 'Engorda Rápida V4' },
+                          { id: 'Transição Elevada', label: 'Transição Elevada' },
+                          { id: 'Acabamento Top', label: 'Acabamento Top' }
+                        ]}
+                        value={formData.dieta || ''}
+                        onChange={(val) => setFormData({ ...formData, dieta: val })}
+                        disabled={isViewMode}
+                        required
+                      />
                     </div>
                     <div className="form-group col-6">
                       <label>IMS Planejada (kg/cab/dia)</label>
                       <div className="input-with-icon">
-                        <input type="number" name="imgAnterior" step="0.1" defaultValue={selectedEntry?.imgAnterior} disabled={isViewMode} />
+                        <input 
+                          type="number" 
+                          step="0.1" 
+                          value={formData.imgAnterior || 0} 
+                          onChange={(e) => setFormData({ ...formData, imgAnterior: parseFloat(e.target.value) || 0 })}
+                          disabled={isViewMode} 
+                        />
                         <Activity size={18} className="field-icon" />
                       </div>
                     </div>
                     <div className="form-group col-6">
                       <label>GMD Projetado (kg/dia)</label>
                       <div className="input-with-icon">
-                        <input type="number" step="0.001" defaultValue={1.650} disabled={isViewMode} />
+                        <input type="number" step="0.001" value={1.650} readOnly disabled />
                         <TrendingUp size={18} className="field-icon" />
                       </div>
                     </div>
@@ -456,7 +520,7 @@ export const Confinamento = () => {
             </div>
           </form>
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

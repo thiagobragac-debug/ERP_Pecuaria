@@ -25,17 +25,20 @@ import {
   Filter
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
-import { dataService } from '../../services/dataService';
-import { supabase } from '../../services/supabase';
+import { useAuth } from '../../contexts/AuthContext';
+import { SummaryCard } from '../../components/SummaryCard';
+import { StatusBadge } from '../../components/StatusBadge';
+import { SearchableSelect } from '../../components/SearchableSelect';
+import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { Asset, Insumo, Manutencao as ManutencaoType } from '../../types';
-import { useCompany } from '../../contexts/CompanyContext';
 import './Manutencao.css';
 
 interface ItemAplicado {
@@ -47,81 +50,20 @@ interface ItemAplicado {
   total: number;
 }
 
-interface OrdemServico {
-  id: string;
-  idAtivo: string;
-  nomeAtivo: string;
-  tipo: 'Preventiva' | 'Corretiva';
-  status: 'Aberta' | 'Execução' | 'Concluída' | 'Cancelada';
-  prioridade: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
-  responsavel: string;
-  dataAbertura: string;
-  dataConclusao?: string;
-  horimetroFinal?: number;
-  descricao: string;
-  itens: ItemAplicado[];
-  maoDeObra: number;
-  totalVl: number;
-}
 
-const mockAssets = [
-  { id: '1', nome: 'Trator John Deere 6125J' },
-  { id: '2', nome: 'Caminhão Scania R450' },
-  { id: '3', nome: 'Utilitário Toyota Hilux' },
-];
-
-const mockInsumos = [
-  { id: 'i1', nome: 'Óleo Lubrificante 15W40', unidade: 'Litro', preco: 45.0 },
-  { id: 'i2', nome: 'Filtro de Óleo JD', unidade: 'Un', preco: 180.0 },
-  { id: 'i3', nome: 'Filtro de Combustível', unidade: 'Un', preco: 150.0 },
-  { id: 'i4', nome: 'Pneu Agrícola 18.4-34', unidade: 'Un', preco: 4200.0 },
-  { id: 'i5', nome: 'Graxa de Chassi 1kg', unidade: 'Un', preco: 35.0 },
-];
-
-const initialOS: OrdemServico[] = [
-  {
-    id: 'OS-2024-001',
-    idAtivo: '1',
-    nomeAtivo: 'Trator John Deere 6125J',
-    tipo: 'Preventiva',
-    status: 'Execução',
-    prioridade: 'Alta',
-    responsavel: 'Marcos Silva',
-    dataAbertura: '2024-03-10',
-    descricao: 'Revisão periódica de 500 horas. Troca de óleo e filtros.',
-    itens: [
-      { id: 'i1', nome: 'Óleo Lubrificante 15W40', quantidade: 20, unidade: 'Litro', valorUnitario: 45, total: 900 },
-      { id: 'i2', nome: 'Filtro de Óleo JD', quantidade: 1, unidade: 'Un', valorUnitario: 180, total: 180 },
-    ],
-    maoDeObra: 350,
-    totalVl: 1430
-  },
-  {
-    id: 'OS-2024-002',
-    idAtivo: '2',
-    nomeAtivo: 'Caminhão Scania R450',
-    tipo: 'Corretiva',
-    status: 'Aberta',
-    prioridade: 'Crítica',
-    responsavel: 'Ricardo Santos',
-    dataAbertura: '2024-03-12',
-    descricao: 'Vazamento de ar no sistema de freios traseiro.',
-    itens: [],
-    maoDeObra: 0,
-    totalVl: 0
-  }
-];
 
 export const Manutencao: React.FC = () => {
-  const { activeCompanyId } = useCompany();
-  const allOS = useLiveQuery(() => db.manutencoes.toArray()) || [];
-  const allAssets = useLiveQuery(() => db.ativos.toArray()) || [];
-  const allInsumos = useLiveQuery(() => db.insumos.toArray()) || [];
+  const { user: currentUser, currentOrg } = useAuth();
+  const isOnline = useOnlineStatus();
+  
+  const { data: osList = [], isLoading: loadingOS } = useOfflineQuery<ManutencaoType>(['manutencoes'], 'manutencoes');
+  const { data: assets = [], isLoading: loadingAssets } = useOfflineQuery<Asset>(['ativos'], 'ativos');
+  const { data: insumos = [], isLoading: loadingInsumos } = useOfflineQuery<Insumo>(['insumos'], 'insumos');
+  
+  const saveOSMutation = useOfflineMutation<ManutencaoType>('manutencoes', [['manutencoes']]);
+  const saveInsumoMutation = useOfflineMutation<Insumo>('insumos', [['insumos']]);
+  const saveAssetMutation = useOfflineMutation<Asset>('ativos', [['ativos']]);
 
-  // Filter by active company
-  const osList = allOS.filter(os => activeCompanyId === 'Todas' || os.empresaId === activeCompanyId);
-  const assets = allAssets.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
-  const insumos = allInsumos.filter(i => activeCompanyId === 'Todas' || (i as any).empresaId === activeCompanyId);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [columnFilters, setColumnFilters] = useState({
@@ -139,7 +81,8 @@ export const Manutencao: React.FC = () => {
   const [formData, setFormData] = useState<Partial<ManutencaoType>>({
     status: 'Pendente',
     tipo: 'Preventiva',
-    valorTotal: 0
+    valorTotal: 0,
+    itens: []
   });
 
   const handleOpenModal = (os?: ManutencaoType) => {
@@ -160,14 +103,14 @@ export const Manutencao: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleAddItem = (insumo: typeof mockInsumos[0]) => {
+  const handleAddItem = (insumo: Insumo) => {
     const newItem: ItemAplicado = {
       id: insumo.id,
       nome: insumo.nome,
       quantidade: 1,
       unidade: insumo.unidade,
-      valorUnitario: insumo.preco,
-      total: insumo.preco
+      valorUnitario: (insumo as any).preco || 0,
+      total: (insumo as any).preco || 0
     };
     
     const updatedItens = [...(formData.itens || []), newItem];
@@ -214,19 +157,45 @@ export const Manutencao: React.FC = () => {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const tenant_id = user?.user_metadata?.tenant_id || 'default';
       const asset = assets.find(a => a.id === formData.ativo_id);
 
       const finalOS: ManutencaoType = {
         ...formData,
-        id: editingOS?.id || Math.random().toString(36).substr(2, 9),
+        id: editingOS?.id || `OS-${new Date().getFullYear()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
         ativo_nome: asset?.nome || 'N/A',
-        empresaId: asset?.empresaId || (activeCompanyId === 'Todas' ? undefined : activeCompanyId),
-        tenant_id
+        empresaId: asset?.empresaId || currentOrg?.id,
+        tenant_id: currentOrg?.id || 'default'
       } as ManutencaoType;
 
-      await dataService.saveItem('manutencoes', finalOS);
+      // CRITICAL: Stock Integrity & Asset Update
+      if (finalOS.status === 'Concluída' && (!editingOS || editingOS.status !== 'Concluída')) {
+        // 1. Deduct Items from Stock
+        if (finalOS.itens && finalOS.itens.length > 0) {
+          for (const item of finalOS.itens) {
+            const insumoToUpdate = insumos.find(i => i.id === item.id || i.nome === item.nome);
+            if (insumoToUpdate) {
+              const updatedInsumo = {
+                ...insumoToUpdate,
+                estoqueAtual: (insumoToUpdate.estoqueAtual || 0) - (item.quantidade || 0),
+                ultimaSaida: new Date().toISOString().split('T')[0]
+              };
+              await saveInsumoMutation.mutateAsync(updatedInsumo);
+            }
+          }
+        }
+
+        // 2. Update Asset usage if horimetroFinal is provided
+        if (asset && finalOS.odometroHorimetro && finalOS.odometroHorimetro > (asset.usoAtual || 0)) {
+          const updatedAsset = {
+            ...asset,
+            usoAtual: finalOS.odometroHorimetro,
+            status: 'Operacional' as const
+          };
+          await saveAssetMutation.mutateAsync(updatedAsset);
+        }
+      }
+
+      await saveOSMutation.mutateAsync(finalOS);
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error saving maintenance:', error);
@@ -256,14 +225,6 @@ export const Manutencao: React.FC = () => {
     return matchesSearch && matchesColumnFilters;
   });
 
-  const getStatusLabel = (status: string) => {
-    switch(status) {
-      case 'Pendente': return 'Aberta';
-      case 'Em Andamento': return 'Execução';
-      case 'Concluída': return 'Concluída';
-      default: return status;
-    }
-  };
 
   const {
     currentPage,
@@ -279,18 +240,6 @@ export const Manutencao: React.FC = () => {
     prevPage,
   } = usePagination({ data: filteredOS, initialItemsPerPage: 10 });
 
-  const StatCard = ({ icon: Icon, label, value, color, delay, subtext }: any) => (
-    <div className="summary-card card glass animate-slide-up" style={{ animationDelay: delay }}>
-      <div className="summary-info">
-        <span className="summary-label">{label}</span>
-        <span className="summary-value">{value}</span>
-        <span className="summary-subtext">{subtext}</span>
-      </div>
-      <div className={`summary-icon ${color}`}>
-        <Icon size={24} />
-      </div>
-    </div>
-  );
 
   return (
     <div className="page-container fade-in">
@@ -311,56 +260,46 @@ export const Manutencao: React.FC = () => {
           </div>
         </div>
         <div className="header-actions">
-          <button className="btn-premium-solid indigo h-11 px-6 flex items-center gap-2" onClick={() => handleOpenModal()}>
-            <Plus size={18} strokeWidth={3} /> Nova Ordem de Serviço
+          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
+            <span>Nova OS</span>
+            <Plus size={18} strokeWidth={3} />
           </button>
         </div>
       </div>
 
       <div className="summary-grid">
-        <div className="summary-card glass animate-slide-up">
-          <div className="summary-info">
-            <span className="summary-label">Ordens Abertas</span>
-            <span className="summary-value">04</span>
-            <span className="summary-subtext desc">Equipe em campo: 02</span>
-          </div>
-          <div className="summary-icon orange">
-            <Clock size={28} strokeWidth={3} />
-          </div>
-        </div>
-
-        <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Investimento (Mês)</span>
-            <span className="summary-value">R$ 12.4k</span>
-            <span className="summary-subtext desc">Peças + Mão de obra</span>
-          </div>
-          <div className="summary-icon emerald">
-            <TrendingUp size={28} strokeWidth={3} />
-          </div>
-        </div>
-
-        <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Alertas Críticos</span>
-            <span className="summary-value">02</span>
-            <span className="summary-subtext desc">Revisões vencidas</span>
-          </div>
-          <div className="summary-icon red">
-            <ShieldAlert size={28} strokeWidth={3} />
-          </div>
-        </div>
-
-        <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Preventivas em Dia</span>
-            <span className="summary-value">92%</span>
-            <span className="summary-subtext desc">Meta do período: 95%</span>
-          </div>
-          <div className="summary-icon indigo">
-            <CheckCircle2 size={28} strokeWidth={3} />
-          </div>
-        </div>
+        <SummaryCard 
+          label="Ordens Abertas"
+          value={osList.filter(os => os.status !== 'Concluída').length.toString().padStart(2, '0')}
+          icon={Clock}
+          color="amber"
+          delay="0s"
+          subtext="Pendentes ou em execução"
+        />
+        <SummaryCard 
+          label="Investimento (Mês)"
+          value={`R$ ${(osList.reduce((acc, os) => acc + (os.valorTotal || 0), 0) / 1000).toFixed(1)}k`}
+          icon={TrendingUp}
+          color="emerald"
+          delay="0.1s"
+          subtext="Peças + Mão de obra"
+        />
+        <SummaryCard 
+          label="Alertas Críticos"
+          value={osList.filter(os => os.prioridade === 'Crítica' && os.status !== 'Concluída').length.toString().padStart(2, '0')}
+          icon={ShieldAlert}
+          color="rose"
+          delay="0.2s"
+          subtext="Revisões vencidas"
+        />
+        <SummaryCard 
+          label="Preventivas em Dia"
+          value="92%"
+          icon={CheckCircle2}
+          color="indigo"
+          delay="0.3s"
+          subtext="Meta do período: 95%"
+        />
       </div>
 
       <div className="data-section">
@@ -371,7 +310,7 @@ export const Manutencao: React.FC = () => {
           actionsLabel="Filtragem"
         >
           <button 
-            className={`btn-premium-outline h-11 px-6 flex items-center gap-2 ${isFiltersOpen ? 'filter-active' : ''}`}
+            className={`btn-premium-outline ${isFiltersOpen ? 'filter-active' : ''}`}
             onClick={() => setIsFiltersOpen(!isFiltersOpen)}
           >
             <Filter size={18} strokeWidth={3} />
@@ -426,10 +365,7 @@ export const Manutencao: React.FC = () => {
                     </div>
                   </td>
                   <td>
-                    <span className={`status-badge ${os.status.toLowerCase().replace(' ', '-')}`}>
-                      {os.status === 'Em Andamento' ? <Clock size={12} className="spinning-slow" /> : null}
-                      {getStatusLabel(os.status)}
-                    </span>
+                    <StatusBadge status={os.status} />
                   </td>
                   <td>
                     <span className={`priority-indicator ${(os.prioridade || 'Baixa').toLowerCase().replace('é', 'e').replace('í', 'i')}`}>
@@ -473,18 +409,23 @@ export const Manutencao: React.FC = () => {
 
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingOS ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço'}
         subtitle={`${formData.id} • Controle Profissional`}
         icon={Wrench}
-        size="lg"
         footer={
-          <div className="flex gap-3 w-full justify-end">
-            <button className="btn-premium-outline px-6" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-            <button className="btn-premium-solid indigo px-6" onClick={handleSave}>Gravar OS</button>
-          </div>
+          <>
+            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
+            </button>
+            <button className="btn-premium-solid indigo" onClick={handleSave}>
+              <span>{editingOS ? 'Gravar Alterações' : 'Abrir Ordem de Serviço'}</span>
+              <CheckCircle2 size={18} strokeWidth={3} />
+            </button>
+          </>
         }
       >
         <div className="modal-tabs mb-6">
@@ -493,41 +434,67 @@ export const Manutencao: React.FC = () => {
           <button className={`tab-btn ${activeTab === 'servico' ? 'active' : ''}`} onClick={() => setActiveTab('servico')}>Serviços & Custos</button>
         </div>
 
-        <div className="form-sections-grid">
+        <div className="modal-content-scrollable">
+          <div className="form-sections-grid">
           {activeTab === 'geral' && (
             <div className="form-section">
+              <div className="form-section-title">
+                <FileText size={16} />
+                <span>Dados da Ordem de Serviço</span>
+              </div>
               <div className="form-grid">
                 <div className="form-group col-6">
-                  <label>Selecione o Ativo</label>
-                  <select value={formData.ativo_id} onChange={(e) => setFormData({...formData, ativo_id: e.target.value})}>
-                    <option value="">Selecione...</option>
-                    {assets.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
-                  </select>
+                  <SearchableSelect
+                    label="Selecione o Ativo"
+                    options={assets.map(a => ({ id: a.id, label: a.nome, sublabel: a.placaOuSerie }))}
+                    value={formData.ativo_id || ''}
+                    onChange={(val) => setFormData({ ...formData, ativo_id: val })}
+                    required
+                  />
                 </div>
                 <div className="form-group col-6">
-                  <label>Tipo de Manutenção</label>
-                  <select value={formData.tipo} onChange={(e) => setFormData({...formData, tipo: e.target.value as any})}>
-                    <option value="Preventiva">Preventiva (Revisão)</option>
-                    <option value="Corretiva">Corretiva (Quebra)</option>
-                  </select>
+                  <SearchableSelect
+                    label="Tipo de Manutenção"
+                    options={[
+                      { id: 'Preventiva', label: 'Preventiva (Revisão)' },
+                      { id: 'Corretiva', label: 'Corretiva (Quebra)' },
+                      { id: 'Preditiva', label: 'Preditiva' }
+                    ]}
+                    value={formData.tipo || ''}
+                    onChange={(val) => setFormData({ ...formData, tipo: val as any })}
+                  />
                 </div>
                 <div className="form-group col-6">
-                  <label>Status da OS</label>
-                  <select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value as any})}>
-                    <option value="Pendente">Aberta</option>
-                    <option value="Em Andamento">Em Execução</option>
-                    <option value="Concluída">Finalizada</option>
-                  </select>
+                  <SearchableSelect
+                    label="Status da OS"
+                    options={[
+                      { id: 'Pendente', label: 'Aberta' },
+                      { id: 'Em Andamento', label: 'Em Execução' },
+                      { id: 'Concluída', label: 'Finalizada' },
+                      { id: 'Cancelada', label: 'Cancelada' }
+                    ]}
+                    value={formData.status || ''}
+                    onChange={(val) => setFormData({ ...formData, status: val as any })}
+                  />
                 </div>
                 <div className="form-group col-6">
-                  <label>Prioridade</label>
-                  <select value={formData.prioridade} onChange={(e) => setFormData({...formData, prioridade: e.target.value as any})}>
-                    <option value="Baixa">Baixa</option>
-                    <option value="Média">Média</option>
-                    <option value="Alta">Alta</option>
-                    <option value="Crítica">Crítica (Veículo Parado)</option>
-                  </select>
+                  <SearchableSelect
+                    label="Prioridade"
+                    options={[
+                      { id: 'Baixa', label: 'Baixa' },
+                      { id: 'Média', label: 'Média' },
+                      { id: 'Alta', label: 'Alta' },
+                      { id: 'Crítica', label: 'Crítica (Veículo Parado)' }
+                    ]}
+                    value={formData.prioridade || ''}
+                    onChange={(val) => setFormData({ ...formData, prioridade: val as any })}
+                  />
                 </div>
+              </div>
+
+              <div className="form-divider" />
+
+              <div className="form-grid">
                 <div className="form-group col-6">
                   <label>Responsável / Mecânico</label>
                   <input type="text" placeholder="Ex: Roberto Alves" value={formData.responsavel || ''} onChange={(e) => setFormData({...formData, responsavel: e.target.value})} />
@@ -551,19 +518,35 @@ export const Manutencao: React.FC = () => {
 
           {activeTab === 'itens' && (
             <div className="form-section">
+              <div className="form-section-title">
+                <Package size={20} />
+                <span>Peças e Peças Aplicadas na OS</span>
+              </div>
               <div className="parts-section">
                 <div className="parts-inventory">
-                  <label className="section-label">Estoque de Insumos (Integração)</label>
-                  <div className="inventory-chips">
-                    {insumos.slice(0, 10).map(insumo => (
-                      <button key={insumo.id} className="chip" onClick={() => {
-                        const baseVl = formData.valorTotal || 0;
-                        setFormData({...formData, valorTotal: baseVl + (insumo.valorUnitario || 0)});
-                      }}>
-                        <PlusCircle size={14} />
-                        {insumo.nome}
-                      </button>
-                    ))}
+                  <div className="form-group col-12">
+                     <SearchableSelect
+                        label="Adicionar Peça / Insumo do Estoque"
+                        options={insumos.map(i => ({ id: i.id, label: i.nome, sublabel: `Estoque: ${i.estoqueAtual} ${i.unidade}` }))}
+                        value=""
+                        onChange={(val) => {
+                          const insumo = insumos.find(i => i.id === val);
+                          if (insumo) {
+                            const newItem: ItemAplicado = {
+                              id: insumo.id,
+                              nome: insumo.nome,
+                              quantidade: 1,
+                              unidade: insumo.unidade,
+                              valorUnitario: (insumo as any).preco || (insumo as any).valorCusto || 0,
+                              total: (insumo as any).preco || (insumo as any).valorCusto || 0
+                            };
+                            const updatedItens = [...(formData.itens || []), newItem];
+                            const newTotal = updatedItens.reduce((acc, curr) => acc + curr.total, 0) + (formData.maoDeObra || 0);
+                            setFormData({ ...formData, itens: updatedItens, valorTotal: newTotal });
+                          }
+                        }}
+                        placeholder="Pesquise peça por nome..."
+                     />
                   </div>
                 </div>
 
@@ -640,8 +623,9 @@ export const Manutencao: React.FC = () => {
               </div>
             </div>
           )}
+          </div>
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

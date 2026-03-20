@@ -118,10 +118,11 @@ export const Contratos = () => {
         <div className="header-actions">
           <button className="btn-premium-outline">
             <span>Cotação B3 (Arrouba)</span>
+            <TrendingUp size={18} strokeWidth={3} />
           </button>
           <button className="btn-premium-solid indigo">
-            <Plus size={18} strokeWidth={3} />
             <span>Novo Contrato</span>
+            <Plus size={18} strokeWidth={3} />
           </button>
         </div>
       </div>

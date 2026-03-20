@@ -27,25 +27,28 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
-  Activity
+  Activity,
+  DollarSign,
+  Boxes
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import './Inventario.css';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
+import { SummaryCard } from '../../components/SummaryCard';
+import { StatusBadge } from '../../components/StatusBadge';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { SessaoInventario as SessaoType, ItemInventario as ItemType, Insumo as InsumoType } from '../../types';
 
-
 export const Inventario = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-  const [filterStatus, setFilterStatus] = useState('Todos');
-  const [filterLocal, setFilterLocal] = useState('Todos os Locais');
   const [columnFilters, setColumnFilters] = useState({
     referencia: '',
     responsavel: '',
@@ -56,32 +59,46 @@ export const Inventario = () => {
   const [selectedSessao, setSelectedSessao] = useState<SessaoType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
   const [activeTab, setActiveTab] = useState('geral');
+  const { user: currentUser, currentOrg } = useAuth();
+  const [formData, setFormData] = useState<Partial<SessaoType>>({
+    referencia: '',
+    local: 'Depósito Central',
+    status: 'Em Aberto',
+    responsavel: ''
+  });
   const [countingItems, setCountingItems] = useState<ItemType[]>([]);
-  const [selectedLocal, setSelectedLocal] = useState('Todos os Locais');
+  const [selectedLocal, setSelectedLocal] = useState('Depósito Central');
 
-  const isOnline = useOnlineStatus();
-  const { data: sessoes = [], isLoading: loadingSessoes } = useOfflineQuery<SessaoType>(['sessoes_inventario'], 'sessoes_inventario');
-  const { data: insumos = [], isLoading: loadingInsumos } = useOfflineQuery<InsumoType>(['insumos'], 'insumos');
+  const { data: sessoes = [] } = useOfflineQuery<SessaoType>(['sessoes_inventario'], 'sessoes_inventario');
+  const { data: insumos = [] } = useOfflineQuery<InsumoType>(['insumos'], 'insumos');
+  
   const saveSessaoMutation = useOfflineMutation<SessaoType>('sessoes_inventario', [['sessoes_inventario']]);
+  const saveInsumoMutation = useOfflineMutation<InsumoType>('insumos', [['insumos']]);
+  const saveMovMutation = useOfflineMutation<any>('movimentacoes_estoque', [['movimentacoes_estoque']]);
 
   const [isSearchingItem, setIsSearchingItem] = useState(false);
   const [itemSearchTerm, setItemSearchTerm] = useState('');
 
   const handleOpenModal = (sessao: SessaoType | null = null, viewOnly = false) => {
-    setSelectedSessao(sessao);
-    setIsViewMode(viewOnly);
-    setIsSearchingItem(false);
-    setItemSearchTerm('');
-    
     if (sessao) {
+      setSelectedSessao(sessao);
+      setFormData({ ...sessao });
       setCountingItems([...sessao.dados]);
       setSelectedLocal(sessao.local);
     } else {
-      // New session starts empty
+      setSelectedSessao(null);
+      setFormData({
+        referencia: '',
+        local: 'Depósito Central',
+        status: 'Em Aberto',
+        responsavel: currentUser?.name || ''
+      });
       setCountingItems([]);
-      setSelectedLocal('Todos os Locais');
+      setSelectedLocal('Depósito Central');
     }
-    
+    setIsViewMode(viewOnly);
+    setIsSearchingItem(false);
+    setItemSearchTerm('');
     setIsModalOpen(true);
     setActiveTab('geral');
   };
@@ -92,14 +109,82 @@ export const Inventario = () => {
     setIsViewMode(false);
     setCountingItems([]);
     setIsSearchingItem(false);
-    setSelectedLocal('Todos os Locais');
+  };
+
+  const handleSave = async (finalizar = false) => {
+    if (!formData.referencia || !formData.local) {
+      alert('Por favor, preencha os dados da sessão.');
+      return;
+    }
+
+    try {
+      const itemsContados = countingItems.length;
+      const totalDivergencias = countingItems.filter(i => i.divergencia !== 0).length;
+      const acuracidade = itemsContados > 0 
+        ? Math.round(((itemsContados - totalDivergencias) / itemsContados) * 100) 
+        : 100;
+
+      const sessao: SessaoType = {
+        id: selectedSessao?.id || Math.random().toString(36).substr(2, 9),
+        referencia: formData.referencia!,
+        local: formData.local!,
+        responsavel: formData.responsavel || currentUser?.name || 'Usuário',
+        dataInicio: selectedSessao?.dataInicio || new Date().toISOString(),
+        dataFim: finalizar ? new Date().toISOString() : null,
+        status: finalizar ? 'Finalizado' : 'Em Aberto',
+        itensContados: itemsContados,
+        acuracidade: acuracidade,
+        dados: countingItems,
+        tenant_id: currentOrg?.id || 'default'
+      };
+
+      await saveSessaoMutation.mutateAsync(sessao);
+
+      if (finalizar) {
+        for (const item of countingItems) {
+          const insumo = insumos.find(i => i.nome === item.insumo);
+          if (insumo && item.divergencia !== 0) {
+            const updatedInsumo = { ...insumo };
+            updatedInsumo.estoquePorLocal = { ...insumo.estoquePorLocal };
+            updatedInsumo.estoquePorLocal[sessao.local] = item.estoqueFisico;
+            updatedInsumo.estoqueAtual = Object.values(updatedInsumo.estoquePorLocal).reduce((sum: number, val: any) => sum + (val as number), 0);
+
+            if (updatedInsumo.estoqueAtual <= 0) updatedInsumo.status = 'Crítico';
+            else if (updatedInsumo.estoqueAtual <= updatedInsumo.estoqueMinimo) updatedInsumo.status = 'Baixo';
+            else updatedInsumo.status = 'Ok';
+
+            await saveInsumoMutation.mutateAsync(updatedInsumo);
+
+            const adjustmentMov = {
+              id: Math.random().toString(36).substr(2, 9),
+              tipo: item.divergencia > 0 ? 'Entrada' : 'Saída',
+              insumo_id: insumo.id,
+              insumo_nome: insumo.nome,
+              quantidade: Math.abs(item.divergencia),
+              unidade: insumo.unidade,
+              data: new Date().toISOString(),
+              responsavel: sessao.responsavel,
+              motivo: `Ajuste de Inventário: ${sessao.referencia}`,
+              local_origem: sessao.local,
+              status: 'Processado',
+              tenant_id: currentOrg?.id || 'default'
+            };
+            await saveMovMutation.mutateAsync(adjustmentMov);
+          }
+        }
+      }
+
+      handleCloseModal();
+    } catch (error) {
+      console.error('Error saving inventory:', error);
+      alert('Erro ao salvar inventário.');
+    }
   };
 
   const handleCountChange = (id: string, physical: number) => {
     setCountingItems(prev => prev.map(item => {
       if (item.id === id) {
         const divergence = physical - item.estoqueSistema;
-        // Find specific cost for this location or use global
         const insumo = insumos.find(i => i.nome === item.insumo);
         const unitaryPrice = (selectedLocal !== 'Todos os Locais' && insumo?.custoMedioPorLocal)
             ? (insumo.custoMedioPorLocal as any)[selectedLocal] || insumo.valorUnitario
@@ -117,17 +202,13 @@ export const Inventario = () => {
   };
 
   const loadSystemStock = () => {
-    // Determine which items and balances based on selectedLocal
     let relevantItems: any[] = [];
-
     if (selectedLocal === 'Todos os Locais') {
-      // Sum balances across all locations for this simulation
       relevantItems = insumos.map(insumo => {
-        const totalStock = Object.values(insumo.estoquePorLocal).reduce((sum: number, val) => sum + (val as number), 0);
+        const totalStock = Object.values(insumo.estoquePorLocal).reduce((sum: number, val: any) => sum + (val as number), 0);
         return { ...insumo, estoqueAtual: totalStock };
       });
     } else {
-      // Filter only items that have stock in this specific location
       relevantItems = insumos
         .filter(insumo => (insumo.estoquePorLocal as any)[selectedLocal] !== undefined)
         .map(insumo => ({ 
@@ -150,7 +231,6 @@ export const Inventario = () => {
   };
 
   const selectItemForInventory = (insumo: InsumoType) => {
-    // Check if already in list
     if (countingItems.some(item => item.insumo === insumo.nome)) {
       setIsSearchingItem(false);
       setItemSearchTerm('');
@@ -158,7 +238,7 @@ export const Inventario = () => {
     }
 
     const itemStock = selectedLocal === 'Todos os Locais' 
-      ? Object.values(insumo.estoquePorLocal).reduce((sum: number, val) => sum + (val as number), 0)
+      ? Object.values(insumo.estoquePorLocal).reduce((sum: number, val: any) => sum + (val as number), 0)
       : (insumo.estoquePorLocal as any)[selectedLocal] || 0;
 
     const newItem: ItemType = {
@@ -181,7 +261,6 @@ export const Inventario = () => {
     : 0;
   
   const pendentes = sessoes.filter(s => s.status === 'Em Aberto').length;
-  
   const ultimoFechamento = finalizados.length > 0
     ? new Date(finalizados[0].dataFim!).toLocaleDateString('pt-BR')
     : '-';
@@ -190,10 +269,7 @@ export const Inventario = () => {
     const searchLower = searchTerm.toLowerCase();
     const matchesSearch = s.referencia.toLowerCase().includes(searchLower) || 
                          s.responsavel.toLowerCase().includes(searchLower) ||
-                         s.local.toLowerCase().includes(searchLower) ||
-                         s.status.toLowerCase().includes(searchLower) ||
-                         s.acuracidade.toString().includes(searchLower) ||
-                         s.itensContados.toString().includes(searchLower);
+                         s.local.toLowerCase().includes(searchLower);
     
     const matchesColumnFilters = 
       (columnFilters.referencia === '' || s.referencia.toLowerCase().includes(columnFilters.referencia.toLowerCase())) &&
@@ -225,7 +301,7 @@ export const Inventario = () => {
     i.nome.toLowerCase().includes(itemSearchTerm.toLowerCase())
   ).map(insumo => {
     const itemStock = selectedLocal === 'Todos os Locais' 
-      ? Object.values(insumo.estoquePorLocal).reduce((sum: number, val) => sum + (val as number), 0)
+      ? Object.values(insumo.estoquePorLocal).reduce((sum: number, val: any) => sum + (val as number), 0)
       : (insumo.estoquePorLocal as any)[selectedLocal] || 0;
     return { ...insumo, estoqueAtual: itemStock };
   });
@@ -241,7 +317,7 @@ export const Inventario = () => {
       <div className="page-header-row">
         <div className="title-section">
           <div className="icon-badge indigo">
-            <ClipboardList size={32} />
+            <ClipboardList size={32} strokeWidth={3} />
           </div>
           <div>
             <h1>Inventário Periódico</h1>
@@ -261,48 +337,38 @@ export const Inventario = () => {
       </div>
 
       <div className="summary-grid">
-        <div className="summary-card card glass animate-slide-up">
-          <div className="summary-info">
-            <span className="summary-label">Acuracidade Média</span>
-            <span className="summary-value text-blue">{acuracidadeMedia}%</span>
-            <span className="summary-trend up">
-              <TrendingUp size={14} /> +2% vs balanço ant.
-            </span>
-          </div>
-          <div className="summary-icon blue">
-            <Scale size={24} strokeWidth={3} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Discrepância Líquida</span>
-            <span className="summary-value text-red">R$ -840,50</span>
-            <span className="summary-subtext">Base: Últimos 3 meses</span>
-          </div>
-          <div className="summary-icon red">
-            <TrendingDown size={24} strokeWidth={3} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Último Fechamento</span>
-            <span className="summary-value">{ultimoFechamento}</span>
-            <span className="summary-subtext">Conforme auditorias</span>
-          </div>
-          <div className="summary-icon green">
-            <CheckCircle2 size={24} strokeWidth={3} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Itens Pendentes</span>
-            <span className="summary-value">{pendentes}</span>
-            <span className="summary-subtext text-orange">Aguardando contagem</span>
-          </div>
-          <div className="summary-icon orange">
-            <Warehouse size={24} strokeWidth={3} />
-          </div>
-        </div>
+        <SummaryCard 
+          label="Acuracidade Média"
+          value={`${acuracidadeMedia}%`}
+          trend={{ value: '+2% vs balanço ant.', type: 'up', icon: TrendingUp }}
+          icon={Scale}
+          color="sky"
+          delay="0s"
+        />
+        <SummaryCard 
+          label="Discrepância Líquida"
+          value="R$ -840,50"
+          subtext="Base: Últimos 3 meses"
+          icon={TrendingDown}
+          color="rose"
+          delay="0.1s"
+        />
+        <SummaryCard 
+          label="Último Fechamento"
+          value={ultimoFechamento}
+          subtext="Conforme auditorias"
+          icon={CheckCircle2}
+          color="emerald"
+          delay="0.2s"
+        />
+        <SummaryCard 
+          label="Itens Pendentes"
+          value={pendentes.toString()}
+          subtext="Aguardando contagem"
+          icon={Warehouse}
+          color="amber"
+          delay="0.3s"
+        />
       </div>
 
       <div className="data-section">
@@ -320,7 +386,6 @@ export const Inventario = () => {
             <span>{isFiltersOpen ? 'Fechar Filtros' : 'Filtros Avançados'}</span>
           </button>
         </TableFilters>
-
 
         <div className="table-container">
           <table className="data-table">
@@ -373,9 +438,7 @@ export const Inventario = () => {
                     )}
                   </td>
                   <td>
-                    <span className={`status-badge inv-${sessao.status.toLowerCase().replace(/\s+/g, '-')}`}>
-                      {sessao.status}
-                    </span>
+                    <StatusBadge status={sessao.status} />
                   </td>
                   <td className="text-right">
                     <div className="table-actions">
@@ -384,9 +447,6 @@ export const Inventario = () => {
                       </button>
                       <button className="action-btn-global btn-edit" title="Editar" onClick={() => handleOpenModal(sessao)}>
                         <Edit size={18} strokeWidth={3} />
-                      </button>
-                      <button className="action-btn-global btn-delete" title="Excluir" onClick={() => {}}>
-                        <Trash2 size={18} strokeWidth={3} />
                       </button>
                     </div>
                   </td>
@@ -411,222 +471,201 @@ export const Inventario = () => {
         />
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         title={isViewMode ? 'Auditoria de Inventário' : (selectedSessao ? 'Ajustar Inventário' : 'Nova Sessão de Contagem')}
-        subtitle="Compare o saldo oficial do sistema com a contagem física real realizada no galpão."
+        subtitle="Compare o saldo oficial do sistema com a contagem física real."
         icon={ClipboardList}
-        size="lg"
         footer={
-          <div className="flex gap-3 w-full justify-between items-center">
-            <button type="button" className="btn-premium-outline px-8" onClick={handleCloseModal}>Sair sem Salvar</button>
+          <>
+            <button type="button" className="btn-premium-outline" onClick={handleCloseModal}>
+              <X size={18} strokeWidth={3} />
+              <span>{isViewMode ? 'Fechar' : 'Cancelar'}</span>
+            </button>
             {!isViewMode && (
-                <div className="flex gap-3">
-                     <button type="button" className="btn-premium-outline px-6">Salvar Rascunho</button>
-                     <button type="button" className="btn-premium-solid indigo px-6" onClick={handleCloseModal}>Finalizar Auditoria & Ajustar Saldo</button>
-                </div>
+              <>
+                <button type="button" className="btn-premium-outline" onClick={() => handleSave(false)}>
+                    <RefreshCw size={18} strokeWidth={3} />
+                    <span>Salvar Rascunho</span>
+                </button>
+                <button type="button" className="btn-premium-solid indigo" onClick={() => handleSave(true)}>
+                    <span>Finalizar & Ajustar</span>
+                    <CheckCircle2 size={18} strokeWidth={3} />
+                </button>
+              </>
             )}
-          </div>
+          </>
         }
       >
         <div className="modal-tabs mb-6">
             <button className={`tab-btn ${activeTab === 'geral' ? 'active' : ''}`} onClick={() => setActiveTab('geral')}>Dados da Sessão</button>
-            <button className={`tab-btn ${activeTab === 'contagem' ? 'active' : ''}`} onClick={() => setActiveTab('contagem')}>Tabela de Contagem & Divergência</button>
+            <button className={`tab-btn ${activeTab === 'contagem' ? 'active' : ''}`} onClick={() => setActiveTab('contagem')}>Contagem & Divergência</button>
         </div>
         
-        <div className="inventory-modal-content">
-          <form onSubmit={(e) => { e.preventDefault(); handleCloseModal(); }}>
-            {activeTab === 'geral' && (
-                <div className="form-grid">
-                    <div className="form-group col-12">
-                      <label>Referência do Inventário (Título)</label>
-                      <div className="input-with-icon">
-                        <input type="text" defaultValue={selectedSessao?.referencia} disabled={isViewMode} required placeholder="Ex: Inventário Mensal Med. Abril/24" />
-                        <ClipboardList size={18} className="field-icon" />
-                      </div>
-                    </div>
-                    <div className="form-group col-6">
-                      <label>Responsável pela Auditoria</label>
-                      <div className="input-with-icon">
-                        <input type="text" defaultValue={selectedSessao?.responsavel} disabled={isViewMode} required />
-                        <User size={18} className="field-icon" />
-                      </div>
-                    </div>
-                    <div className="form-group col-6">
-                      <label>Almoxarifado / Localidade</label>
-                      <div className="input-with-icon">
-                        <select 
-                          value={selectedLocal} 
-                          onChange={(e) => setSelectedLocal(e.target.value)}
-                          disabled={isViewMode}
-                        >
-                            <option>Todos os Locais</option>
-                            <option>Depósito Central</option>
-                            <option>Galpão de Nutrição</option>
-                            <option>Farmácia Veterinária</option>
-                        </select>
-                        <Warehouse size={18} className="field-icon" />
-                      </div>
-                    </div>
-                    <div className="form-group col-6">
-                      <label>Tipo de Auditoria</label>
-                      <div className="input-with-icon">
-                        <select disabled={isViewMode}>
-                            <option>Inventário Total (Wall-to-Wall)</option>
-                            <option>Inventário Cíclico (Por Categoria)</option>
-                            <option>Auditoria de Amostragem (Spot Check)</option>
-                        </select>
-                        <BarChart3 size={18} className="field-icon" />
-                      </div>
-                    </div>
-                    <div className="form-group col-6">
-                      <label>Status</label>
-                      <div className="input-with-icon">
-                        <select defaultValue={selectedSessao?.status} disabled={isViewMode}>
-                            <option>Em Aberto</option>
-                            <option>Finalizado</option>
-                            <option>Cancelado</option>
-                        </select>
-                        <Activity size={18} className="field-icon" />
-                      </div>
-                    </div>
+        <div className="modern-form-section">
+          {activeTab === 'geral' && (
+            <div className="form-content-active fade-in">
+              <div className="modern-form-group full-width">
+                <label>Referência / Título do Inventário</label>
+                <div className="modern-input-wrapper">
+                  <input 
+                    type="text" 
+                    className="modern-input text-lg font-bold"
+                    value={formData.referencia || ''} 
+                    onChange={(e) => setFormData({ ...formData, referencia: e.target.value })}
+                    disabled={isViewMode} 
+                    required 
+                    placeholder="Ex: Inventário Mensal Abril/24" 
+                  />
+                  <ClipboardList size={18} className="modern-field-icon" />
                 </div>
-            )}
+              </div>
 
-            {activeTab === 'contagem' && (
-                <div className="counting-section">
-                    <div className="counting-table-container">
-                        <table className="counting-table">
-                            <thead>
-                                <tr>
-                                    <th>Insumo</th>
-                                    <th>Unidade</th>
-                                    <th className="text-center">Sistema</th>
-                                    <th className="text-center">Contagem Física</th>
-                                    <th className="text-center">Divergência</th>
-                                    <th className="text-right">Vlr. Ajuste</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {countingItems.map((item) => (
-                                    <tr key={item.id}>
-                                        <td className="font-bold">{item.insumo}</td>
-                                        <td>{item.unidade}</td>
-                                        <td className="text-center font-semibold">{item.estoqueSistema}</td>
-                                        <td className="text-center">
-                                            <input 
-                                                type="number" 
-                                                value={item.estoqueFisico} 
-                                                onChange={(e) => handleCountChange(item.id, Number(e.target.value))}
-                                                disabled={isViewMode}
-                                                className="small-input text-center"
-                                            />
-                                        </td>
-                                        <td className={`text-center font-bold ${item.divergencia < 0 ? 'text-red' : item.divergencia > 0 ? 'text-green' : 'text-muted'}`}>
-                                            {item.divergencia > 0 ? '+' : ''}{item.divergencia}
-                                        </td>
-                                        <td className={`text-right font-semibold ${item.valorDivergencia < 0 ? 'text-red' : ''}`}>
-                                            R$ {item.valorDivergencia.toFixed(2)}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {countingItems.length === 0 && (
-                                  <tr>
-                                    <td colSpan={6} className="text-center text-muted py-8">
-                                      Nenhum item carregado para contagem. Utilize os botões abaixo para iniciar.
-                                    </td>
-                                  </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+              <div className="modern-form-row">
+                <div className="modern-form-group">
+                  <label>Responsável</label>
+                  <div className="modern-input-wrapper">
+                    <input 
+                      type="text" 
+                      className="modern-input"
+                      value={formData.responsavel || ''} 
+                      onChange={(e) => setFormData({ ...formData, responsavel: e.target.value })}
+                      disabled={isViewMode} 
+                    />
+                    <User size={18} className="modern-field-icon" />
+                  </div>
+                </div>
+                <div className="modern-form-group">
+                  <SearchableSelect
+                    label="Almoxarifado"
+                    options={[
+                      { id: 'Depósito Central', label: 'Depósito Central' },
+                      { id: 'Farmácia Veterinária', label: 'Farmácia Veterinária' },
+                      { id: 'Galpão de Nutrição', label: 'Galpão de Nutrição' }
+                    ]}
+                    value={formData.local || ''}
+                    onChange={(val) => {
+                      setFormData({ ...formData, local: val });
+                      setSelectedLocal(val);
+                    }}
+                    disabled={isViewMode}
+                    required
+                  />
+                </div>
+              </div>
 
-                    {!isViewMode && (
-                        <div className="counting-actions-area mt-4">
-                            {isSearchingItem ? (
-                              <div className="item-selector-dropdown card glass animate-slide-up mb-4">
-                                <div className="selector-header p-3" style={{ borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                  <Search size={16} />
-                                  <input 
-                                    type="text" 
-                                    placeholder="Buscar no cadastro de insumos..." 
-                                    autoFocus
-                                    value={itemSearchTerm}
-                                    onChange={(e) => setItemSearchTerm(e.target.value)}
-                                    style={{ background: 'transparent', border: 'none', color: 'inherit', flex: 1, outline: 'none' }}
-                                  />
-                                  <button type="button" className="p-1 hover:bg-slate-100 rounded" onClick={() => setIsSearchingItem(false)}><X size={16} /></button>
-                                </div>
-                                <div className="selector-results" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                                  {searchResults.map(insumo => (
-                                    <div 
-                                      key={insumo.id} 
-                                      className="result-item p-3 hover:bg-slate-50 cursor-pointer"
-                                      style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                                      onClick={() => selectItemForInventory(insumo)}
-                                    >
-                                      <div className="item-info">
-                                        <strong className="block">{insumo.nome}</strong>
-                                        <span className="text-xs text-slate-500">Estoque Sistema: {insumo.estoqueAtual} {insumo.unidade}</span>
-                                      </div>
-                                      <Plus size={16} className="text-indigo-500" />
-                                    </div>
-                                  ))}
-                                  {searchResults.length === 0 && (
-                                    <div className="no-item-found p-4 text-center text-sm text-slate-400">Nenhum insumo encontrado.</div>
-                                  )}
-                                </div>
+              <div className="info-box-premium mt-6">
+                <Info size={20} />
+                <div className="text-sm">
+                  <strong>Impacto no Estoque:</strong> Ao finalizar, os saldos físicos serão aplicados e movimentações de ajuste serão geradas automaticamente.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'contagem' && (
+            <div className="form-content-active fade-in">
+              <div className="table-container-minimal mb-6 overflow-hidden rounded-xl border border-slate-100">
+                <table className="modern-table-minimal w-full">
+                  <thead className="bg-slate-50/50">
+                    <tr>
+                      <th className="p-3 text-left text-xs font-bold uppercase text-slate-500">Insumo</th>
+                      <th className="p-3 text-center text-xs font-bold uppercase text-slate-500">Sistema</th>
+                      <th className="p-3 text-center text-xs font-bold uppercase text-slate-500">Físico</th>
+                      <th className="p-3 text-center text-xs font-bold uppercase text-slate-500">Dif.</th>
+                      <th className="p-3 text-right text-xs font-bold uppercase text-slate-500">Ajuste</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {countingItems.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50/30">
+                        <td className="p-3">
+                          <span className="font-bold text-slate-700">{item.insumo}</span>
+                          <span className="ml-2 text-xs text-slate-400">({item.unidade})</span>
+                        </td>
+                        <td className="p-3 text-center text-slate-600">{item.estoqueSistema}</td>
+                        <td className="p-3 text-center">
+                          <input 
+                            type="number" 
+                            className="w-20 rounded border border-slate-200 p-1 text-center text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20"
+                            value={item.estoqueFisico} 
+                            onChange={(e) => handleCountChange(item.id, Number(e.target.value))}
+                            disabled={isViewMode}
+                          />
+                        </td>
+                        <td className={`p-3 text-center font-bold ${item.divergencia < 0 ? 'text-rose-500' : item.divergencia > 0 ? 'text-emerald-500' : 'text-slate-400'}`}>
+                          {item.divergencia > 0 ? '+' : ''}{item.divergencia}
+                        </td>
+                        <td className={`p-3 text-right font-black ${item.valorDivergencia < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                          R$ {Math.abs(item.valorDivergencia).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {!isViewMode && (
+                <div className="flex gap-3 mb-6">
+                  {isSearchingItem ? (
+                    <div className="flex-1 input-group-modern search-active animate-fade-in relative">
+                      <input 
+                        className="modern-input pl-10 h-10"
+                        placeholder="Pesquisar insumo para adicionar..." 
+                        autoFocus
+                        value={itemSearchTerm}
+                        onChange={(e) => setItemSearchTerm(e.target.value)}
+                      />
+                      <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      {itemSearchTerm && (
+                        <div className="search-dropdown-premium absolute w-full top-full left-0 mt-2 z-50 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
+                          {searchResults.map(insumo => (
+                            <div key={insumo.id} className="p-3 hover:bg-slate-50 cursor-pointer flex justify-between items-center" onClick={() => selectItemForInventory(insumo)}>
+                              <div>
+                                <span className="font-bold text-slate-700 block">{insumo.nome}</span>
+                                <span className="text-xs text-slate-400">Saldo atual: {insumo.estoqueAtual} {insumo.unidade}</span>
                               </div>
-                            ) : (
-                              <div className="counting-actions flex gap-3 mb-4">
-                                  <button type="button" className="btn-premium-outline btn-sm py-2 px-4 gap-2 flex items-center" onClick={() => setIsSearchingItem(true)}>
-                                      <Plus size={16} strokeWidth={3} /> 
-                                      <span>Adicionar Item Individual</span>
-                                  </button>
-                                  <button type="button" className="btn-premium-outline btn-sm py-2 px-4 gap-2 flex items-center" onClick={loadSystemStock}>
-                                      <RefreshCw size={16} strokeWidth={3} /> 
-                                      <span>Carregar Saldo do Sistema</span>
-                                  </button>
-                              </div>
-                            )}
+                              <Plus size={16} className="text-indigo-500" />
+                            </div>
+                          ))}
                         </div>
-                    )}
-
-                    <div className="discrepancy-summary-bar p-4 bg-slate-50 rounded-lg flex justify-between items-center text-sm">
-                        <div className="discrepancy-item">
-                            <span className="text-slate-500">Total Itens:</span>
-                            <strong className="ml-2">{totalInventoryItems}</strong>
-                        </div>
-                        <div className="discrepancy-item">
-                            <span className="text-slate-500">Vlr. Total Sistema:</span>
-                            <strong className="ml-2">R$ 84.200,00</strong>
-                        </div>
-                        <div className="discrepancy-item">
-                            <span className="text-slate-500">Ajuste Líquido:</span>
-                            <strong className={`ml-2 ${totalAdjustment < 0 ? 'text-red' : ''}`}>
-                              R$ {totalAdjustment.toFixed(2)}
-                            </strong>
-                        </div>
-                        <div className="discrepancy-item">
-                            <span className="text-slate-500">Acuracidade:</span>
-                            <strong className="ml-2 text-green">
-                              {totalInventoryItems > 0 ? (countingItems.filter(i => i.divergencia === 0).length / totalInventoryItems * 100).toFixed(1) : 0}%
-                            </strong>
-                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <>
+                      <button className="flex-1 btn-premium-outline py-2 gap-2" onClick={() => setIsSearchingItem(true)}>
+                        <Plus size={16} strokeWidth={3} />
+                        <span>Adicionar Item</span>
+                      </button>
+                      <button className="flex-1 btn-premium-outline py-2 gap-2" onClick={loadSystemStock}>
+                        <RefreshCw size={16} strokeWidth={3} />
+                        <span>Carregar Tudo</span>
+                      </button>
+                    </>
+                  )}
                 </div>
-            )}
+              )}
 
-            {!isViewMode && (
-                <div className="info-box primary mt-6">
-                    <p><Info size={16} className="inline mr-2" /> <strong>Impacto no Estoque:</strong> Ao finalizar este inventário, os saldos físicos serão aplicados como o novo "Saldo Atual" do sistema e uma movimentação de ajuste será gerada.</p>
+              <div className="summary-banner-premium bg-slate-900 text-white p-5 rounded-2xl flex justify-between items-center">
+                <div className="text-center">
+                  <span className="text-slate-400 text-[10px] uppercase tracking-widest block mb-1">Acuracidade</span>
+                  <span className="text-2xl font-black text-indigo-400">
+                    {totalInventoryItems > 0 ? (countingItems.filter(i => i.divergencia === 0).length / totalInventoryItems * 100).toFixed(1) : 100}%
+                  </span>
                 </div>
-            )}
-          </form>
+                <div className="w-px h-8 bg-slate-800" />
+                <div className="text-center">
+                  <span className="text-slate-400 text-[10px] uppercase tracking-widest block mb-1">Divergência Total</span>
+                  <span className={`text-2xl font-black ${totalAdjustment < 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                    R$ {Math.abs(totalAdjustment).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };
-

@@ -236,6 +236,9 @@ export interface Supplier {
   prazoEntregaMedio?: string;
   cnae?: string;
   status: 'Ativo' | 'Inativo' | 'Suspenso' | 'Bloqueado';
+  tipo?: 'Física' | 'Jurídica';
+  inscricaoMunicipal?: string;
+  observacoes?: string;
   tenant_id: string;
   created_at?: string;
 }
@@ -433,8 +436,9 @@ export interface Abate {
   pesoMedioCampo: number;
   quebraEstimada: number;
   pesoLiquidoProjetado: number;
+  rendimentoProjetado?: number; // Added for UI consistency
   frigorifico: string;
-  status: 'Pendente' | 'Aguardando GTA' | 'Realizado';
+  status: 'Pendente' | 'Aguardando GTA' | 'Realizado' | 'Agendado' | 'Concluído'; // Expanded for legacy/UI
   valorArroba?: number;
   empresaId?: string;
   tenant_id: string;
@@ -651,6 +655,7 @@ export interface SolicitacaoCompra {
   status: 'Pendente' | 'Em Cotação' | 'Aprovado' | 'Recusado';
   itens: ItemSolicitacao[];
   valorTotal: number;
+  observacoes?: string;
   empresaId: string;
   tenant_id: string;
   created_at?: string;

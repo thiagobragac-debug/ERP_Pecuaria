@@ -1,5 +1,4 @@
-import React from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { useLocation, Outlet, Link } from 'react-router-dom';
 import { 
   TrendingUp, 
   Users, 
@@ -9,9 +8,10 @@ import {
   BarChart3,
   FileText
 } from 'lucide-react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../../services/db';
+import { useOfflineQuery } from '../../hooks/useOfflineSync';
+import { SummaryCard } from '../../components/SummaryCard';
 import { useCompany } from '../../contexts/CompanyContext';
+import { SalesInvoice, Opportunity } from '../../types';
 import './Vendas.css';
 
 export const Vendas = () => {
@@ -19,9 +19,8 @@ export const Vendas = () => {
   const location = useLocation();
   const isHubHome = location.pathname === '/vendas' || location.pathname === '/vendas/';
 
-  // Data
-  const allNotas = useLiveQuery(() => db.pedidos_venda.toArray()) || [];
-  const allOportunidades = useLiveQuery(() => db.oportunidades.toArray()) || [];
+  const { data: allNotas = [] } = useOfflineQuery<SalesInvoice>(['pedidos_venda'], 'pedidos_venda');
+  const { data: allOportunidades = [] } = useOfflineQuery<Opportunity>(['oportunidades'], 'oportunidades');
 
   // Filter by active company
   const notas = allNotas.filter(n => activeCompanyId === 'Todas' || n.empresaId === activeCompanyId);
@@ -32,7 +31,9 @@ export const Vendas = () => {
   const currentYear = new Date().getFullYear();
 
   const notasMes = notas.filter(n => {
-    const date = new Date(n.dataEmissao || (n as any).data);
+    const dateStr = n.dataEmissao || n.data || (n as any).date || '';
+    if (!dateStr) return false;
+    const date = new Date(dateStr);
     return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
   });
 
@@ -63,40 +64,33 @@ export const Vendas = () => {
       </div>
 
       <div className="summary-grid">
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="summary-info">
-            <span className="summary-label">VGV (Mês Corrente)</span>
-            <span className="summary-value">R$ {vgvTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            <span className="summary-subtext">Ticket Médio: R$ {ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-          </div>
-          <div className="summary-icon green">
-            <BarChart3 size={32} strokeWidth={3} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Volume no Pipeline</span>
-            <span className="summary-value">R$ {openOppsValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            <span className="summary-subtext">{oportunidades.filter(o => o.estagio !== 'Fechado' && o.estagio !== 'Perdido').length} oportunidades ativas</span>
-          </div>
-          <div className="summary-icon blue">
-            <Target size={32} strokeWidth={3} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Taxa de Conversão</span>
-            <span className="summary-value">
-              {oportunidades.length > 0
-                ? ((oportunidades.filter(o => o.estagio === 'Fechado').length / oportunidades.length) * 100).toFixed(1)
-                : '0.0'}%
-            </span>
-            <span className="summary-subtext">Base: {oportunidades.length} leads</span>
-          </div>
-          <div className="summary-icon orange">
-            <TrendingUp size={32} strokeWidth={3} />
-          </div>
-        </div>
+        <SummaryCard 
+          label="VGV (Mês Corrente)"
+          value={`R$ ${vgvTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          icon={BarChart3}
+          color="emerald"
+          delay="0.1s"
+          subtext={`Ticket Médio: R$ ${ticketMedio.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          trend={{ value: 'Acima da média', type: 'up', icon: TrendingUp }}
+        />
+        <SummaryCard 
+          label="Volume no Pipeline"
+          value={`R$ ${openOppsValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          icon={Target}
+          color="sky"
+          delay="0.2s"
+          subtext={`${oportunidades.filter(o => o.estagio !== 'Fechado' && o.estagio !== 'Perdido').length} oportunidades ativas`}
+        />
+        <SummaryCard 
+          label="Taxa de Conversão"
+          value={`${oportunidades.length > 0
+            ? ((oportunidades.filter(o => o.estagio === 'Fechado').length / oportunidades.length) * 100).toFixed(1)
+            : '0.0'}%`}
+          icon={TrendingUp}
+          color="amber"
+          delay="0.3s"
+          subtext={`Base: ${oportunidades.length} leads`}
+        />
       </div>
 
       <div className="submodule-menu-grid">

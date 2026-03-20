@@ -13,9 +13,11 @@ import {
   Droplets, 
   AlertTriangle,
   LayoutGrid,
-  ChevronRight
+  ChevronRight,
+  X,
+  CheckCircle2
 } from 'lucide-react';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { MapaPastagem } from './MapaPastagem';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
@@ -128,11 +130,11 @@ export const Pasto = () => {
           </div>
         </div>
         <div className="flex gap-3">
-          <button className="btn-premium-outline h-11 px-6 gap-2" onClick={() => setView('map')}>
+          <button className="btn-premium-outline" onClick={() => setView('map')}>
             <LayoutGrid size={20} strokeWidth={3} />
             <span>Visão Geral Mapas</span>
           </button>
-          <button className="btn-premium-solid indigo h-11 px-6 gap-2" onClick={() => handleOpenModal()}>
+          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
             <Plus size={20} strokeWidth={3} />
             <span>Novo Pasto</span>
           </button>
@@ -298,17 +300,22 @@ export const Pasto = () => {
         />
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={selectedPasto ? 'Editar Unidade de Pastejo' : 'Nova Unidade de Pastejo'}
         icon={MapIcon}
-        size="lg"
         footer={
-          <div className="flex gap-3">
-            <button type="button" className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-            <button type="submit" form="pasto-form" className="btn-premium-solid indigo">Salvar Pasto</button>
-          </div>
+          <>
+            <button type="button" className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
+            </button>
+            <button type="submit" form="pasto-form" className="btn-premium-solid indigo">
+              <span>{selectedPasto ? 'Salvar Alterações' : 'Salvar Pasto'}</span>
+              <CheckCircle2 size={18} strokeWidth={3} />
+            </button>
+          </>
         }
       >
         <div className="modal-body-content">
@@ -330,7 +337,12 @@ export const Pasto = () => {
             await dataService.saveItem('pastos', updatedPasto);
             setIsModalOpen(false);
           }}>
-            <div className="form-grid">
+            <div className="form-section">
+              <div className="form-section-title">
+                <MapIcon size={16} />
+                <span>Dados da Unidade</span>
+              </div>
+              <div className="form-grid">
               <div className="form-group col-12">
                 <label>Nome do Pasto / Piquete</label>
                 <input type="text" name="nome" defaultValue={selectedPasto?.nome} placeholder="Ex: Piquete 08 - Sul" required />
@@ -356,6 +368,7 @@ export const Pasto = () => {
                 <label>Data da Última Adubação</label>
                 <input type="date" name="dataUltimaAdubacao" defaultValue={selectedPasto?.data_ultima_adubacao} />
               </div>
+              </div>
             </div>
           </form>
 
@@ -366,7 +379,7 @@ export const Pasto = () => {
              </div>
           </div>
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

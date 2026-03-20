@@ -23,23 +23,24 @@ import {
   Briefcase,
   Filter,
   Download,
+  AlertCircle,
+  CheckCircle2,
+  Building2,
+  ChevronLeft,
   Eye,
   DollarSign,
   Activity,
-  ChevronLeft,
-  Building2,
   Tag,
-  CheckCircle2,
   SearchCode
 } from 'lucide-react';
-import { StandardModal } from '../../../components/StandardModal';
+import { ModernModal } from '../../../components/ModernModal';
 import { TablePagination } from '../../../components/TablePagination';
 import { TableFilters } from '../../../components/TableFilters';
 import { usePagination } from '../../../hooks/usePagination';
 import { ColumnFilters } from '../../../components/ColumnFilters';
-import { db } from '../../../services/db';
-import { dataService } from '../../../services/dataService';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useOfflineQuery, useOfflineMutation } from '../../../hooks/useOfflineSync';
+import { SummaryCard } from '../../../components/SummaryCard';
+import { StatusBadge } from '../../../components/StatusBadge';
 import { Cliente as ClienteType } from '../../../types';
 
 
@@ -47,7 +48,9 @@ import { Cliente as ClienteType } from '../../../types';
 import './Cliente.css';
 
 export const Cliente: React.FC = () => {
-  const clientes = useLiveQuery(() => db.clientes.toArray()) || [];
+  const { data: clientes = [] } = useOfflineQuery<ClienteType>(['clientes'], 'clientes');
+  const saveClienteMutation = useOfflineMutation<ClienteType>('clientes', [['clientes']]);
+  const deleteClienteMutation = useOfflineMutation<ClienteType>('clientes', [['clientes']]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -149,13 +152,13 @@ export const Cliente: React.FC = () => {
       tenant_id: 'default'
     } as ClienteType;
 
-    await dataService.saveItem('clientes', updatedClient);
+    await saveClienteMutation.mutateAsync(updatedClient);
     setIsModalOpen(false);
   };
 
   const handleDelete = async (id: string, name: string) => {
     if (window.confirm(`Deseja realmente excluir o cliente "${name}"?`)) {
-      await dataService.deleteItem('clientes', id);
+      await deleteClienteMutation.mutateAsync({ id } as any);
     }
   };
 
@@ -220,59 +223,49 @@ export const Cliente: React.FC = () => {
         </div>
         <div className="header-actions">
           <button className="btn-premium-outline">
-            <Download size={18} strokeWidth={3} />
             <span>Relatórios</span>
+            <Download size={18} strokeWidth={3} />
           </button>
           <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
-            <Plus size={18} strokeWidth={3} />
             <span>Novo Cliente</span>
+            <Plus size={18} strokeWidth={3} />
           </button>
         </div>
       </div>
 
       <div className="summary-grid">
-        <div className="summary-card card glass animate-slide-up">
-          <div className="summary-info">
-            <span className="summary-label">Total de Clientes</span>
-            <span className="summary-value">{totalClients.toString().padStart(2, '0')}</span>
-            <span className="summary-subtext">Base cadastrada</span>
-          </div>
-          <div className="summary-icon blue">
-            <Users size={24} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Clientes Ativos</span>
-            <span className="summary-value">{activeClients.toString().padStart(2, '0')}</span>
-            <span className="summary-trend up">
-              <ShieldCheck size={14} /> Em operação
-            </span>
-          </div>
-          <div className="summary-icon indigo">
-            <ShieldCheck size={24} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Limite Total</span>
-            <span className="summary-value">R$ {(totalLimit/1000).toFixed(0)}k</span>
-            <span className="summary-subtext">Crédito concedido</span>
-          </div>
-          <div className="summary-icon orange">
-            <CreditCard size={24} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Média de Limite</span>
-            <span className="summary-value">R$ {(avgLimit/1000).toFixed(1)}k</span>
-            <span className="summary-subtext">Por cliente</span>
-          </div>
-          <div className="summary-icon blue">
-            <Activity size={24} />
-          </div>
-        </div>
+        <SummaryCard 
+          label="Total de Clientes"
+          value={totalClients.toString().padStart(2, '0')}
+          icon={Users}
+          color="blue"
+          delay="0s"
+          subtext="Base cadastrada"
+        />
+        <SummaryCard 
+          label="Clientes Ativos"
+          value={activeClients.toString().padStart(2, '0')}
+          icon={ShieldCheck}
+          color="indigo"
+          delay="0.1s"
+          trend={{ value: 'Em operação', type: 'up', icon: ShieldCheck }}
+        />
+        <SummaryCard 
+          label="Limite Total"
+          value={`R$ ${(totalLimit/1000).toFixed(0)}k`}
+          icon={CreditCard}
+          color="amber"
+          delay="0.2s"
+          subtext="Crédito concedido"
+        />
+        <SummaryCard 
+          label="Média de Limite"
+          value={`R$ ${(avgLimit/1000).toFixed(1)}k`}
+          icon={Activity}
+          color="blue"
+          delay="0.3s"
+          subtext="Por cliente"
+        />
       </div>
 
       <div className="data-section">
@@ -379,23 +372,25 @@ export const Cliente: React.FC = () => {
         />
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={`${isViewMode ? 'Visualizar' : (editingClient ? 'Editar' : 'Novo')} Cliente`}
         subtitle="Preencha os dados cadastrais do cliente"
         icon={User}
-        size="lg"
         footer={
-          <div className="footer-actions flex gap-3">
-            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>{isViewMode ? 'Fechar' : 'Cancelar'}</button>
+          <>
+            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>{isViewMode ? 'Fechar' : 'Cancelar'}</span>
+            </button>
             {!isViewMode && (
               <button className="btn-premium-solid indigo" onClick={handleSave}>
-                <Plus size={18} strokeWidth={3} />
-                <span>Salvar Cliente</span>
+                <span>{editingClient ? 'Salvar Alterações' : 'Cadastrar Cliente'}</span>
+                {editingClient ? <CheckCircle2 size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
               </button>
             )}
-          </div>
+          </>
         }
       >
         <div className="modal-tabs mb-6">
@@ -406,190 +401,205 @@ export const Cliente: React.FC = () => {
           <button className={`tab-btn ${activeTab === 'comercial' ? 'active' : ''}`} onClick={() => setActiveTab('comercial')}>Comercial</button>
         </div>
 
-        <div className="form-sections-grid">
-          {activeTab === 'geral' && (
-            <div className="form-section">
-              <div className="form-grid">
-                <div className="form-group col-12">
-                  <label>Nome / Razão Social</label>
-                  <input type="text" value={formData.nome || ''} onChange={(e) => handleInputChange('nome', e.target.value)} placeholder="Nome completo ou Razão Social" disabled={isViewMode} />
+        <div className="modal-content-scrollable">
+          <div className="form-sections-grid">
+            {activeTab === 'geral' && (
+              <div className="form-section">
+                <div className="form-section-title">
+                  <User size={16} />
+                  <span>Identificação Básica</span>
                 </div>
-                <div className="form-group col-8">
-                  <label>Nome Fantasia / Apelido</label>
-                  <input type="text" value={formData.nomeFantasia || ''} onChange={(e) => handleInputChange('nomeFantasia', e.target.value)} placeholder="Como o cliente é conhecido" disabled={isViewMode} />
+                <div className="form-grid">
+                  <div className="form-group col-12">
+                    <label>Nome / Razão Social</label>
+                    <input type="text" value={formData.nome || ''} onChange={(e) => handleInputChange('nome', e.target.value)} placeholder="Nome completo ou Razão Social" disabled={isViewMode} />
+                  </div>
                 </div>
-                <div className="form-group col-4">
-                  <label>Status</label>
-                  <select value={formData.status || 'Ativo'} onChange={(e) => handleInputChange('status', e.target.value)} disabled={isViewMode}>
-                    <option value="Ativo">Ativo</option>
-                    <option value="Inativo">Inativo</option>
-                    <option value="Bloqueado">Bloqueado</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
 
-          {activeTab === 'endereco' && (
-            <div className="form-section">
-              <div className="form-grid">
-                <div className="form-group col-3">
-                  <label>Tipo</label>
-                  <select value={formData.tipoLogradouro || 'Rua'} onChange={(e) => handleInputChange('tipoLogradouro', e.target.value)} disabled={isViewMode}>
-                    <option value="Rua">Rua</option>
-                    <option value="Avenida">Avenida</option>
-                    <option value="Rodovia">Rodovia</option>
-                    <option value="Estrada">Estrada</option>
-                  </select>
-                </div>
-                <div className="form-group col-9">
-                  <label>Logradouro / Rua</label>
-                  <input type="text" value={formData.logradouro || ''} onChange={(e) => handleInputChange('logradouro', e.target.value)} placeholder="Nome da rua/avenida" disabled={isViewMode} />
-                </div>
-                <div className="form-group col-2">
-                  <label>Número</label>
-                  <input type="text" value={formData.numero || ''} onChange={(e) => handleInputChange('numero', e.target.value)} placeholder="SN" disabled={isViewMode} />
-                </div>
-                <div className="form-group col-3">
-                  <label>CEP</label>
-                  <input type="text" value={formData.cep || ''} onChange={(e) => handleInputChange('cep', e.target.value)} placeholder="00000-000" disabled={isViewMode} />
-                </div>
-                <div className="form-group col-7">
-                  <label>Complemento</label>
-                  <input type="text" value={formData.complemento || ''} onChange={(e) => handleInputChange('complemento', e.target.value)} placeholder="Apto, Sala, Referência..." disabled={isViewMode} />
-                </div>
-                <div className="form-group col-4">
-                  <label>Bairro</label>
-                  <input type="text" value={formData.bairro || ''} onChange={(e) => handleInputChange('bairro', e.target.value)} placeholder="Bairro" disabled={isViewMode} />
-                </div>
-                <div className="form-group col-6">
-                  <label>Cidade</label>
-                  <input type="text" value={formData.cidade || ''} onChange={(e) => handleInputChange('cidade', e.target.value)} placeholder="Cidade" disabled={isViewMode} />
-                </div>
-                <div className="form-group col-2">
-                  <label>UF</label>
-                  <input type="text" value={formData.estado || ''} onChange={(e) => handleInputChange('estado', e.target.value)} placeholder="UF" disabled={isViewMode} />
-                </div>
-                <div className="form-group col-4">
-                  <label>Cód. Município (IBGE)</label>
-                  <input type="text" value={formData.cMun || ''} onChange={(e) => handleInputChange('cMun', e.target.value)} placeholder="Ex: 5103403" disabled={isViewMode} />
-                </div>
-                <div className="form-group col-4">
-                  <label>País</label>
-                  <input type="text" value={formData.pais || 'Brasil'} onChange={(e) => handleInputChange('pais', e.target.value)} placeholder="Brasil" disabled={isViewMode} />
-                </div>
-                <div className="form-group col-4">
-                  <label>Cód. País</label>
-                  <input type="text" value={formData.cPais || '1058'} onChange={(e) => handleInputChange('cPais', e.target.value)} placeholder="1058" disabled={isViewMode} />
-                </div>
-              </div>
-            </div>
-          )}
+                <div className="form-divider" />
 
-          {activeTab === 'contato' && (
-            <div className="form-section">
-              <div className="form-grid">
-                <div className="form-group col-12">
-                  <label>Pessoa de Contato</label>
-                  <div className="input-with-icon">
-                    <User size={18} className="icon-field" />
-                    <input type="text" value={formData.responsavel || ''} onChange={(e) => handleInputChange('responsavel', e.target.value)} placeholder="Nome do contato principal" disabled={isViewMode} />
+                <div className="form-grid">
+                  <div className="form-group col-8">
+                    <label>Nome Fantasia / Apelido</label>
+                    <input type="text" value={formData.nomeFantasia || ''} onChange={(e) => handleInputChange('nomeFantasia', e.target.value)} placeholder="Como o cliente é conhecido" disabled={isViewMode} />
                   </div>
-                </div>
-                <div className="form-group col-6">
-                  <label>Telefone</label>
-                  <div className="input-with-icon">
-                    <Phone size={18} className="icon-field" />
-                    <input type="text" value={formData.telefone || ''} onChange={(e) => handleInputChange('telefone', e.target.value)} placeholder="(00) 00000-0000" disabled={isViewMode} />
-                  </div>
-                </div>
-                <div className="form-group col-6">
-                  <label>E-mail</label>
-                  <div className="input-with-icon">
-                    <Mail size={18} className="icon-field" />
-                    <input type="email" value={formData.email || ''} onChange={(e) => handleInputChange('email', e.target.value)} placeholder="exemplo@email.com" disabled={isViewMode} />
+                  <div className="form-group col-4">
+                    <label>Status</label>
+                    <select value={formData.status || 'Ativo'} onChange={(e) => handleInputChange('status', e.target.value)} disabled={isViewMode}>
+                      <option value="Ativo">Ativo</option>
+                      <option value="Inativo">Inativo</option>
+                      <option value="Bloqueado">Bloqueado</option>
+                    </select>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {activeTab === 'fiscal' && (
-            <div className="form-section">
-              <div className="form-grid">
-                <div className="form-group col-4">
-                  <label>CPF / CNPJ</label>
-                  <div className="input-with-button">
-                    <input 
-                      type="text" 
-                      value={formData.documento || ''} 
-                      onChange={(e) => handleInputChange('documento', e.target.value)} 
-                      onBlur={handleCnpjLookup}
-                      placeholder="000.000.000-00" 
-                      disabled={isViewMode}
-                    />
-                    <button 
-                      type="button" 
-                      className="lookup-btn" 
-                      onClick={handleCnpjLookup} 
-                      disabled={isLoadingCnpj || isViewMode || !formData.documento}
-                    >
-                      {isLoadingCnpj ? <Loader2 size={16} className="spinning" /> : <SearchCode size={16} />}
-                    </button>
+            {activeTab === 'endereco' && (
+              <div className="form-section">
+                <div className="form-section-title">
+                  <MapPin size={16} />
+                  <span>Localização e Endereço</span>
+                </div>
+                <div className="form-grid">
+                  <div className="form-group col-3">
+                    <label>Tipo</label>
+                    <select value={formData.tipoLogradouro || 'Rua'} onChange={(e) => handleInputChange('tipoLogradouro', e.target.value)} disabled={isViewMode}>
+                      <option value="Rua">Rua</option>
+                      <option value="Avenida">Avenida</option>
+                      <option value="Rodovia">Rodovia</option>
+                      <option value="Estrada">Estrada</option>
+                    </select>
+                  </div>
+                  <div className="form-group col-9">
+                    <label>Logradouro / Rua</label>
+                    <input type="text" value={formData.logradouro || ''} onChange={(e) => handleInputChange('logradouro', e.target.value)} placeholder="Nome da rua/avenida" disabled={isViewMode} />
                   </div>
                 </div>
-                <div className="form-group col-4">
-                  <label>Inscrição Estadual</label>
-                  <input type="text" value={formData.inscricaoEstadual || ''} onChange={(e) => handleInputChange('inscricaoEstadual', e.target.value)} placeholder="Número ou Isento" disabled={isViewMode} />
-                </div>
-                <div className="form-group col-4">
-                  <label>Regime Tributário</label>
-                  <select value={formData.regimeTributario || ''} onChange={(e) => handleInputChange('regimeTributario', e.target.value)} disabled={isViewMode}>
-                    <option value="">Selecione...</option>
-                    <option value="Simples Nacional">Simples Nacional</option>
-                    <option value="Lucro Presumido">Lucro Presumido</option>
-                    <option value="Lucro Real">Lucro Real</option>
-                    <option value="Produtor Rural">Produtor Rural</option>
-                  </select>
-                </div>
-                <div className="form-group col-4">
-                  <label>Indicador IE Destinatário</label>
-                  <select value={formData.indIEDest || '9'} onChange={(e) => handleInputChange('indIEDest', e.target.value)} disabled={isViewMode}>
-                    <option value="1">1 - Contribuinte ICMS</option>
-                    <option value="2">2 - Contribuinte Isento</option>
-                    <option value="9">9 - Não Contribuinte</option>
-                  </select>
-                </div>
-                <div className="form-group col-12">
-                  <label>CNAE (Atividade)</label>
-                  <input type="text" value={formData.cnae || ''} onChange={(e) => handleInputChange('cnae', e.target.value)} placeholder="Código e descrição da atividade principal" disabled={isViewMode} />
-                </div>
-              </div>
-            </div>
-          )}
 
-          {activeTab === 'comercial' && (
-            <div className="form-section">
-              <div className="form-grid">
-                <div className="form-group col-6">
-                  <label>Limite de Crédito</label>
-                  <div className="input-with-icon">
-                    <CreditCard size={18} className="icon-field" />
-                    <input type="number" value={formData.limiteCredito || 0} onChange={(e) => handleInputChange('limiteCredito', Number(e.target.value))} disabled={isViewMode} />
+                <div className="form-divider" />
+
+                <div className="form-grid">
+                  <div className="form-group col-2">
+                    <label>Número</label>
+                    <input type="text" value={formData.numero || ''} onChange={(e) => handleInputChange('numero', e.target.value)} placeholder="SN" disabled={isViewMode} />
                   </div>
-                </div>
-                <div className="form-group col-6">
-                  <label>Condição de Pagamento</label>
-                  <div className="input-with-icon">
-                    <Briefcase size={18} className="icon-field" />
-                    <input type="text" value={formData.condicaoPagamento || ''} onChange={(e) => handleInputChange('condicaoPagamento', e.target.value)} placeholder="Ex: 30/60 dias" disabled={isViewMode} />
+                  <div className="form-group col-3">
+                    <label>CEP</label>
+                    <input type="text" value={formData.cep || ''} onChange={(e) => handleInputChange('cep', e.target.value)} placeholder="00000-000" disabled={isViewMode} />
+                  </div>
+                  <div className="form-group col-7">
+                    <label>Complemento</label>
+                    <input type="text" value={formData.complemento || ''} onChange={(e) => handleInputChange('complemento', e.target.value)} placeholder="Apto, Sala, Referência..." disabled={isViewMode} />
+                  </div>
+                  <div className="form-group col-4">
+                    <label>Bairro</label>
+                    <input type="text" value={formData.bairro || ''} onChange={(e) => handleInputChange('bairro', e.target.value)} placeholder="Bairro" disabled={isViewMode} />
+                  </div>
+                  <div className="form-group col-6">
+                    <label>Cidade</label>
+                    <input type="text" value={formData.cidade || ''} onChange={(e) => handleInputChange('cidade', e.target.value)} placeholder="Cidade" disabled={isViewMode} />
+                  </div>
+                  <div className="form-group col-2">
+                    <label>UF</label>
+                    <input type="text" value={formData.estado || ''} onChange={(e) => handleInputChange('estado', e.target.value)} placeholder="UF" disabled={isViewMode} />
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {activeTab === 'contato' && (
+              <div className="form-section">
+                <div className="form-section-title">
+                  <Phone size={16} />
+                  <span>Canais de Comunicação</span>
+                </div>
+                <div className="form-grid">
+                  <div className="form-group col-6">
+                    <label>Pessoa de Contato</label>
+                    <div className="input-with-icon">
+                      <User size={18} className="icon-field" />
+                      <input type="text" value={formData.responsavel || ''} onChange={(e) => handleInputChange('responsavel', e.target.value)} placeholder="Nome do contato principal" disabled={isViewMode} />
+                    </div>
+                  </div>
+                  <div className="form-group col-3">
+                    <label>Telefone</label>
+                    <div className="input-with-icon">
+                      <Phone size={18} className="icon-field" />
+                      <input type="text" value={formData.telefone || ''} onChange={(e) => handleInputChange('telefone', e.target.value)} placeholder="(00) 00000-0000" disabled={isViewMode} />
+                    </div>
+                  </div>
+                  <div className="form-group col-3">
+                    <label>E-mail</label>
+                    <div className="input-with-icon">
+                      <Mail size={18} className="icon-field" />
+                      <input type="email" value={formData.email || ''} onChange={(e) => handleInputChange('email', e.target.value)} placeholder="exemplo@email.com" disabled={isViewMode} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'fiscal' && (
+              <div className="form-section">
+                <div className="form-section-title">
+                  <Building2 size={16} />
+                  <span>Tributação e Documentos</span>
+                </div>
+                <div className="form-grid">
+                  <div className="form-group col-4">
+                    <label>CPF / CNPJ</label>
+                    <div className="input-with-button">
+                      <input 
+                        type="text" 
+                        value={formData.documento || ''} 
+                        onChange={(e) => handleInputChange('documento', e.target.value)} 
+                        onBlur={handleCnpjLookup}
+                        placeholder="000.000.000-00" 
+                        disabled={isViewMode}
+                      />
+                      <button 
+                        type="button" 
+                        className="lookup-btn" 
+                        onClick={handleCnpjLookup} 
+                        disabled={isLoadingCnpj || isViewMode || !formData.documento}
+                      >
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="form-divider" />
+
+                <div className="form-grid">
+                  <div className="form-group col-4">
+                    <label>Inscrição Estadual</label>
+                    <input type="text" value={formData.inscricaoEstadual || ''} onChange={(e) => handleInputChange('inscricaoEstadual', e.target.value)} placeholder="Número ou Isento" disabled={isViewMode} />
+                  </div>
+                  <div className="form-group col-4">
+                    <label>Regime Tributário</label>
+                    <select value={formData.regimeTributario || ''} onChange={(e) => handleInputChange('regimeTributario', e.target.value)} disabled={isViewMode}>
+                      <option value="">Selecione...</option>
+                      <option value="Simples Nacional">Simples Nacional</option>
+                      <option value="Lucro Presumido">Lucro Presumido</option>
+                      <option value="Lucro Real">Lucro Real</option>
+                      <option value="Produtor Rural">Produtor Rural</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'comercial' && (
+              <div className="form-section">
+                <div className="form-section-title">
+                  <TrendingUp size={16} />
+                  <span>Condições Comerciais</span>
+                </div>
+                <div className="form-grid">
+                  <div className="form-group col-3">
+                    <label>Limite de Crédito</label>
+                    <div className="input-with-icon">
+                      <CreditCard size={18} className="icon-field" />
+                      <input type="number" value={formData.limiteCredito || 0} onChange={(e) => handleInputChange('limiteCredito', Number(e.target.value))} disabled={isViewMode} />
+                    </div>
+                  </div>
+                  <div className="form-group col-3">
+                    <label>Condição Pagamento</label>
+                    <div className="input-with-icon">
+                      <Briefcase size={18} className="icon-field" />
+                      <input type="text" value={formData.condicaoPagamento || ''} onChange={(e) => handleInputChange('condicaoPagamento', e.target.value)} placeholder="Ex: 30/60 dias" disabled={isViewMode} />
+                    </div>
+                  </div>
+                  <div className="form-group col-6">
+                    {/* Spacing */}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

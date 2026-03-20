@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useEscapeKey } from '../../hooks/useEscapeKey';
-import { Beef, Plus, Search, Filter, Download, ChevronLeft, ChevronRight, Eye, Edit, Trash2, Calendar, Tag, Weight, MapPin, Activity, History, Info, BarChart3, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Beef, Plus, Search, Filter, Download, ChevronLeft, ChevronRight, Eye, Edit, Trash2, Calendar, Tag, Weight, MapPin, Activity, History, Info, BarChart3, ArrowUpRight, ArrowDownRight, DollarSign, CheckCircle2, Hash, X, ShieldCheck } from 'lucide-react';
 import './Rebanho.css';
 import { RelatoriosRebanho } from './RelatoriosRebanho';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { Animal, CustoLancamento, RegistroSanitario, Dieta } from '../../types';
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
@@ -15,7 +15,6 @@ import { TableFilters } from '../../components/TableFilters';
 import { ColumnFilters, ColumnFilterConfig } from '../../components/ColumnFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { useCompany } from '../../contexts/CompanyContext';
-
 
 const calculateCategory = (dataNasc: string, sexo: 'M' | 'F'): string => {
   const birthDate = new Date(dataNasc);
@@ -32,7 +31,6 @@ const calculateCategory = (dataNasc: string, sexo: 'M' | 'F'): string => {
     return 'Vaca';
   }
 };
-
 
 export const Rebanho = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -57,14 +55,12 @@ export const Rebanho = () => {
   });
   const [costCalculationMode, setCostCalculationMode] = useState<'fixed' | 'proportional'>('proportional');
   const [showReports, setShowReports] = useState(false);
-  const { activeCompanyId, companies } = useCompany();
+  const { activeCompanyId } = useCompany();
 
-  // Live Queries
   const allAnimais = useLiveQuery(() => db.animais.toArray()) || [];
   const dietas = useLiveQuery(() => db.dietas.toArray()) || [];
   const registrosSanitarios = useLiveQuery(() => db.registrosSanitarios.toArray()) || [];
 
-  // Filter animals by active company
   const animais = allAnimais.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
 
   useEscapeKey(() => {
@@ -106,11 +102,7 @@ export const Rebanho = () => {
       a.sexo.toLowerCase().includes(searchLower) ||
       a.categoria.toLowerCase().includes(searchLower) ||
       a.status.toLowerCase().includes(searchLower) ||
-      a.peso.toString().includes(searchLower) ||
-      (a.sisbov && a.sisbov.toLowerCase().includes(searchLower)) ||
-      (a.idEletronico && a.idEletronico.toLowerCase().includes(searchLower)) ||
-      (a.pai && a.pai.toLowerCase().includes(searchLower)) ||
-      (a.mae && a.mae.toLowerCase().includes(searchLower));
+      a.peso.toString().includes(searchLower);
     
     const matchesStatus = filterStatus === 'Todos' || a.status === filterStatus;
     const matchesSexo = filterSexo === 'Todos' || a.sexo === (filterSexo === 'Macho' ? 'M' : 'F');
@@ -163,10 +155,8 @@ export const Rebanho = () => {
               <p className="description">Potencialize a pecuária com dados precisos de cada animal.</p>
             </div>
           </div>
-          <div className="connectivity-section">
-          </div>
           <div className="action-buttons">
-            <button className="btn-premium-solid indigo h-11 px-6 gap-2" onClick={() => handleOpenModal()}>
+            <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
               <Plus size={20} strokeWidth={3} />
               <span>Novo Animal</span>
             </button>
@@ -179,19 +169,16 @@ export const Rebanho = () => {
       ) : (
         <>
           <div className="summary-grid">
-            <div className="summary-card card glass animate-slide-up">
+            <div className="summary-card card glass">
               <div className="summary-info">
                 <span className="summary-label">Total de Cabeças</span>
                 <span className="summary-value">{totalCabecas.toLocaleString()}</span>
-                <span className="summary-trend up">
-                  <ArrowUpRight size={14} /> +{totalCabecas} este mês
-                </span>
               </div>
               <div className="summary-icon indigo">
                 <Beef size={24} strokeWidth={3} />
               </div>
             </div>
-            <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
+            <div className="summary-card card glass">
               <div className="summary-info">
                 <span className="summary-label">Machos</span>
                 <span className="summary-value">{totalMachos}</span>
@@ -201,7 +188,7 @@ export const Rebanho = () => {
                 <div className="gender-icon">M</div>
               </div>
             </div>
-            <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
+            <div className="summary-card card glass">
               <div className="summary-info">
                 <span className="summary-label">Fêmeas</span>
                 <span className="summary-value">{totalFemeas}</span>
@@ -211,13 +198,10 @@ export const Rebanho = () => {
                 <div className="gender-icon">F</div>
               </div>
             </div>
-            <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
+            <div className="summary-card card glass">
               <div className="summary-info">
                 <span className="summary-label">Peso Médio</span>
                 <span className="summary-value">{pesoMedio} kg</span>
-                <span className="summary-trend down">
-                  <ArrowDownRight size={14} /> -2.4% vs anterior
-                </span>
               </div>
               <div className="summary-icon primary">
                 <BarChart3 size={24} strokeWidth={3} />
@@ -225,7 +209,7 @@ export const Rebanho = () => {
             </div>
           </div>
 
-      <div className="data-section">
+          <div className="data-section">
             <TableFilters
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
@@ -233,7 +217,6 @@ export const Rebanho = () => {
               onToggleAdvanced={() => setIsFiltersOpen(!isFiltersOpen)}
               isAdvancedOpen={isFiltersOpen}
             />
-
 
             <div className="table-container">
               <table className="data-table">
@@ -266,12 +249,10 @@ export const Rebanho = () => {
                     />
                   )}
                 </thead>
-                  <tbody className="divide-y">
-                    {paginatedData.map((animal) => (
+                <tbody>
+                  {paginatedData.map((animal) => (
                     <tr key={animal.id}>
-                      <td>
-                        <span className="brinco-tag">{animal.brinco}</span>
-                      </td>
+                      <td><span className="brinco-tag">{animal.brinco}</span></td>
                       <td>
                         <span className={`gender-badge ${animal.sexo}`}>
                           {animal.sexo === 'M' ? 'Macho' : 'Fêmea'}
@@ -307,324 +288,264 @@ export const Rebanho = () => {
             </div>
 
             <TablePagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          itemsPerPage={itemsPerPage}
-          startIndex={startIndex}
-          endIndex={endIndex}
-          totalItems={totalItems}
-          onPageChange={goToPage}
-          onNextPage={nextPage}
-          onPrevPage={prevPage}
-          onItemsPerPageChange={setItemsPerPage}
-          label="animais"
-        />
+              currentPage={currentPage}
+              totalPages={totalPages}
+              itemsPerPage={itemsPerPage}
+              startIndex={startIndex}
+              endIndex={endIndex}
+              totalItems={totalItems}
+              onPageChange={goToPage}
+              onNextPage={nextPage}
+              onPrevPage={prevPage}
+              onItemsPerPageChange={setItemsPerPage}
+              label="animais"
+            />
           </div>
         </>
       )}
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={isViewMode ? `Detalhes: ${selectedAnimal?.brinco}` : (selectedAnimal ? `Editar Animal: ${selectedAnimal.brinco}` : 'Novo Animal')}
-        subtitle={isViewMode ? 'Visualizando informações técnicas registradas.' : 'Preencha as informações técnicas seguindo as regras de manejo.'}
+        title={isViewMode ? 'Dossiê do Animal' : (selectedAnimal ? 'Editar Animal' : 'Novo Registro de Animal')}
+        subtitle="Gestão completa de dados zootécnicos e financeiros."
         icon={Beef}
-        size="lg"
         footer={
-          <div className="flex gap-3">
-            <button type="button" className="btn-premium-outline" onClick={handleCloseModal}>Cancelar</button>
-            {!isViewMode && <button type="submit" form="animal-form" className="btn-premium-solid indigo">Finalizar Cadastro</button>}
-          </div>
+          <>
+            <button type="button" className="btn-premium-outline" onClick={handleCloseModal}>
+              <X size={18} strokeWidth={3} />
+              <span>{isViewMode ? 'Fechar' : 'Cancelar'}</span>
+            </button>
+            {!isViewMode && (
+              <button type="submit" form="rebanho-form" className="btn-premium-solid indigo">
+                <span>{selectedAnimal ? 'Salvar Alterações' : 'Cadastrar Animal'}</span>
+                {selectedAnimal ? <CheckCircle2 size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
+              </button>
+            )}
+          </>
         }
       >
-        <div className="modal-tabs">
-          <button className={activeTab === 'geral' ? 'active' : ''} onClick={() => setActiveTab('geral')}>Geral</button>
-          <button className={activeTab === 'genealogia' ? 'active' : ''} onClick={() => setActiveTab('genealogia')}>Genealogia</button>
-          <button className={activeTab === 'manejo' ? 'active' : ''} onClick={() => setActiveTab('manejo')}>Manejo</button>
-          <button className={activeTab === 'financeiro' ? 'active' : ''} onClick={() => setActiveTab('financeiro')}>Financeiro</button>
+        <div className="modal-tabs mb-6">
+          <button className={`tab-btn ${activeTab === 'geral' ? 'active' : ''}`} onClick={() => setActiveTab('geral')}>Geral</button>
+          <button className={`tab-btn ${activeTab === 'genealogia' ? 'active' : ''}`} onClick={() => setActiveTab('genealogia')}>Genealogia</button>
+          <button className={`tab-btn ${activeTab === 'manejo' ? 'active' : ''}`} onClick={() => setActiveTab('manejo')}>Manejo</button>
+          <button className={`tab-btn ${activeTab === 'financeiro' ? 'active' : ''}`} onClick={() => setActiveTab('financeiro')}>Financeiro</button>
         </div>
-
-        <form 
-          id="animal-form"
-          onSubmit={async (e) => { 
-            e.preventDefault(); 
-            const formData = new FormData(e.currentTarget);
-            const updatedAnimal: Animal = {
-              ...selectedAnimal!,
-              id: selectedAnimal?.id || Math.random().toString(36).substr(2, 9),
-              brinco: formData.get('brinco') as string,
-              sexo: formData.get('sexo') as any,
-              raca: formData.get('raca') as string,
-              dataNasc: formData.get('dataNasc') as string,
-              lote: formData.get('lote') as string,
-              pasto: formData.get('pasto') as string,
-              peso: Number(formData.get('peso')),
-              status: formData.get('status') as any,
-              categoria: calculateCategory(formData.get('dataNasc') as string, formData.get('sexo') as any),
-              custoAquisicao: selectedAnimal?.custoAquisicao || 0,
-              custoNutricao: selectedAnimal?.custoNutricao || 0,
-              custoSanidade: selectedAnimal?.custoSanidade || 0,
-              custoReproducao: selectedAnimal?.custoReproducao || 0,
-              custoConfinamento: selectedAnimal?.custoConfinamento || 0,
-              custoOperacional: selectedAnimal?.custoOperacional || 0,
-              statusEmAbate: selectedAnimal?.statusEmAbate || false,
-              historicoCustos: selectedAnimal?.historicoCustos || [],
-              empresaId: selectedAnimal?.empresaId || (activeCompanyId === 'Todas' ? undefined : activeCompanyId),
-              tenant_id: 'default'
-            };
-            await dataService.saveItem('animais', updatedAnimal);
-            handleCloseModal(); 
-          }}
-        >
-          <div className="form-sections-grid">
+        
+        <div className="sidesheet-body-content">
+          <form 
+            id="rebanho-form"
+            onSubmit={async (e) => { 
+              e.preventDefault(); 
+              const formData = new FormData(e.currentTarget);
+              const updatedAnimal: Animal = {
+                ...selectedAnimal!,
+                id: selectedAnimal?.id || Math.random().toString(36).substr(2, 9),
+                brinco: formData.get('brinco') as string,
+                sexo: formData.get('sexo') as any,
+                raca: formData.get('raca') as string,
+                dataNasc: formData.get('dataNasc') as string,
+                lote: formData.get('lote') as string,
+                pasto: formData.get('pasto') as string,
+                peso: Number(formData.get('peso')),
+                status: formData.get('status') as any,
+                categoria: calculateCategory(formData.get('dataNasc') as string, formData.get('sexo') as any),
+                custoAquisicao: selectedAnimal?.custoAquisicao || 0,
+                custoNutricao: selectedAnimal?.custoNutricao || 0,
+                custoSanidade: selectedAnimal?.custoSanidade || 0,
+                custoReproducao: selectedAnimal?.custoReproducao || 0,
+                custoConfinamento: selectedAnimal?.custoConfinamento || 0,
+                custoOperacional: selectedAnimal?.custoOperacional || 0,
+                statusEmAbate: selectedAnimal?.statusEmAbate || false,
+                historicoCustos: selectedAnimal?.historicoCustos || [],
+                empresaId: selectedAnimal?.empresaId,
+                tenant_id: 'default'
+              };
+              await dataService.saveItem('animais', updatedAnimal);
+              handleCloseModal(); 
+            }}
+          >
             {activeTab === 'geral' && (
-              <div className="form-section">
-                <div className="form-grid">
-                  <div className="form-group col-4">
-                    <label>Brinco ID</label>
-                    <div className="input-with-icon">
-                      <input type="text" name="brinco" defaultValue={selectedAnimal?.brinco} placeholder="Ex: 8922" required disabled={isViewMode} />
-                      <BarChart3 size={18} className="field-icon" />
+              <div className="modern-form-section">
+                <div className="modern-form-row four-cols">
+                  <div className="modern-form-group col-span-2">
+                    <label>Identificação / Brinco</label>
+                    <div className="modern-input-wrapper">
+                      <input type="text" name="brinco" className="modern-input text-lg font-bold" defaultValue={selectedAnimal?.brinco} placeholder="Ex: 8922" required disabled={isViewMode} />
+                      <Hash size={20} className="modern-field-icon" />
                     </div>
                   </div>
-                  <div className="form-group col-4">
+                  <div className="modern-form-group">
                     <label>Sexo</label>
-                    <div className="input-with-icon">
-                      <select name="sexo" defaultValue={selectedAnimal?.sexo || 'M'} required disabled={isViewMode}>
+                    <div className="modern-input-wrapper">
+                      <select name="sexo" className="modern-input" defaultValue={selectedAnimal?.sexo || 'M'} required disabled={isViewMode}>
                         <option value="M">Macho</option>
                         <option value="F">Fêmea</option>
                       </select>
-                      <Activity size={18} className="field-icon" />
+                      <Activity size={18} className="modern-field-icon" />
                     </div>
                   </div>
-                  <div className="form-group col-4">
+                  <div className="modern-form-group">
+                    <label>Nascimento</label>
+                    <div className="modern-input-wrapper">
+                      <input type="date" name="dataNasc" className="modern-input" defaultValue={selectedAnimal?.dataNasc} required disabled={isViewMode} />
+                      <Calendar size={18} className="modern-field-icon" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="modern-form-row">
+                  <div className="modern-form-group">
                     <label>Raça Dominante</label>
-                    <div className="input-with-icon">
-                      <input type="text" name="raca" defaultValue={selectedAnimal?.raca} placeholder="Ex: Nelore" required disabled={isViewMode} />
-                      <Beef size={18} className="field-icon" />
+                    <div className="modern-input-wrapper">
+                      <input type="text" name="raca" className="modern-input" defaultValue={selectedAnimal?.raca} placeholder="Ex: Nelore" required disabled={isViewMode} />
+                      <Beef size={18} className="modern-field-icon" />
                     </div>
                   </div>
-                  <div className="form-group col-4">
-                    <label>Data de Nascimento</label>
-                    <div className="input-with-icon">
-                      <input type="date" name="dataNasc" defaultValue={selectedAnimal?.dataNasc} required disabled={isViewMode} />
-                      <Calendar size={18} className="field-icon" />
+                  <div className="modern-form-group">
+                    <label>Status Animal</label>
+                    <div className="modern-input-wrapper">
+                      <select name="status" className="modern-input" defaultValue={selectedAnimal?.status || 'Ativo'} required disabled={isViewMode}>
+                        <option value="Ativo">🟢 Ativo no Plantel</option>
+                        <option value="Vendido">💰 Vendido / Saída</option>
+                        <option value="Baixa">❌ Baixa / Óbito</option>
+                      </select>
+                      <ShieldCheck size={18} className="modern-field-icon" />
                     </div>
                   </div>
-                  <div className="form-group col-8">
-                    <div className="info-box info-indigo h-full flex items-center" style={{ margin: '0' }}>
-                      <Info size={18} />
-                      <p>A categoria é calculada automaticamente conforme idade e sexo.</p>
+                </div>
+
+                <div className="modern-info-tag indigo full-width">
+                  <Info size={16} />
+                  <span className="text-xs font-bold uppercase tracking-wider">A categoria é calculada automaticamente baseada na idade e sexo.</span>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'genealogia' && (
+              <div className="modern-form-section">
+                <div className="modern-form-row">
+                  <div className="modern-form-group">
+                    <label>Número SISBOV</label>
+                    <div className="modern-input-wrapper">
+                      <input type="text" className="modern-input" defaultValue={selectedAnimal?.sisbov} placeholder="Ex: 076.1234.9" disabled={isViewMode} />
+                      <Info size={18} className="modern-field-icon" />
+                    </div>
+                  </div>
+                  <div className="modern-form-group">
+                    <label>ID Eletrônico (RFID)</label>
+                    <div className="modern-input-wrapper">
+                      <input type="text" className="modern-input" defaultValue={selectedAnimal?.idEletronico} placeholder="Ex: A123B456" disabled={isViewMode} />
+                      <Activity size={18} className="modern-field-icon" />
+                    </div>
+                  </div>
+                </div>
+                <div className="modern-form-row">
+                  <div className="modern-form-group">
+                    <label>Identificação do Pai</label>
+                    <div className="modern-input-wrapper">
+                      <input type="text" className="modern-input" defaultValue={selectedAnimal?.pai} placeholder="Ex: Nelore PO 55" disabled={isViewMode} />
+                      <Beef size={18} className="modern-field-icon" />
+                    </div>
+                  </div>
+                  <div className="modern-form-group">
+                    <label>Identificação da Mãe</label>
+                    <div className="modern-input-wrapper">
+                      <input type="text" className="modern-input" defaultValue={selectedAnimal?.mae} placeholder="Ex: Matriz 204" disabled={isViewMode} />
+                      <Beef size={18} className="modern-field-icon" />
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-                  {activeTab === 'genealogia' && (
-                    <div className="form-section">
-                      <h4>Rastreabilidade e Origem</h4>
-                      <div className="form-grid">
-                        <div className="form-group col-6">
-                          <label>Número SISBOV</label>
-                          <div className="input-with-icon">
-                            <input type="text" defaultValue={selectedAnimal?.sisbov} placeholder="Ex: 076.1234567.9" disabled={isViewMode} />
-                            <Info size={18} className="field-icon" />
-                          </div>
-                        </div>
-                        <div className="form-group col-6">
-                          <label>ID Eletrônico (RFID)</label>
-                          <div className="input-with-icon">
-                            <input type="text" defaultValue={selectedAnimal?.idEletronico} placeholder="Ex: A123B456" disabled={isViewMode} />
-                            <Activity size={18} className="field-icon" />
-                          </div>
-                        </div>
-                        <div className="form-group col-6">
-                          <label>Identificação do Pai (Brinco/Nome)</label>
-                          <div className="input-with-icon">
-                            <input type="text" defaultValue={selectedAnimal?.pai} placeholder="Ex: Nelore PO 55" disabled={isViewMode} />
-                            <Beef size={18} className="field-icon" />
-                          </div>
-                        </div>
-                        <div className="form-group col-6">
-                          <label>Identificação da Mãe (Brinco/Nome)</label>
-                          <div className="input-with-icon">
-                            <input type="text" defaultValue={selectedAnimal?.mae} placeholder="Ex: Matriz 204" disabled={isViewMode} />
-                            <Beef size={18} className="field-icon" />
-                          </div>
-                        </div>
-                      </div>
+            {activeTab === 'manejo' && (
+              <div className="modern-form-section">
+                <div className="modern-form-row four-cols">
+                  <div className="modern-form-group col-span-2">
+                    <label>Lote Atual</label>
+                    <div className="modern-input-wrapper">
+                      <input type="text" name="lote" className="modern-input" defaultValue={selectedAnimal?.lote} placeholder="Ex: Lote 01" required disabled={isViewMode} />
+                      <Tag size={18} className="modern-field-icon" />
                     </div>
-                  )}
-
-                  {activeTab === 'manejo' && (
-                    <div className="form-section">
-                      <div className="form-grid">
-                        <div className="form-group col-6">
-                          <label>Lote Atual</label>
-                          <div className="input-with-icon">
-                            <input type="text" name="lote" defaultValue={selectedAnimal?.lote} placeholder="Ex: Lote 01" required disabled={isViewMode} />
-                            <Plus size={18} className="field-icon" />
-                          </div>
-                        </div>
-                        <div className="form-group col-6">
-                          <label>Pasto/Piquete</label>
-                          <div className="input-with-icon">
-                            <input type="text" name="pasto" defaultValue={selectedAnimal?.pasto} placeholder="Ex: Pasto das Flores" required disabled={isViewMode} />
-                            <Search size={18} className="field-icon" />
-                          </div>
-                        </div>
-                        <div className="form-group col-4">
-                          <label>Peso Entrada (kg)</label>
-                          <div className="input-with-icon">
-                            <input type="number" name="peso" defaultValue={selectedAnimal?.peso} placeholder="Ex: 450" required disabled={isViewMode} />
-                            <BarChart3 size={18} className="field-icon" />
-                          </div>
-                        </div>
-                        <div className="form-group col-8">
-                          <label>Status Operacional</label>
-                          <div className="input-with-icon">
-                            <select name="status" defaultValue={selectedAnimal?.status || 'Ativo'} disabled={isViewMode}>
-                              <option value="Ativo">Ativo no Rebanho</option>
-                              <option value="Vendido">Vendido / Descarte</option>
-                              <option value="Baixa">Baixa (Óbito/Perda)</option>
-                            </select>
-                            <Activity size={18} className="field-icon" />
-                          </div>
-                        </div>
-                      </div>
+                  </div>
+                  <div className="modern-form-group col-span-2">
+                    <label>Pasto / Piquete</label>
+                    <div className="modern-input-wrapper">
+                      <input type="text" name="pasto" className="modern-input" defaultValue={selectedAnimal?.pasto} placeholder="Ex: Pasto das Flores" required disabled={isViewMode} />
+                      <MapPin size={18} className="modern-field-icon" />
                     </div>
-                  )}
-
-                  {activeTab === 'financeiro' && selectedAnimal && (
-                    <div className="form-section">
-                      {(() => {
-                        const lotAnimals = animais.filter(a => a.lote === selectedAnimal.lote);
-                        const matchingLoteId = selectedAnimal.lote.includes('Lote 01') ? '1' : selectedAnimal.lote.includes('Lote 02') ? '2' : '';
-                        const diet = dietas.find(d => d.loteId === matchingLoteId);
-                        const lotSanitationCost = financialService.calculateSanitationCost(selectedAnimal, registrosSanitarios, lotAnimals.length);
-                        const lotNutritionCost = financialService.calculateNutritionCost(selectedAnimal, diet, lotAnimals, 30, costCalculationMode);
-                        const totalInvestido = financialService.calculateTotalAnimalInvestment(selectedAnimal, lotSanitationCost, lotNutritionCost);
-
-                        return (
-                          <>
-                            <div className="financial-header-controls mb-16">
-                              <h4>Resumo de Investimento</h4>
-                              <div className="cost-mode-toggle mini">
-                                <label className={costCalculationMode === 'fixed' ? 'active' : ''}>
-                                  <input type="radio" value="fixed" checked={costCalculationMode === 'fixed'} onChange={() => setCostCalculationMode('fixed')} />
-                                  Fixo
-                                </label>
-                                <label className={costCalculationMode === 'proportional' ? 'active' : ''}>
-                                  <input type="radio" value="proportional" checked={costCalculationMode === 'proportional'} onChange={() => setCostCalculationMode('proportional')} />
-                                  Peso
-                                </label>
-                              </div>
-                            </div>
-
-                            <div className="financial-dashboard mb-24">
-                              <div className="financial-card">
-                                <span className="card-label">Total Investido</span>
-                                <span className="card-value">R$ {totalInvestido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                <div className="badge primary">Acumulado</div>
-                              </div>
-                              <div className="financial-card">
-                                <span className="card-label">Custo por Arroba</span>
-                                <span className="card-value">R$ {(totalInvestido / ((selectedAnimal.peso || 1) / 30)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                <div className="badge warning">Base @ 30kg</div>
-                              </div>
-                              <div className="financial-card indigo">
-                                <span className="card-label">Valor de Mercado (Est.)</span>
-                                <span className="card-value">R$ {(selectedAnimal.peso / 30 * 280).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                                <div className="badge success">ROI: +{Math.round(((selectedAnimal.peso / 30 * 280) / (totalInvestido || 1) - 1) * 100)}%</div>
-                              </div>
-                            </div>
-
-                            <div className="cost-breakdown-section mb-24">
-                              <h4>Detalhamento de Custos</h4>
-                              <table className="cost-table">
-                                <thead>
-                                  <tr>
-                                    <th>Categoria</th>
-                                    <th>Valor Registrado</th>
-                                    <th>% do Total</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {[
-                                    { label: 'Aquisição', value: selectedAnimal.custoAquisicao },
-                                    { label: 'Nutrição (Individual)', value: selectedAnimal.custoNutricao },
-                                    {
-                                      label: `Nutrição (${costCalculationMode === 'proportional' ? 'Prorate p/ Peso' : 'Lote Fixo'})`, 
-                                      value: financialService.calculateNutritionCost(selectedAnimal, diet, lotAnimals, 30, costCalculationMode)
-                                    },
-                                    { label: 'Sanidade (Individual)', value: selectedAnimal.custoSanidade },
-                                    {
-                                      label: 'Sanidade (Por Lote)', 
-                                      value: lotSanitationCost - selectedAnimal.custoSanidade
-                                    },
-                                    { label: 'Reprodução', value: selectedAnimal.custoReproducao },
-                                    { label: 'Confinamento', value: selectedAnimal.custoConfinamento },
-                                    { label: 'Operacional', value: selectedAnimal.custoOperacional }
-                                  ].map((cost) => {
-                                    const total = totalInvestido || 1;
-                                    return (
-                                      <tr key={cost.label}>
-                                        <td>{cost.label}</td>
-                                        <td className="font-bold">R$ {cost.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                                        <td>
-                                          <div className="percentage-bar-wrapper">
-                                            <div className="percentage-bar" style={{ width: `${(cost.value / total * 100)}%`, backgroundColor: 'var(--primary-indigo)' }}></div>
-                                            <span className="percentage-text">{Math.round(cost.value / total * 100)}%</span>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-
-                            <div className="cost-history-section">
-                              <h4>Histórico de Lançamentos</h4>
-                              <div className="history-table-wrapper">
-                                <table className="history-table">
-                                  <thead>
-                                    <tr>
-                                      <th>Data</th>
-                                      <th>Categoria</th>
-                                      <th>Descrição</th>
-                                      <th className="text-right">Valor</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {selectedAnimal.historicoCustos.map((lancamento) => (
-                                      <tr key={lancamento.id}>
-                                        <td className="date-cell">{new Date(lancamento.data).toLocaleDateString('pt-BR')}</td>
-                                        <td>
-                                          <span className={`badge ${lancamento.categoria.toLowerCase() === 'sanidade' ? 'danger' : 'primary'}`}>
-                                            {lancamento.categoria}
-                                          </span>
-                                        </td>
-                                        <td className="desc-cell">{lancamento.descricao}</td>
-                                        <td className="text-right font-bold">
-                                          R$ {lancamento.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </div>
-                          </>
-                        );
-                      })()}
+                  </div>
                 </div>
-              )}
-            </div>
+                <div className="modern-form-row">
+                  <div className="modern-form-group full-width">
+                    <label>Peso Entrada (kg)</label>
+                    <div className="modern-input-wrapper">
+                      <input type="number" name="peso" className="modern-input text-lg font-bold" defaultValue={selectedAnimal?.peso} placeholder="Ex: 450" required disabled={isViewMode} />
+                      <Weight size={18} className="modern-field-icon" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'financeiro' && selectedAnimal && (
+              <div className="modern-form-section">
+                {(() => {
+                  const lotAnimals = animais.filter(a => a.lote === selectedAnimal.lote);
+                  const matchingLoteId = selectedAnimal.lote?.includes('Lote 01') ? '1' : selectedAnimal.lote?.includes('Lote 02') ? '2' : '';
+                  const diet = dietas.find(d => d.loteId === matchingLoteId);
+                  const lotSanitationCost = financialService.calculateSanitationCost(selectedAnimal, registrosSanitarios, lotAnimals.length);
+                  const lotNutritionCost = financialService.calculateNutritionCost(selectedAnimal, diet, lotAnimals, 30, costCalculationMode);
+                  const totalInvestido = financialService.calculateTotalAnimalInvestment(selectedAnimal, lotSanitationCost, lotNutritionCost);
+                  const roi = Math.round(((selectedAnimal.peso / 30 * 280) / (totalInvestido || 1) - 1) * 100);
+
+                  return (
+                    <div className="modern-financial-pane">
+                      <div className="modern-form-row mb-6">
+                        <div className="modern-info-tag indigo flex-1">
+                          <DollarSign size={20} />
+                          <div className="flex flex-col">
+                            <span className="text-[10px] uppercase opacity-70">Total Investido</span>
+                            <span className="text-lg font-bold">R$ {totalInvestido.toLocaleString('pt-BR')}</span>
+                          </div>
+                        </div>
+                        <div className={`modern-info-tag ${roi >= 0 ? 'emerald' : 'amber'} flex-1`}>
+                          <BarChart3 size={20} />
+                          <div className="flex flex-col">
+                            <span className="text-[10px] uppercase opacity-70">ROI Estimado</span>
+                            <span className="text-lg font-bold">{roi > 0 ? '+' : ''}{roi}%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="modern-cost-list bg-white/50 backdrop-blur-sm rounded-2xl p-6 border border-slate-100">
+                         <span className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-6 block">Detalhamento de Custos</span>
+                         {[
+                           { label: 'Aquisição', val: selectedAnimal.custoAquisicao, color: '#6366f1', icon: <Plus size={14} /> },
+                           { label: 'Nutrição', val: lotNutritionCost, color: '#10b981', icon: <Activity size={14} /> },
+                           { label: 'Sanidade', val: lotSanitationCost, color: '#ef4444', icon: <Activity size={14} /> },
+                           { label: 'Operacional', val: selectedAnimal.custoOperacional + selectedAnimal.custoReproducao, color: '#f59e0b', icon: <BarChart3 size={14} /> }
+                         ].map(item => (
+                           <div key={item.label} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0 hover:bg-slate-50/50 transition-colors rounded-lg px-2">
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${item.color}15`, color: item.color }}>
+                                  {item.icon}
+                                </div>
+                                <span className="font-semibold text-slate-700">{item.label}</span>
+                              </div>
+                              <span className="font-bold text-slate-900">R$ {item.val.toLocaleString('pt-BR')}</span>
+                           </div>
+                         ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </form>
-        </StandardModal>
+        </div>
+      </ModernModal>
     </div>
   );
 };
-

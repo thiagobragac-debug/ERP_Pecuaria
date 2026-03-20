@@ -27,7 +27,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { AccessRole } from '../../types';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
@@ -196,12 +196,23 @@ export const PerfilUsuario: React.FC = () => {
         />
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={editingPerfil ? 'Editar Perfil' : 'Novo Perfil de Usuário'}
-        size="lg"
         icon={ShieldCheck}
+        footer={
+          <>
+            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
+            </button>
+            <button className="btn-premium-solid indigo" onClick={handleSave}>
+              <ShieldCheck size={18} strokeWidth={3} />
+              <span>Salvar Perfil</span>
+            </button>
+          </>
+        }
       >
         <div className="modal-body-premium">
           <div className="form-grid-premium">
@@ -275,14 +286,7 @@ export const PerfilUsuario: React.FC = () => {
             </div>
           </div>
         </div>
-        <div className="modal-footer-premium flex gap-3">
-          <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-          <button className="btn-premium-solid indigo" onClick={handleSave}>
-            <ShieldCheck size={18} strokeWidth={3} />
-            <span>Salvar Perfil</span>
-          </button>
-        </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

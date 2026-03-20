@@ -24,21 +24,25 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Activity
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import './Movimentacao.css';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
 import { ColumnFilters } from '../../components/ColumnFilters';
 import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
 import { useCompany } from '../../contexts/CompanyContext';
-import { MovimentacaoEstoque as MovimentacaoType, Company } from '../../types';
+import { MovimentacaoEstoque as MovimentacaoType, Company, Insumo } from '../../types';
+import { SummaryCard } from '../../components/SummaryCard';
+import { StatusBadge } from '../../components/StatusBadge';
+import { SearchableSelect } from '../../components/SearchableSelect';
 
 
 export const Movimentacao = () => {
@@ -53,20 +57,42 @@ export const Movimentacao = () => {
     responsavel: ''
   });
 
+  const { user: currentUser, currentOrg } = useAuth();
   const { activeCompanyId: selectedEmpresaId, setActiveCompanyId, companies: empresasList } = useCompany();
 
   const isOnline = useOnlineStatus();
   const { data: movimentacoes = [], isLoading } = useOfflineQuery<MovimentacaoType>(['movimentacoes_estoque'], 'movimentacoes_estoque');
+  const { data: insumos = [] } = useOfflineQuery<Insumo>(['insumos'], 'insumos');
+  
   const saveMovMutation = useOfflineMutation<MovimentacaoType>('movimentacoes_estoque', [['movimentacoes_estoque']]);
+  const saveInsumoMutation = useOfflineMutation<Insumo>('insumos', [['insumos']]);
 
   const [selectedMov, setSelectedMov] = useState<MovimentacaoType | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
   const [movType, setMovType] = useState<'Entrada' | 'Saída' | 'Transferência'>('Entrada');
+  
+  const [formData, setFormData] = useState<Partial<MovimentacaoType>>({
+    tipo: 'Entrada',
+    data: new Date().toISOString().substring(0, 16),
+    status: 'Processado'
+  });
 
   const handleOpenModal = (mov: MovimentacaoType | null = null, viewOnly = false) => {
-    setSelectedMov(mov);
+    if (mov) {
+      setSelectedMov(mov);
+      setFormData({ ...mov });
+      setMovType(mov.tipo);
+    } else {
+      setSelectedMov(null);
+      setFormData({
+        tipo: 'Entrada',
+        data: new Date().toISOString().substring(0, 16),
+        status: 'Processado',
+        empresaId: selectedEmpresaId !== 'Todas' ? selectedEmpresaId : undefined
+      });
+      setMovType('Entrada');
+    }
     setIsViewMode(viewOnly);
-    setMovType(mov?.tipo || 'Entrada');
     setIsModalOpen(true);
   };
 
@@ -74,6 +100,70 @@ export const Movimentacao = () => {
     setIsModalOpen(false);
     setSelectedMov(null);
     setIsViewMode(false);
+  };
+
+  const handleSave = async () => {
+    if (!formData.insumo_id || !formData.quantidade || !formData.local_origem) {
+      alert('Por favor, preencha todos os campos obrigatórios (Produto, Quantidade, Local).');
+      return;
+    }
+
+    try {
+      const finalMov: MovimentacaoType = {
+        id: selectedMov?.id || Math.random().toString(36).substr(2, 9),
+        tipo: movType,
+        insumo_id: formData.insumo_id!,
+        insumo_nome: formData.insumo_nome!,
+        quantidade: Number(formData.quantidade),
+        unidade: formData.unidade || 'un',
+        data: formData.data || new Date().toISOString(),
+        responsavel: formData.responsavel || 'Usuário Atual',
+        motivo: formData.motivo || 'Ajuste manual',
+        local_origem: formData.local_origem!,
+        local_destino: movType === 'Transferência' ? formData.local_destino : undefined,
+        status: formData.status || 'Processado',
+        empresaId: formData.empresaId || selectedEmpresaId,
+        tenant_id: currentOrg?.id || 'default'
+      };
+
+      // Atomic update logic: Save movement and update stock
+      await saveMovMutation.mutateAsync(finalMov);
+      
+      const insumo = insumos.find(i => i.id === finalMov.insumo_id);
+      if (insumo) {
+        const updatedInsumo = { ...insumo };
+        const qty = finalMov.quantidade;
+        
+        // Ensure maps exist
+        updatedInsumo.estoquePorLocal = { ...insumo.estoquePorLocal };
+        
+        if (movType === 'Entrada') {
+          updatedInsumo.estoqueAtual += qty;
+          updatedInsumo.estoquePorLocal[finalMov.local_origem] = (updatedInsumo.estoquePorLocal[finalMov.local_origem] || 0) + qty;
+          updatedInsumo.ultimaEntrada = finalMov.data;
+        } else if (movType === 'Saída') {
+          updatedInsumo.estoqueAtual -= qty;
+          updatedInsumo.estoquePorLocal[finalMov.local_origem] = (updatedInsumo.estoquePorLocal[finalMov.local_origem] || 0) - qty;
+        } else if (movType === 'Transferência' && finalMov.local_destino) {
+          // Subtract from origin, add to destination
+          updatedInsumo.estoquePorLocal[finalMov.local_origem] = (updatedInsumo.estoquePorLocal[finalMov.local_origem] || 0) - qty;
+          updatedInsumo.estoquePorLocal[finalMov.local_destino] = (updatedInsumo.estoquePorLocal[finalMov.local_destino] || 0) + qty;
+          // Global balance remains same
+        }
+
+        // Update status based on new balance
+        if (updatedInsumo.estoqueAtual <= 0) updatedInsumo.status = 'Crítico';
+        else if (updatedInsumo.estoqueAtual <= updatedInsumo.estoqueMinimo) updatedInsumo.status = 'Baixo';
+        else updatedInsumo.status = 'Ok';
+
+        await saveInsumoMutation.mutateAsync(updatedInsumo);
+      }
+
+      handleCloseModal();
+    } catch (error) {
+      console.error('Error saving movement:', error);
+      alert('Erro ao salvar movimentação.');
+    }
   };
 
   const totalEntradas = movimentacoes
@@ -132,8 +222,8 @@ export const Movimentacao = () => {
 
       <div className="page-header-row">
         <div className="title-section">
-          <div className="icon-badge secondary">
-            <ArrowLeftRight size={24} strokeWidth={3} />
+          <div className="icon-badge indigo">
+            <ArrowLeftRight size={32} strokeWidth={3} />
           </div>
           <div>
             <h1>Movimentação de Estoque</h1>
@@ -147,11 +237,11 @@ export const Movimentacao = () => {
           </div>
         </div>
         <div className="action-buttons">
-          <button className="btn-premium-outline h-11 px-6 gap-2">
+          <button className="btn-premium-outline">
             <Download size={18} strokeWidth={3} />
             <span>Relatório de Movimento</span>
           </button>
-          <button className="btn-premium-solid indigo h-11 px-6 gap-2" onClick={() => handleOpenModal()}>
+          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
             <Plus size={18} strokeWidth={3} />
             <span>Nova Movimentação</span>
           </button>
@@ -159,50 +249,38 @@ export const Movimentacao = () => {
       </div>
 
       <div className="summary-grid">
-        <div className="summary-card card glass animate-slide-up">
-          <div className="summary-info">
-            <span className="summary-label">Entradas (30 dias)</span>
-            <span className="summary-value">{totalEntradas.toLocaleString('pt-BR')} <small>kg/un</small></span>
-            <span className="summary-trend up">
-              <TrendingUp size={14} /> +12% vs mês ant.
-            </span>
-          </div>
-          <div className="summary-icon green">
-            <ArrowUpRight size={24} strokeWidth={3} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Saídas (30 dias)</span>
-            <span className="summary-value">{totalSaidas.toLocaleString('pt-BR')} <small>kg/un</small></span>
-            <span className="summary-trend down">
-              <TrendingDown size={14} /> -5% vs mês ant.
-            </span>
-          </div>
-          <div className="summary-icon red">
-            <ArrowDownLeft size={24} strokeWidth={3} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Ajustes / Perdas</span>
-            <span className="summary-value">R$ 1.240,00</span>
-            <span className="summary-subtext">Valor acumulado</span>
-          </div>
-          <div className="summary-icon orange">
-            <AlertTriangle size={24} strokeWidth={3} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Giro de Estoque</span>
-            <span className="summary-value">1.4x</span>
-            <span className="summary-subtext">Média mensal</span>
-          </div>
-          <div className="summary-icon blue">
-            <TrendingUp size={24} strokeWidth={3} />
-          </div>
-        </div>
+        <SummaryCard 
+          label="Entradas (30 dias)"
+          value={`${totalEntradas.toLocaleString('pt-BR')} ${insumos[0]?.unidade || 'kg'}`}
+          trend={{ value: '+12% vs mês ant.', type: 'up', icon: TrendingUp }}
+          icon={TrendingUp}
+          color="emerald"
+          delay="0s"
+        />
+        <SummaryCard 
+          label="Saídas (30 dias)"
+          value={`${totalSaidas.toLocaleString('pt-BR')} ${insumos[0]?.unidade || 'kg'}`}
+          trend={{ value: '-5% vs mês ant.', type: 'down', icon: TrendingDown }}
+          icon={TrendingDown}
+          color="rose"
+          delay="0.1s"
+        />
+        <SummaryCard 
+          label="Ajustes / Perdas"
+          value="R$ 1.240,00"
+          subtext="Valor acumulado"
+          icon={AlertTriangle}
+          color="amber"
+          delay="0.2s"
+        />
+        <SummaryCard 
+          label="Giro de Estoque"
+          value="1.4x"
+          subtext="Média mensal"
+          icon={Activity}
+          color="sky"
+          delay="0.3s"
+        />
       </div>
 
       <div className="data-section">
@@ -213,7 +291,7 @@ export const Movimentacao = () => {
           actionsLabel="Filtragem"
         >
           <button
-            className={`btn-premium-outline h-11 px-6 gap-2 ${isFiltersOpen ? 'filter-active' : ''}`}
+            className={`btn-premium-outline ${isFiltersOpen ? 'filter-active' : ''}`}
             onClick={() => setIsFiltersOpen(!isFiltersOpen)}
           >
             <Filter size={18} strokeWidth={3} />
@@ -303,9 +381,7 @@ export const Movimentacao = () => {
                   </td>
                   <td title={mov.motivo} className="truncate-cell">{mov.motivo}</td>
                   <td>
-                    <span className={`status-badge mov-${mov.status.toLowerCase()}`}>
-                      {mov.status}
-                    </span>
+                    <StatusBadge status={mov.status} />
                   </td>
                   <td className="text-right">
                     <div className="table-actions">
@@ -341,144 +417,198 @@ export const Movimentacao = () => {
         />
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={handleCloseModal}
-        title={isViewMode ? 'Detalhes da Movimentação' : (selectedMov ? 'Editar Movimentação' : 'Nova Movimentação de Estoque')}
-        subtitle="O ajuste manual de estoque impacta diretamente o saldo físico e financeiro do almoxarifado."
+        title={isViewMode ? 'Detalhes da Movimentação' : (selectedMov ? 'Editar Movimentação' : 'Nova Movimentação')}
+        subtitle="O ajuste manual de estoque impacta diretamente o saldo físico e financeiro."
         icon={ArrowLeftRight}
-        size="lg"
         footer={
-          <div className="flex justify-end gap-3 w-full">
-            <button type="button" className="btn-premium-outline px-8" onClick={handleCloseModal}>Cancelar</button>
-            {!isViewMode && <button type="button" className="btn-premium-solid indigo px-8" onClick={handleCloseModal}>Confirmar Movimentação</button>}
-          </div>
+          <>
+            <button type="button" className="btn-premium-outline" onClick={handleCloseModal}>
+              <X size={18} strokeWidth={3} />
+              <span>{isViewMode ? 'Fechar' : 'Cancelar'}</span>
+            </button>
+            {!isViewMode && (
+              <button type="button" className="btn-premium-solid indigo" onClick={handleSave}>
+                <span>{selectedMov ? 'Salvar Alterações' : 'Confirmar Lançamento'}</span>
+                {selectedMov ? <CheckCircle2 size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
+              </button>
+            )}
+          </>
         }
       >
-        <form onSubmit={(e) => { e.preventDefault(); handleCloseModal(); }}>
-          <div className="form-grid">
-            <div className="form-group col-12">
-              <label>Tipo de Movimento</label>
-              <div className={`radio-group flex gap-3 ${isViewMode ? 'disabled opacity-60' : ''}`} style={{ background: 'var(--bg-light)', padding: '4px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-                  <label className={`radio-label cursor-pointer p-2 rounded transition-all flex-1 text-center ${movType === 'Entrada' ? 'bg-emerald-50 text-emerald-600 font-bold' : ''}`}>
-                      <input 
-                        type="radio" 
-                        name="tipo" 
-                        value="Entrada" 
-                        className="hidden"
-                        checked={movType === 'Entrada'} 
-                        onChange={() => !isViewMode && setMovType('Entrada')}
-                        disabled={isViewMode} 
-                      />
-                      Entrada
-                  </label>
-                  <label className={`radio-label cursor-pointer p-2 rounded transition-all flex-1 text-center ${movType === 'Saída' ? 'bg-rose-50 text-rose-600 font-bold' : ''}`}>
-                      <input 
-                        type="radio" 
-                        name="tipo" 
-                        value="Saída" 
-                        className="hidden"
-                        checked={movType === 'Saída'} 
-                        onChange={() => !isViewMode && setMovType('Saída')}
-                        disabled={isViewMode} 
-                      />
-                      Saída
-                  </label>
-                  <label className={`radio-label cursor-pointer p-2 rounded transition-all flex-1 text-center ${movType === 'Transferência' ? 'bg-indigo-50 text-indigo-600 font-bold' : ''}`}>
-                      <input 
-                        type="radio" 
-                        name="tipo" 
-                        value="Transferência" 
-                        className="hidden"
-                        checked={movType === 'Transferência'} 
-                        onChange={() => !isViewMode && setMovType('Transferência')}
-                        disabled={isViewMode} 
-                      />
-                      Transferência
-                  </label>
-              </div>
+        <div className="modern-form-section">
+          <div className="modern-form-group full-width mb-6">
+            <label>Tipo de Movimento</label>
+            <div className={`modern-radio-group ${isViewMode ? 'disabled' : ''}`}>
+              <button 
+                type="button"
+                className={`modern-radio-item ${movType === 'Entrada' ? 'active emerald' : ''}`}
+                onClick={() => !isViewMode && setMovType('Entrada')}
+              >
+                <ArrowUpRight size={16} />
+                <span>Entrada</span>
+              </button>
+              <button 
+                type="button"
+                className={`modern-radio-item ${movType === 'Saída' ? 'active rose' : ''}`}
+                onClick={() => !isViewMode && setMovType('Saída')}
+              >
+                <ArrowDownLeft size={16} />
+                <span>Saída</span>
+              </button>
+              <button 
+                type="button"
+                className={`modern-radio-item ${movType === 'Transferência' ? 'active indigo' : ''}`}
+                onClick={() => !isViewMode && setMovType('Transferência')}
+              >
+                <ArrowLeftRight size={16} />
+                <span>Transferência</span>
+              </button>
             </div>
-            <div className="form-group col-8">
-              <label>Insumo / Produto</label>
-              <div className="input-with-icon">
-                  <input type="text" defaultValue={selectedMov?.insumo_nome} disabled={isViewMode} required placeholder="Buscar produto no estoque..." className="w-full" />
-                  <Package size={18} className="field-icon" />
-              </div>
+          </div>
+
+          <div className="modern-form-row three-cols">
+            <div className="modern-form-group col-span-2">
+              <SearchableSelect
+                label="Insumo / Produto"
+                options={insumos.map(i => ({ id: i.id!, label: i.nome, sublabel: `Saldo: ${i.estoqueAtual} ${i.unidade}` }))}
+                value={formData.insumo_id || ''}
+                onChange={(val) => {
+                  const insumo = insumos.find(i => i.id === val);
+                  setFormData({
+                    ...formData,
+                    insumo_id: val,
+                    insumo_nome: insumo?.nome,
+                    unidade: insumo?.unidade
+                  });
+                }}
+                disabled={isViewMode}
+                required
+              />
             </div>
-            <div className="form-group col-4">
+            <div className="modern-form-group">
               <label>Quantidade</label>
-              <div className="input-with-unit flex">
-                  <input type="number" step="0.01" defaultValue={selectedMov?.quantidade} disabled={isViewMode} required className="flex-1 rounded-r-none" />
-                  <span className="unit-label p-2 bg-slate-100 border border-l-0 rounded-r text-xs flex items-center">{selectedMov?.unidade || 'un'}</span>
+              <div className="modern-input-wrapper">
+                <input 
+                  type="number" 
+                  className="modern-input"
+                  step="0.01" 
+                  value={formData.quantidade || ''} 
+                  onChange={(e) => setFormData({...formData, quantidade: parseFloat(e.target.value) || 0})}
+                  disabled={isViewMode} 
+                  required 
+                  placeholder="0,00"
+                />
+                <span className="modern-unit-label">{formData.unidade || 'un'}</span>
               </div>
             </div>
-            <div className="form-group col-6">
-              <label>Data da Movimentação</label>
-              <div className="input-with-icon">
-                <input type="datetime-local" defaultValue={selectedMov?.data.substring(0, 16)} disabled={isViewMode} required className="w-full" />
-                <Calendar size={18} className="field-icon" />
+          </div>
+
+          <div className="modern-form-row">
+            <div className="modern-form-group">
+              <label>Data / Hora</label>
+              <div className="modern-input-wrapper">
+                <input 
+                  type="datetime-local" 
+                  className="modern-input"
+                  value={formData.data || ''} 
+                  onChange={(e) => setFormData({...formData, data: e.target.value})}
+                  disabled={isViewMode} 
+                  required 
+                />
+                <Calendar size={18} className="modern-field-icon" />
               </div>
             </div>
-            <div className="form-group col-6">
+            <div className="modern-form-group">
               <label>Responsável</label>
-              <div className="input-with-icon">
-                <input type="text" defaultValue={selectedMov?.responsavel} disabled={isViewMode} required className="w-full" />
-                <User size={18} className="field-icon" />
+              <div className="modern-input-wrapper">
+                <input 
+                  type="text" 
+                  className="modern-input"
+                  value={formData.responsavel || ''} 
+                  onChange={(e) => setFormData({...formData, responsavel: e.target.value})}
+                  disabled={isViewMode} 
+                  required 
+                />
+                <User size={18} className="modern-field-icon" />
               </div>
             </div>
-            <div className="form-group col-12">
-              <label>Motivo / Justificativa</label>
-              <div className="input-with-icon">
-                <textarea rows={2} defaultValue={selectedMov?.motivo} disabled={isViewMode} required placeholder="Ex: Quebra de frasco, ajuste de inventário cíclico, devolução..." className="w-full" />
-                <Info size={18} className="field-icon" />
+          </div>
+
+          <div className="modern-form-group full-width mt-4">
+            <label>Motivo / Justificativa</label>
+            <div className="modern-input-wrapper">
+              <input 
+                type="text" 
+                className="modern-input"
+                value={formData.motivo || ''} 
+                onChange={(e) => setFormData({...formData, motivo: e.target.value})}
+                disabled={isViewMode} 
+                required 
+                placeholder="Ex: Quebra de lote, erro de lançamento..." 
+              />
+              <Info size={18} className="modern-field-icon" />
+            </div>
+          </div>
+
+          <div className="modal-divider my-6 border-b border-slate-100" />
+
+          <div className="modern-form-row">
+            <div className="modern-form-group">
+              <label>{movType === 'Transferência' ? 'Local de Origem' : 'Almoxarifado'}</label>
+              <div className="modern-input-wrapper">
+                <select 
+                  className="modern-input pr-10"
+                  disabled={isViewMode} 
+                  value={formData.local_origem || ''} 
+                  onChange={(e) => setFormData({...formData, local_origem: e.target.value})}
+                >
+                  <option value="">Selecione...</option>
+                  <option>Depósito Central</option>
+                  <option>Farmácia Veterinária</option>
+                  <option>Galpão de Nutrição</option>
+                </select>
+                <Warehouse size={18} className="modern-field-icon" />
               </div>
             </div>
-            
-            <div className="form-group col-6">
-              <label>{movType === 'Transferência' ? 'Local de Origem' : 'Almoxarifado / Local'}</label>
-              <div className="input-with-icon">
-                <select disabled={isViewMode} defaultValue={selectedMov?.local_origem} className="w-full">
+
+            {movType === 'Transferência' && (
+              <div className="modern-form-group">
+                <label>Local de Destino</label>
+                <div className="modern-input-wrapper">
+                  <select 
+                    className="modern-input pr-10"
+                    disabled={isViewMode} 
+                    value={formData.local_destino || ''} 
+                    onChange={(e) => setFormData({...formData, local_destino: e.target.value})}
+                  >
+                    <option value="">Selecione...</option>
                     <option>Depósito Central</option>
                     <option>Farmácia Veterinária</option>
                     <option>Galpão de Nutrição</option>
-                </select>
-                <Warehouse size={18} className="field-icon" />
-              </div>
-            </div>
-            {movType === 'Transferência' ? (
-                <div className="form-group col-6">
-                  <label>Local de Destino</label>
-                  <div className="input-with-icon">
-                    <select disabled={isViewMode} defaultValue={selectedMov?.local_destino} className="w-full">
-                        <option value="">Selecione o destino...</option>
-                        <option>Depósito Central</option>
-                        <option>Farmácia Veterinária</option>
-                        <option>Galpão de Nutrição</option>
-                    </select>
-                    <Warehouse size={18} className="field-icon" />
-                  </div>
+                  </select>
+                  <Warehouse size={18} className="modern-field-icon" />
                 </div>
-            ) : (
-                <div className="form-group col-6"></div>
+              </div>
             )}
           </div>
 
           {!isViewMode && (
-              <div className={`info-box mt-6 p-4 rounded-lg flex gap-3 ${movType === 'Transferência' ? 'bg-blue-50 text-blue-800' : 'bg-amber-50 text-amber-800'}`}>
-                  {movType === 'Transferência' ? <Info size={18} /> : <AlertTriangle size={18} />}
-                  <p className="text-sm">
-                    {movType === 'Transferência' 
-                      ? <strong>Custo Médio:</strong> 
-                      : <strong>Atenção:</strong>}
-                    {movType === 'Transferência'
-                      ? ' A saída do local de origem será feita pelo custo médio atual. O local de destino recalculará seu custo médio com base neste valor.'
-                      : ' Movimentações manuais não possuem rastreabilidade automática via outros módulos. Use com cautela.'}
-                  </p>
+            <div className={`info-box-premium mt-6 ${movType === 'Transferência' ? 'blue' : 'amber'}`}>
+              <div className="flex gap-3">
+                {movType === 'Transferência' ? <Info size={18} /> : <AlertTriangle size={18} />}
+                <div className="text-sm">
+                  {movType === 'Transferência' 
+                    ? 'A saída do local de origem será feita pelo custo médio atual. O local de destino recalculará seu custo médio com base neste valor.'
+                    : 'Movimentações manuais não possuem rastreabilidade automática via outros módulos. Use com cautela.'}
+                </div>
               </div>
+            </div>
           )}
-        </form>
-      </StandardModal>
+        </div>
+      </ModernModal>
     </div>
   );
 };
-

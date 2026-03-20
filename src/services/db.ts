@@ -88,7 +88,7 @@ export class PecuariaDB extends Dexie {
       unidades_medida: 'id, sigla, nome',
       solicitacoes_compra: 'id, numero, status, solicitante, empresaId',
       mapas_cotacao: 'id, numero, status, empresaId',
-      notas_entrada: 'id, numero, fornecedorId, status, empresaId',
+      notas_entrada: 'id, numero, fornecedorId, status, empresaId, tenant_id',
       profiles: 'id, full_name, email, role',
       settings: '++id, farmName',
       oportunidades: 'id, titulo, cliente_id, estagio, empresaId, tenant_id',

@@ -27,12 +27,12 @@ import {
   FileText,
   Hash,
   Building2,
-  List
+  List,
+  Info
 } from 'lucide-react';
-import './PedidoCompra.css';
 import { useCompany } from '../../contexts/CompanyContext';
 import { INITIAL_CATEGORIES } from '../../data/initialData';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
@@ -41,6 +41,13 @@ import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { PurchaseOrder, PurchaseItem, Supplier, Insumo, Company } from '../../types';
+import { useAuth } from '../../contexts/AuthContext';
+import { SummaryCard } from '../../components/SummaryCard';
+import { SearchableSelect } from '../../components/SearchableSelect';
+import { StatusBadge } from '../../components/StatusBadge';
+import { OrderHeader } from './pedidos/components/OrderHeader';
+import { OrderItems } from './pedidos/components/OrderItems';
+import { OrderFooter } from './pedidos/components/OrderFooter';
 
 
 
@@ -65,19 +72,19 @@ export const PedidoCompraPage = () => {
   // Default empresaId from context
   useEffect(() => {
     if (activeCompanyId !== 'Todas') {
-      setEmpresaId(activeCompanyId);
+      setFormData(prev => ({ ...prev, empresaId: activeCompanyId }));
     }
   }, [activeCompanyId]);
   
-  // Form State
-  const [items, setItems] = useState<PurchaseItem[]>([]);
-  const [fornecedorId, setFornecedorId] = useState('');
-  const [mapaReferencia, setMapaReferencia] = useState('');
-  const [previsaoEntrega, setPrevisaoEntrega] = useState('');
-  const [condicaoPagamento, setCondicaoPagamento] = useState('');
-  const [numero, setNumero] = useState('');
-  const [data, setData] = useState('');
-  const [empresaId, setEmpresaId] = useState('');
+  const { currentOrg } = useAuth();
+  const [formData, setFormData] = useState<Partial<PurchaseOrder>>({
+    numero: '',
+    data: new Date().toISOString().split('T')[0],
+    fornecedor_id: '',
+    status: 'Pendente',
+    empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : '',
+    itens: []
+  });
   const [columnFilters, setColumnFilters] = useState({
     numero: '',
     fornecedorNome: '',
@@ -136,27 +143,29 @@ export const PedidoCompraPage = () => {
   const handleOpenModal = (pedido: PurchaseOrder | null = null, view: boolean = false) => {
     if (pedido) {
       setSelectedPedido(pedido);
-      setItems(pedido.itens as any); // Cast for compatibility
-      setFornecedorId(pedido.fornecedor_id);
-      setMapaReferencia(pedido.mapaReferencia || '');
-      setPrevisaoEntrega(pedido.previsaoEntrega);
-      setCondicaoPagamento(pedido.condicaoPagamento);
-      setNumero(pedido.numero);
-      setData(pedido.data);
-      setEmpresaId(pedido.empresaId);
+      setFormData({ ...pedido });
       setIsViewMode(view);
     } else {
       setSelectedPedido(null);
-      setItems([]);
-      setFornecedorId('');
-      setMapaReferencia('');
-      setPrevisaoEntrega('');
-      setCondicaoPagamento('');
-      setNumero(`PC-2024-${String(orders.length + 1).padStart(3, '0')}`);
-      setData(new Date().toISOString().split('T')[0]);
-      setEmpresaId('M1');
+      setFormData({
+        numero: `PC-${new Date().getFullYear()}-${String(orders.length + 1).padStart(3, '0')}`,
+        data: new Date().toISOString().split('T')[0],
+        fornecedor_id: '',
+        status: 'Pendente',
+        empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : '',
+        itens: [{
+          id: Math.random().toString(36).substr(2, 9),
+          insumo_id: '',
+          insumoNome: '',
+          quantidade: 0,
+          unidade: '-',
+          valorUnitario: 0,
+          desconto: 0,
+          subtotal: 0,
+          categoria: 'Insumos'
+        }]
+      });
       setIsViewMode(false);
-      addItemRow();
     }
     setIsModalOpen(true);
   };
@@ -168,16 +177,17 @@ export const PedidoCompraPage = () => {
         const firstOrder = gOrders[0];
         
         // Populate form
-        setItems(firstOrder.itens);
-        setFornecedorId(firstOrder.fornecedorId);
-        setMapaReferencia(firstOrder.mapaReferencia);
-        setEmpresaId(firstOrder.empresaId);
-        
-        // Defaults
-        setNumero(`PC-2024-${String(orders.length + 1).padStart(3, '0')}`);
-        setData(new Date().toISOString().split('T')[0]);
-        setPrevisaoEntrega(new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0]);
-        setCondicaoPagamento('À Vista');
+        setFormData({
+          ...formData,
+          fornecedor_id: firstOrder.fornecedorId,
+          empresaId: firstOrder.empresaId,
+          numero: `PC-${new Date().getFullYear()}-${String(orders.length + 1).padStart(3, '0')}`,
+          data: new Date().toISOString().split('T')[0],
+          mapaReferencia: firstOrder.mapaReferencia,
+          itens: firstOrder.itens,
+          previsaoEntrega: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
+          condicaoPagamento: 'À Vista'
+        });
         
         setIsViewMode(false);
         setIsModalOpen(true);
@@ -192,75 +202,22 @@ export const PedidoCompraPage = () => {
     }
   }, [location.state, orders.length]);
 
-  const addItemRow = () => {
-    const newItem: PurchaseItem = {
-      id: Math.random().toString(36).substr(2, 9),
-      insumo_id: '',
-      insumoNome: '',
-      quantidade: 0,
-      unidade: '-',
-      valorUnitario: 0,
-      desconto: 0,
-      subtotal: 0,
-      categoria: 'Insumos'
-    };
-    setItems([...items, newItem]);
-  };
-
-  const updateItem = (id: string, field: keyof PurchaseItem, value: any) => {
-    setItems(items.map(item => {
-      if (item.id === id) {
-        const updatedItem = { ...item, [field]: value };
-        if (field === 'insumoNome') {
-          const insumo = inventoryList.find(i => i.id === value);
-          if (insumo) {
-            updatedItem.insumoNome = insumo.nome;
-            updatedItem.unidade = insumo.unidade;
-          }
-        }
-        const qty = field === 'quantidade' ? value : updatedItem.quantidade;
-        const price = field === 'valorUnitario' ? value : updatedItem.valorUnitario;
-        const discount = field === 'desconto' ? value : updatedItem.desconto;
-        updatedItem.subtotal = (qty * price) - discount;
-        return updatedItem;
-      }
-      return item;
-    }));
-  };
-
-  const removeItemRow = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
-  };
-
-  const calculateTotal = (itemList: PurchaseItem[] = items) => {
-    return itemList.reduce((acc, item) => acc + item.subtotal, 0);
+  const calculateTotal = (itemList?: PurchaseItem[]) => {
+    const list = itemList || formData.itens || [];
+    return list.reduce((acc, item) => acc + (item.subtotal || 0), 0);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!fornecedorId || items.length === 0) {
-      alert('Selecione um fornecedor e adicione itens ao pedido.');
-      return;
-    }
-
-    const supplier = suppliersList.find(s => s.id === fornecedorId);
+    const supplier = suppliersList.find(s => s.id === formData.fornecedor_id);
     
     const newOrder: PurchaseOrder = {
-      id: selectedPedido?.id || Math.random().toString(36).substr(2, 9),
-      numero: numero,
-      data: data,
-      fornecedor_id: fornecedorId,
+      ...formData,
       fornecedorNome: supplier?.nomeFantasia || 'Fornecedor Desconhecido',
-      mapaReferencia,
-      previsaoEntrega,
-      condicaoPagamento,
-      valorTotal: calculateTotal(items),
-      status: selectedPedido?.status || 'Pendente',
-      itens: items,
-      empresaId,
-      tenant_id: 'default'
-    };
+      valorTotal: calculateTotal(),
+      tenant_id: currentOrg?.id || 'default'
+    } as PurchaseOrder;
 
     await dataService.saveItem('pedidos_compra', newOrder);
     setIsModalOpen(false);
@@ -293,434 +250,254 @@ export const PedidoCompraPage = () => {
   };
 
   return (
-    <div className="page-container fade-in">
-      <nav className="subpage-breadcrumb">
-        <Link to="/compras">Compra & Cotação</Link>
-        <ChevronRight size={14} />
-        <span>Pedidos de Compra</span>
-      </nav>
-      <div className="page-header-row">
-        <button className="back-btn" onClick={() => window.history.back()}>
-          <ChevronLeft size={20} />
-          Voltar
-        </button>
-        <div className="title-section">
-          <div className="icon-badge secondary">
-            <ShoppingBag size={32} />
-          </div>
-          <div>
-            <h1>Pedidos de Compra</h1>
-            <p className="description">Gerencie e acompanhe as ordens de compra enviadas aos fornecedores.</p>
+    <div className="p-10 max-w-[1600px] mx-auto animate-premium-fade-up">
+      {/* Floating Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 sticky top-0 z-30 py-4 bg-slate-50/80 backdrop-blur-md -mx-10 px-10 border-b border-slate-200/50 shadow-sm">
+        <div>
+          <div className="flex items-center gap-4 mb-1">
+            <div className="w-12 h-12 bg-indigo-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 ring-4 ring-indigo-50">
+              <ShoppingBag size={24} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight">Pedidos de Compra</h1>
+              <p className="text-slate-500 font-bold text-sm uppercase tracking-widest text-shadow-sm">Gestão de Suprimentos & Ordens</p>
+            </div>
           </div>
         </div>
-        <div className="header-actions">
-          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
-            <Plus size={18} strokeWidth={3} />
-            <span>Adicionar Pedido</span>
-          </button>
-        </div>
-      </div>
 
-      <div className="summary-grid">
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Pedidos Abertos</span>
-            <span className="summary-value">08</span>
-            <span className="summary-subtext" style={{ color: 'var(--warning)', fontWeight: 700 }}>Aguardando entrega</span>
+        <div className="flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-slate-200 shadow-sm">
+            <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">Empresa:</span>
+            <span className="text-xs font-black text-slate-700">{activeCompanyId === 'Todas' ? 'Visão Consolidada' : empresasList.find(e => e.id === activeCompanyId)?.razaoSocial || 'Unidade'}</span>
           </div>
-          <div className="summary-icon orange">
-            <Clock size={28} strokeWidth={3} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Valor Confirmado</span>
-            <span className="summary-value">R$ 45.200</span>
-            <span className="summary-subtext">Comprometido no mês</span>
-          </div>
-          <div className="summary-icon indigo">
-            <DollarSign size={28} strokeWidth={3} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Entregas Pendentes</span>
-            <span className="summary-value">03</span>
-            <span className="summary-subtext" style={{ color: 'var(--info)', fontWeight: 700 }}>Em trânsito</span>
-          </div>
-          <div className="summary-icon blue">
-            <Truck size={28} strokeWidth={3} />
-          </div>
-        </div>
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.4s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Pedidos em Atraso</span>
-            <span className="summary-value">01</span>
-            <span className="summary-subtext" style={{ color: 'var(--danger)', fontWeight: 700 }}>Atenção necessária</span>
-          </div>
-          <div className="summary-icon red">
-            <AlertCircle size={28} strokeWidth={3} />
-          </div>
-        </div>
-      </div>
-
-      <div className="data-section">
-        <TableFilters
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          placeholder="Pesquisar por número ou fornecedor..."
-          actionsLabel="Filtragem"
-        >
           <button 
-            className={`btn-premium-outline h-11 px-6 ${isFiltersOpen ? 'filter-active' : ''}`}
-            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+            onClick={() => handleOpenModal()}
+            className="btn-premium-solid h-14 px-8 rounded-2xl indigo"
           >
-            <Filter size={18} strokeWidth={3} />
-            <span>{isFiltersOpen ? 'Fechar Filtros' : 'Filtros Avançados'}</span>
+            <PlusCircle size={22} strokeWidth={3} />
+            <span className="text-base">Nova Ordem</span>
           </button>
-        </TableFilters>
+        </div>
+      </div>
 
-
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Pedido / Emissão</th>
-              <th>Fornecedor</th>
-              <th>Previsão Entrega</th>
-              <th>Valor Total</th>
-              <th>Status</th>
-              <th className="text-center">Ações</th>
-            </tr>
-            {isFiltersOpen && (
-              <ColumnFilters
-                columns={[
-                  { key: 'numero', type: 'text', placeholder: 'Filtrar...' },
-                  { key: 'fornecedorNome', type: 'text', placeholder: 'Fornecedor...' },
-                  { key: 'previsaoEntrega', type: 'text', placeholder: 'Data...' },
-                  { key: 'valorTotal', type: 'text', placeholder: 'Valor...' },
-                  { key: 'status', type: 'select', options: ['Pendente', 'Confirmado', 'Em Trânsito', 'Entregue', 'Cancelado'] }
-                ]}
-                values={columnFilters}
-                onChange={(key, value) => setColumnFilters(prev => ({ ...prev, [key]: value }))}
-                showActionsPadding={true}
-              />
-            )}
-          </thead>
-          <tbody>
-            {paginatedData.map((pedido: PurchaseOrder) => (
-              <tr key={pedido.id}>
-                <td>
-                  <div className="flex items-center gap-3">
-                    <strong className="text-slate-900">{pedido.numero}</strong>
-                    <span className="text-slate-400 text-sm font-medium">— {new Date(pedido.data).toLocaleDateString('pt-BR')}</span>
-                  </div>
-                </td>
-                <td>
-                  <div className="flex items-center gap-2">
-                    <Building2 size={16} strokeWidth={3} className="text-indigo-500" />
-                    <span className="font-bold text-slate-700">
-                      {suppliersList.find(s => s.id === pedido.fornecedor_id)?.nome || 'Fornecedor não encontrado'}
-                    </span>
-                  </div>
-                </td>
-                <td>{new Date(pedido.previsaoEntrega).toLocaleDateString()}</td>
-                <td className="font-bold">R$ {pedido.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                <td>
-                  <span className={`status-badge ${pedido.status.toLowerCase().replace(' ', '-')}`}>
-                    {pedido.status === 'Confirmado' && <CheckCircle2 size={14} strokeWidth={3} />}
-                    {pedido.status === 'Pendente' && <Clock size={14} strokeWidth={3} />}
-                    {pedido.status === 'Em Trânsito' && <Truck size={14} strokeWidth={3} />}
-                    <span className="ml-1">{pedido.status}</span>
-                  </span>
-                </td>
-                <td className="text-center">
-                  <div className="actions-cell flex-center">
-                    <button className="action-btn-global btn-view" title="Visualizar" onClick={() => handleOpenModal(pedido, true)}>
-                      <Eye size={18} strokeWidth={3} />
-                    </button>
-                    <button className="action-btn-global btn-edit" title="Editar" onClick={() => handleOpenModal(pedido)}>
-                      <Edit size={18} strokeWidth={3} />
-                    </button>
-                    <button 
-                      className="action-btn-global btn-warning" 
-                      title="Cancelar Pedido" 
-                      onClick={() => handleCancelStatus(pedido.id)}
-                      disabled={pedido.status === 'Cancelado' || pedido.status === 'Entregue'}
-                    >
-                      <X size={18} strokeWidth={3} />
-                    </button>
-                    <button className="action-btn-global btn-delete" title="Excluir" onClick={() => handleDelete(pedido.id)}>
-                      <Trash2 size={18} strokeWidth={3} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <TablePagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          itemsPerPage={itemsPerPage}
-          startIndex={startIndex}
-          endIndex={endIndex}
-          totalItems={totalItems}
-          onPageChange={goToPage}
-          onNextPage={nextPage}
-          onPrevPage={prevPage}
-          onItemsPerPageChange={setItemsPerPage}
-          label="pedidos"
+      {/* Modern Summary Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <SummaryCard 
+          label="Total este Mês"
+          value={`R$ ${orders
+            .filter(p => new Date(p.data).getMonth() === new Date().getMonth())
+            .reduce((acc, curr) => acc + (curr.valorTotal || 0), 0)
+            .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+          icon={TrendingUp}
+          color="indigo"
+          trend={{ value: '+12.5%', type: 'up', icon: TrendingUp }}
+        />
+        <SummaryCard 
+          label="Ordens Pendentes"
+          value={orders.filter(p => p.status === 'Pendente').length.toString().padStart(2, '0')}
+          icon={Clock}
+          color="amber"
+          subtext="Aguardando Aprovação"
+        />
+        <SummaryCard 
+          label="Entregas para Hoje"
+          value={orders.filter(p => p.previsaoEntrega === new Date().toISOString().split('T')[0]).length.toString().padStart(2, '0')}
+          icon={Truck}
+          color="sky"
+          subtext="Logística Ativa"
+        />
+        <SummaryCard 
+          label="Total Processado"
+          value={orders.filter(p => p.status === 'Entregue').length.toString().padStart(2, '0')}
+          icon={CheckCircle2}
+          color="emerald"
+          subtext="Mês de Março"
         />
       </div>
 
-      {isModalOpen && (
-      <StandardModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={isViewMode ? 'Visualizar Pedido' : (selectedPedido ? 'Editar Pedido' : 'Novo Pedido de Compra')}
-        subtitle="Preencha os dados da ordem de compra para o fornecedor."
-        icon={ShoppingBag}
-        size="xl"
-        footer={
-          <>
-            <div className="total-box-horizontal animate-slide-up">
-              <span className="total-label">Valor Total do Pedido:</span>
-              <span className="total-value">R$ {calculateTotal().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            </div>
-            <div className="footer-actions flex gap-3">
-              <button type="button" className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-              {!isViewMode && (
-                <button type="submit" className="btn-premium-solid indigo" onClick={handleSave}>
-                  <CheckCircle2 size={18} strokeWidth={3} />
-                  <span>{selectedPedido ? 'Salvar Alterações' : 'Adicionar Pedido'}</span>
-                </button>
-              )}
-            </div>
-          </>
-        }
-      >
-        <div className="form-sections-grid">
-          <div className="form-section">
-            <div className="section-title">
-              <FileText size={16} strokeWidth={3} />
-              Dados do Pedido
-            </div>
-            <div className="form-grid mt-4">
-              <div className="form-group col-2">
-                <label>Número</label>
-                <div className="input-with-icon">
-                  <input type="text" value={numero} readOnly disabled />
-                  <Hash size={18} strokeWidth={3} className="field-icon" />
-                </div>
-              </div>
-              <div className="form-group col-3">
-                <label>Data de Emissão</label>
-                <div className="input-with-icon">
-                  <input type="date" value={data} onChange={(e) => setData(e.target.value)} required disabled={isViewMode} />
-                  <Calendar size={18} strokeWidth={3} className="field-icon" />
-                </div>
-              </div>
-                <div className="form-group col-4">
-                <label>Empresa / Unidade</label>
-                <div className="input-with-icon">
-                  <select value={empresaId} onChange={(e) => setEmpresaId(e.target.value)} required disabled={isViewMode}>
-                    <option value="">Selecione a empresa...</option>
-                    {empresasList.filter((c: Company) => c.status === 'Ativa').map((comp: Company) => (
-                      <option key={comp.id} value={comp.id}>
-                        {comp.nomeFantasia} {!comp.isMatriz ? '(Filial)' : '(Matriz)'}
-                      </option>
-                    ))}
-                  </select>
-                  <Building2 size={18} strokeWidth={3} className="field-icon" />
-                </div>
-              </div>
-              <div className="form-group col-3">
-                <label>Ref. Cotação</label>
-                <div className="input-with-icon">
-                  <input 
-                    type="text" 
-                    value={mapaReferencia} 
-                    onChange={(e) => setMapaReferencia(e.target.value)}
-                    placeholder="Ex: MC-2024"
-                    disabled={isViewMode}
-                  />
-                  <FileText size={18} strokeWidth={3} className="field-icon" />
-                </div>
-              </div>
-
-              <div className="form-group col-6">
-                <label>Fornecedor</label>
-                <div className="input-with-icon">
-                  <select value={fornecedorId} onChange={(e) => setFornecedorId(e.target.value)} required disabled={isViewMode}>
-                    <option value="">Selecione um fornecedor</option>
-                    {suppliersList.map(s => (
-                      <option key={s.id} value={s.id}>{s.nomeFantasia}</option>
-                    ))}
-                  </select>
-                  <Truck size={18} strokeWidth={3} className="field-icon" />
-                </div>
-              </div>
-              <div className="form-group col-3">
-                <label>Prev. Entrega</label>
-                <div className="input-with-icon">
-                  <input type="date" value={previsaoEntrega} onChange={(e) => setPrevisaoEntrega(e.target.value)} required disabled={isViewMode} />
-                  <Clock size={18} strokeWidth={3} className="field-icon" />
-                </div>
-              </div>
-              <div className="form-group col-3">
-                <label>Pagamento</label>
-                <div className="input-with-icon">
-                  <select value={condicaoPagamento} onChange={(e) => setCondicaoPagamento(e.target.value)} required disabled={isViewMode}>
-                    <option value="">Selecione...</option>
-                    <option value="À Vista">À Vista</option>
-                    <option value="15 Dias">15 Dias</option>
-                    <option value="30 Dias">30 Dias</option>
-                    <option value="30/60 Dias">30/60 Dias</option>
-                  </select>
-                  <CreditCard size={18} strokeWidth={3} className="field-icon" />
-                </div>
-              </div>
-              <div className="form-group col-12">
-                <label>Status</label>
-                <div style={{ marginTop: '4px' }}>
-                  <span className={`status-indicator ${getStatusClass(selectedPedido ? selectedPedido.status : 'Pendente')}`} style={{ display: 'inline-flex' }}>
-                    {selectedPedido ? selectedPedido.status : 'Pendente'}
-                  </span>
-                </div>
-              </div>
-            </div>
+      {/* Main List Section */}
+      <div className="glass-premium rounded-[40px] overflow-hidden shadow-soft-xl border border-white/40">
+        <div className="p-8 border-b border-slate-200/50 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 bg-white/50">
+          <div className="relative flex-1 max-w-md group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+            <input 
+              type="text"
+              placeholder="Pesquisar por número ou fornecedor..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-slate-700 font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
 
-          <div className="form-section">
-            <div className="section-header-row mb-4 flex justify-between items-center">
-              <h3 className="section-title mb-0">
-                <Package size={18} strokeWidth={3} />
-                Itens do Pedido
-              </h3>
-              {!isViewMode && (
-                <button type="button" className="btn-premium-solid btn-sm" onClick={addItemRow}>
-                  <Plus size={16} strokeWidth={3} />
-                  <span>Adicionar Item</span>
-                </button>
-              )}
-            </div>
-
-            <div className="items-cards-container">
-              {items.length === 0 ? (
-                <div className="empty-items-state">
-                  <Package size={48} />
-                  <p>Nenhum item adicionado ao pedido.</p>
-                </div>
-              ) : (
-                items.map((item) => (
-                  <div key={item.id} className="item-row-card animate-slide-in">
-                    <div className="item-field-group" style={{ gridColumn: 'span 2' }}>
-                      <label className="item-field-label">Insumo / Serviço</label>
-                      <div className="input-with-icon">
-                        <select 
-                          value={item.insumo_id} 
-                          onChange={(e) => updateItem(item.id, 'insumo_id', e.target.value)}
-                          required
-                          disabled={isViewMode}
-                        >
-                          <option value="">Selecione o item...</option>
-                          {inventoryList.map(ins => (
-                            <option key={ins.id} value={ins.id}>{ins.nome}</option>
-                          ))}
-                        </select>
-                        <Package size={18} strokeWidth={3} className="field-icon" />
-                      </div>
-                    </div>
-
-                    <div className="item-field-group">
-                      <label className="item-field-label">C. Custo</label>
-                      <div className="input-with-icon">
-                        <select 
-                          value={item.centroCustoId} 
-                          onChange={(e) => updateItem(item.id, 'centroCustoId', e.target.value)}
-                          disabled={isViewMode}
-                        >
-                          <option value="">-</option>
-                          {centrosCusto.map(cc => (
-                            <option key={cc.id} value={cc.id}>{cc.nome}</option>
-                          ))}
-                        </select>
-                        <List size={18} strokeWidth={3} className="field-icon" />
-                      </div>
-                    </div>
-
-                    <div className="item-field-group">
-                      <label className="item-field-label">Qtd / Un</label>
-                      <div className="input-with-icon">
-                        <input 
-                          type="number" 
-                          value={item.quantidade} 
-                          onChange={(e) => updateItem(item.id, 'quantidade', parseFloat(e.target.value))}
-                          required
-                          disabled={isViewMode}
-                          min="0.01"
-                          step="any"
-                        />
-                        <Hash size={18} strokeWidth={3} className="field-icon" />
-                      </div>
-                    </div>
-
-                    <div className="item-field-group">
-                      <label className="item-field-label">Preço Unit.</label>
-                      <div className="input-with-icon">
-                        <input 
-                          type="number" 
-                          value={item.valorUnitario} 
-                          onChange={(e) => updateItem(item.id, 'valorUnitario', parseFloat(e.target.value))}
-                          required
-                          disabled={isViewMode}
-                          min="0"
-                          step="0.01"
-                        />
-                        <DollarSign size={18} strokeWidth={3} className="field-icon" />
-                      </div>
-                    </div>
-
-                    <div className="item-field-group">
-                      <label className="item-field-label">Desc. (R$)</label>
-                      <div className="input-with-icon">
-                        <input 
-                          type="number" 
-                          value={item.desconto} 
-                          onChange={(e) => updateItem(item.id, 'desconto', parseFloat(e.target.value))}
-                          disabled={isViewMode}
-                          min="0"
-                          step="0.01"
-                        />
-                        <TrendingUp size={18} strokeWidth={3} className="field-icon" />
-                      </div>
-                    </div>
-
-                    <div className="item-subtotal-display">
-                      <label className="item-field-label">Subtotal</label>
-                      <div className="item-subtotal-value">
-                        R$ {item.subtotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </div>
-                    </div>
-
-                    {!isViewMode && (
-                      <button 
-                        type="button" 
-                        className="action-btn-global btn-delete" 
-                        onClick={() => removeItemRow(item.id)}
-                        title="Remover item"
-                      >
-                        <Trash2 size={18} strokeWidth={3} />
-                      </button>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
+          <div className="flex items-center gap-3">
+             <TableFilters 
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+            />
           </div>
         </div>
-      </StandardModal>
-      )}
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50">
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Referência / Data</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Fornecedor</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Logística</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Investimento</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Status</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white/30 backdrop-blur-sm">
+              {paginatedData.length > 0 ? paginatedData.map((order) => (
+                <tr key={order.id} className="group hover:bg-indigo-50/40 transition-all duration-300 transform hover:scale-[1.002]">
+                  <td className="px-8 py-6">
+                    <div className="flex flex-col">
+                      <span className="font-black text-slate-800 text-base mb-1">#{order.numero}</span>
+                      <span className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+                        <Calendar size={12} />
+                        {new Date(order.data).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-black text-xs shadow-inner">
+                        {order.fornecedorNome?.substring(0, 2).toUpperCase()}
+                      </div>
+                      <span className="font-bold text-slate-700">{order.fornecedorNome}</span>
+                    </div>
+                  </td>
+                  <td className="px-8 py-6">
+                    {order.previsaoEntrega && (
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-500 bg-slate-100/80 w-fit px-3 py-1.5 rounded-lg border border-slate-200/50">
+                        <Truck size={14} className="text-indigo-400" />
+                        <span>Prev: {new Date(order.previsaoEntrega).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-8 py-6 text-right">
+                    <span className="font-black text-slate-900 text-lg tabular-nums tracking-tighter">
+                      R$ {order.valorTotal?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                  </td>
+                  <td className="px-8 py-6 text-center">
+                    <StatusBadge status={order.status || 'Pendente'} />
+                  </td>
+                  <td className="px-8 py-6">
+                    <div className="flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-0 translate-x-4">
+                      <button 
+                        onClick={() => handleOpenModal(order, true)}
+                        className="action-btn-global btn-view" title="Visualizar"
+                      >
+                        <Eye size={18} strokeWidth={2.5} />
+                      </button>
+                      <button 
+                        onClick={() => handleOpenModal(order)}
+                        className="action-btn-global btn-edit" title="Editar"
+                      >
+                        <Edit size={18} strokeWidth={2.5} />
+                      </button>
+                      <button 
+                        onClick={() => handleDelete(order.id)}
+                        className="action-btn-global btn-delete" title="Excluir"
+                      >
+                        <Trash2 size={18} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={6} className="px-8 py-20 text-center">
+                    <div className="flex flex-col items-center gap-4 opacity-40">
+                      <Package size={64} strokeWidth={1} />
+                      <p className="text-lg font-bold text-slate-400">Nenhum pedido encontrado</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="p-8 border-t border-slate-100 bg-slate-50/50">
+          <TablePagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            totalItems={totalItems}
+            onPageChange={goToPage}
+            onNextPage={nextPage}
+            onPrevPage={prevPage}
+            onItemsPerPageChange={setItemsPerPage}
+          />
+        </div>
+      </div>
+
+      <ModernModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={isViewMode ? 'Detalhes do Pedido' : selectedPedido ? 'Editar Pedido' : 'Novo Pedido de Compra'}
+        subtitle="Gerenciamento de ordens de fornecimento e cotações aprovadas."
+        icon={ShoppingBag}
+        footer={
+          <div className="flex justify-between items-center w-full">
+            <div className="hidden sm:flex items-center gap-4 px-6 py-3 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden relative group">
+              <div className="absolute inset-0 bg-indigo-500/10 blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest relative z-10">Total da Ordem:</span>
+              <span className="text-2xl font-black text-white tracking-tighter relative z-10 tabular-nums">
+                R$ {(formData.valorTotal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="flex gap-4">
+              <button
+                type="button"
+                className="btn-premium-outline h-12 px-8"
+                onClick={() => setIsModalOpen(false)}
+              >
+                {isViewMode ? 'Fechar' : 'Cancelar'}
+              </button>
+              {!isViewMode && (
+                <button
+                  type="button"
+                  className="btn-premium-solid h-12 px-8 indigo shadow-lg shadow-indigo-100"
+                  onClick={(e) => handleSave(e as any)}
+                >
+                  <CheckCircle2 size={18} />
+                  <span>Finalizar Pedido</span>
+                </button>
+              )}
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-12">
+          <OrderHeader 
+            data={formData} 
+            onChange={setFormData as any} 
+            isViewMode={isViewMode} 
+            suppliers={suppliersList as any}
+            companies={empresasList as any}
+          />
+          
+          <OrderItems 
+            data={formData} 
+            onChange={setFormData as any} 
+            isViewMode={isViewMode}
+            inventory={inventoryList as any}
+          />
+          
+          <OrderFooter 
+            data={formData} 
+            onChange={setFormData as any} 
+            isViewMode={isViewMode}
+          />
+        </div>
+      </ModernModal>
     </div>
   );
 };

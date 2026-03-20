@@ -6,38 +6,7 @@
   min-height: 100vh;
 }
 
-/* Header patterns */
-.page-header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-lg);
-}
-
-.title-section {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-.icon-badge {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.icon-badge.secondary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; }
-
-.title-section h1 {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--slate-900);
-  margin: 0;
-  letter-spacing: -0.01em;
-}
+/* page-header-row — uses global index.css standard */
 
 /* Summary Grid */
 .summary-grid {
@@ -73,12 +42,7 @@
   text-transform: uppercase;
 }
 
-.summary-value {
-  display: block;
-  font-size: 1.75rem;
-  font-weight: 800;
-  color: #1e293b;
-}
+/* .summary-value — uses global 1.75rem standard from index.css */
 
 .summary-icon {
   width: 52px;
@@ -95,11 +59,6 @@
 .summary-icon.indigo { background: rgba(79, 70, 229, 0.1); color: #4f46e5; }
 
 /* Table styles */
-.data-section {
-  padding: 0;
-  overflow: hidden;
-}
-
 .data-filters {
   padding: var(--filter-padding-y) var(--filter-padding-x);
   gap: var(--standard-gap);
@@ -113,24 +72,6 @@
 .search-box-refined {
   flex: 1;
   max-width: 450px;
-}
-
-.data-table th {
-  padding: 0.6rem 1rem;
-  background: var(--slate-50);
-  color: var(--slate-500);
-  font-weight: 700;
-  text-transform: uppercase;
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--slate-200);
-}
-
-.data-table td {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--slate-100);
-  color: var(--slate-700);
-  font-weight: 500;
 }
 
 .category-tag {
@@ -159,30 +100,7 @@
 .status-badge.stock-baixo { background: rgba(254, 243, 199, 1); color: #d97706; }
 .status-badge.stock-critico { background: rgba(254, 226, 226, 1); color: #dc2626; }
 
-/* Modal tabs and forms */
-.modal-tabs {
-  display: flex;
-  gap: var(--space-2xs);
-  padding: 4px;
-  background: #f1f5f9;
-  border-radius: 12px;
-}
-
-.tab-btn {
-  flex: 1;
-  padding: 10px;
-  border-radius: 10px;
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #64748b;
-  transition: all 0.2s;
-}
-
-.tab-btn.active {
-  background: white;
-  color: #6366f1;
-  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-}
+/* .modal-tabs and .tab-btn — now uses global underline standard from index.css */
 
 .flags-container {
   display: flex;

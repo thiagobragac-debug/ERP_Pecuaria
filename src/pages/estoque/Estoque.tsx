@@ -15,6 +15,7 @@ import './Estoque.css';
 import { useOfflineQuery } from '../../hooks/useOfflineSync';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { Insumo as InsumoType, MovimentacaoEstoque as MovimentacaoType } from '../../types';
+import { SummaryCard } from '../../components/SummaryCard';
 
 export const Estoque = () => {
   const location = useLocation();
@@ -63,38 +64,34 @@ export const Estoque = () => {
           </div>
 
           <div className="summary-grid">
-            <div className="summary-card card glass animate-slide-up">
-              <div className="summary-info">
-                <span className="summary-label">Valor Total Imobilizado</span>
-                <span className="summary-value">R$ {valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                <span className="summary-subtext">Inventário atualizado</span>
-              </div>
-              <div className="summary-icon blue">
-                <Package size={32} strokeWidth={3} />
-              </div>
-            </div>
-            <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
-              <div className="summary-info">
-                <span className="summary-label">Alertas de Reposição</span>
-                <span className="summary-value text-red">{alertasReposicao.toString().padStart(2, '0')}</span>
-                <span className="summary-trend down">
-                  <AlertTriangle size={14} /> Requer Atenção
-                </span>
-              </div>
-              <div className="summary-icon red">
-                <TrendingDown size={32} strokeWidth={3} />
-              </div>
-            </div>
-            <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
-                <div className="summary-info">
-                <span className="summary-label">Movimentações (Mês)</span>
-                <span className="summary-value">{movMes}</span>
-                <span className="summary-subtext">Saídas vs Entradas</span>
-                </div>
-                <div className="summary-icon blue">
-                <ArrowLeftRight size={32} strokeWidth={3} />
-                </div>
-            </div>
+            <SummaryCard 
+              label="Valor Total Imobilizado"
+              value={`R$ ${valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              subtext="Inventário atualizado"
+              icon={Package}
+              color="indigo"
+              delay="0s"
+            />
+            <SummaryCard 
+              label="Alertas de Reposição"
+              value={alertasReposicao.toString().padStart(2, '0')}
+              trend={{ 
+                value: 'Requer Atenção', 
+                type: 'down', 
+                icon: AlertTriangle 
+              }}
+              icon={TrendingDown}
+              color="rose"
+              delay="0.1s"
+            />
+            <SummaryCard 
+              label="Movimentações (Mês)"
+              value={movMes.toString()}
+              subtext="Saídas vs Entradas"
+              icon={ArrowLeftRight}
+              color="sky"
+              delay="0.2s"
+            />
           </div>
 
           <div className="submodule-menu-grid">

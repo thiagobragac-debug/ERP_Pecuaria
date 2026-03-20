@@ -132,8 +132,8 @@ export const Conciliacao = () => {
           <button className="action-btn-global btn-view h-12 w-12" onClick={() => navigate('/financeiro/bancos')}>
             <ArrowLeft size={28} strokeWidth={3} />
           </button>
-          <div className="icon-badge emerald">
-            <Zap size={36} strokeWidth={2.5} />
+          <div className="icon-badge indigo">
+            <Zap size={32} strokeWidth={3} />
           </div>
           <div>
             <div className="flex items-center gap-3">

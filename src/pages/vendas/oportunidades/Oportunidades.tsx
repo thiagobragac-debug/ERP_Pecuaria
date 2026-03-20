@@ -5,6 +5,7 @@ import {
   Plus, 
   Search, 
   Filter, 
+  X,
   MoreVertical, 
   Calendar, 
   DollarSign, 
@@ -17,14 +18,14 @@ import {
   TrendingUp,
   MapPin,
   ChevronRight,
-  Briefcase
+  Briefcase,
+  Target
 } from 'lucide-react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../../../services/db';
-import { dataService } from '../../../services/dataService';
+import { useOfflineQuery, useOfflineMutation } from '../../../hooks/useOfflineSync';
+import { SummaryCard } from '../../../components/SummaryCard';
 import { useCompany } from '../../../contexts/CompanyContext';
 import { Opportunity, OpportunityStage, Cliente } from '../../../types';
-import { StandardModal } from '../../../components/StandardModal';
+import { ModernModal } from '../../../components/ModernModal';
 import './Oportunidades.css';
 
 const STAGES: OpportunityStage[] = ['Novo', 'Qualificacao', 'Proposta', 'Negociacao', 'Fechado', 'Perdido'];
@@ -40,9 +41,11 @@ const STAGE_LABELS: Record<OpportunityStage, string> = {
 
 export const Oportunidades: React.FC = () => {
   const { activeCompanyId } = useCompany();
-  const allOpportunities = useLiveQuery(() => db.oportunidades.toArray()) || [];
+  const { data: allOpportunities = [] } = useOfflineQuery<Opportunity>(['oportunidades'], 'oportunidades');
   const opportunities = allOpportunities.filter(o => activeCompanyId === 'Todas' || (o as any).empresaId === activeCompanyId);
-  const clientes = useLiveQuery(() => db.clientes.toArray()) || [];
+  const { data: clientes = [] } = useOfflineQuery<Cliente>(['clientes'], 'clientes');
+  
+  const saveOpportunityMutation = useOfflineMutation<Opportunity>('oportunidades', [['oportunidades']]);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -95,13 +98,13 @@ export const Oportunidades: React.FC = () => {
       updated_at: new Date().toISOString()
     } as Opportunity;
 
-    await dataService.saveItem('oportunidades', payload);
+    await saveOpportunityMutation.mutateAsync(payload);
     setIsModalOpen(false);
   };
 
   const updateStage = async (opp: Opportunity, newStage: OpportunityStage) => {
     const updatedOpp = { ...opp, estagio: newStage, updated_at: new Date().toISOString() };
-    await dataService.saveItem('oportunidades', updatedOpp);
+    await saveOpportunityMutation.mutateAsync(updatedOpp);
   };
 
   const filteredOpps = opportunities.filter(o => 
@@ -164,49 +167,42 @@ export const Oportunidades: React.FC = () => {
         </div>
         <div className="header-actions">
           <button className="btn-premium-outline">
-            <TrendingUp size={18} strokeWidth={3} />
             <span>Ver Dashboard</span>
+            <TrendingUp size={18} strokeWidth={3} />
           </button>
           <button className="btn-premium-solid blue" onClick={() => handleOpenModal()}>
-            <Plus size={18} strokeWidth={3} />
             <span>Nova Oportunidade</span>
+            <Plus size={18} strokeWidth={3} />
           </button>
         </div>
       </div>
 
       <div className="summary-grid">
-        <div className="summary-card glass animate-slide-up">
-          <div className="summary-info">
-            <span className="summary-label">Total em Pipeline</span>
-            <span className="summary-value">R$ {(opportunities.reduce((a, b) => a + b.valor, 0) / 1000).toFixed(0)}k</span>
-            <span className="summary-subtext">Valor bruto estimado</span>
-          </div>
-          <div className="summary-icon blue">
-            <DollarSign size={28} />
-          </div>
-        </div>
-        <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Negociações Ativas</span>
-            <span className="summary-value">{opportunities.filter(o => !['Fechado', 'Perdido'].includes(o.estagio)).length}</span>
-            <span className="summary-subtext">No funil de vendas</span>
-          </div>
-          <div className="summary-icon indigo">
-            <Briefcase size={28} />
-          </div>
-        </div>
-        <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Taxa de Conversão</span>
-            <span className="summary-value">24%</span>
-            <span className="summary-trend up">
-              <TrendingUp size={14} /> +2% este mês
-            </span>
-          </div>
-          <div className="summary-icon green">
-            <CheckCircle2 size={28} />
-          </div>
-        </div>
+        <SummaryCard 
+          label="Total em Pipeline"
+          value={`R$ ${(opportunities.reduce((a, b) => a + (b.valor || 0), 0) / 1000).toFixed(0)}k`}
+          icon={DollarSign}
+          color="blue"
+          delay="0s"
+          subtext="Valor bruto estimado"
+          trend={{ value: 'Atualizado hoje', type: 'up', icon: TrendingUp }}
+        />
+        <SummaryCard 
+          label="Negociações Ativas"
+          value={opportunities.filter(o => !['Fechado', 'Perdido'].includes(o.estagio)).length.toString()}
+          icon={Briefcase}
+          color="indigo"
+          delay="0.1s"
+          subtext="No funil de vendas"
+        />
+        <SummaryCard 
+          label="Taxa de Conversão"
+          value="24%"
+          icon={CheckCircle2}
+          color="emerald"
+          delay="0.2s"
+          trend={{ value: '+2% este mês', type: 'up', icon: TrendingUp }}
+        />
       </div>
 
       <div className="filters-bar mb-6 px-1 flex gap-4">
@@ -252,159 +248,169 @@ export const Oportunidades: React.FC = () => {
         ))}
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={isViewMode ? 'Visualizar Oportunidade' : (selectedOpp ? 'Editar Oportunidade' : 'Nova Oportunidade')}
         subtitle="Gerencie os detalhes desta negociação"
         icon={Globe}
-        size="lg"
         footer={
-          <div className="footer-actions flex gap-3">
+          <>
             <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
-              {isViewMode ? 'Fechar' : 'Cancelar'}
+              <X size={18} strokeWidth={3} />
+              <span>{isViewMode ? 'Fechar' : 'Cancelar'}</span>
             </button>
             {!isViewMode && (
-              <button className="btn-premium-solid blue" onClick={handleSave}>
-                <Plus size={18} strokeWidth={3} />
-                <span>Salvar Oportunidade</span>
+              <button className="btn-premium-solid indigo" onClick={handleSave}>
+                <span>{selectedOpp ? 'Salvar Alterações' : 'Criar Oportunidade'}</span>
+                {selectedOpp ? <CheckCircle2 size={18} strokeWidth={3} /> : <Plus size={18} strokeWidth={3} />}
               </button>
             )}
-          </div>
+          </>
         }
       >
-        <div className="opp-modal-grid">
-          <div className="form-section">
-            <h4 className="section-title">Dados Básicos</h4>
-            <div className="form-grid">
-              <div className="form-group col-12">
-                <label>Título da Oportunidade</label>
-                <input 
-                  type="text" 
-                  value={formData.titulo} 
-                  onChange={(e) => setFormData({...formData, titulo: e.target.value})}
-                  disabled={isViewMode}
-                  placeholder="Ex: Venda de Reprodutores Nelore"
-                />
+        <div className="modal-content-scrollable">
+          <div className="form-sections-grid">
+            <div className="form-section">
+              <div className="form-section-title">
+                <Target size={16} />
+                <span>Dados da Negociação</span>
               </div>
-              <div className="form-group col-6">
-                <label>Valor Estimado (R$)</label>
-                <div className="input-with-icon">
-                  <DollarSign size={16} className="icon-field" />
+              <div className="form-grid">
+                <div className="form-group col-12">
+                  <label>Título da Oportunidade</label>
                   <input 
-                    type="number" 
-                    value={formData.valor} 
-                    onChange={(e) => setFormData({...formData, valor: Number(e.target.value)})}
+                    type="text" 
+                    value={formData.titulo} 
+                    onChange={(e) => setFormData({...formData, titulo: e.target.value})}
+                    disabled={isViewMode}
+                    placeholder="Ex: Venda de Reprodutores Nelore"
+                  />
+                </div>
+                <div className="form-group col-6">
+                  <label>Valor Estimado (R$)</label>
+                  <div className="input-with-icon">
+                    <DollarSign size={16} className="icon-field" />
+                    <input 
+                      type="number" 
+                      value={formData.valor} 
+                      onChange={(e) => setFormData({...formData, valor: Number(e.target.value)})}
+                      disabled={isViewMode}
+                    />
+                  </div>
+                </div>
+                <div className="form-group col-6">
+                  <label>Probabilidade (%)</label>
+                  <select 
+                    value={formData.probabilidade} 
+                    onChange={(e) => setFormData({...formData, probabilidade: Number(e.target.value)})}
+                    disabled={isViewMode}
+                  >
+                    <option value={10}>10% - Contato Inicial</option>
+                    <option value={25}>25% - Qualificado</option>
+                    <option value={50}>50% - Proposta Enviada</option>
+                    <option value={75}>75% - Negociação</option>
+                    <option value={90}>90% - Em Contrato</option>
+                    <option value={100}>100% - Fechado</option>
+                  </select>
+                </div>
+                <div className="form-group col-6">
+                  <label>Estágio</label>
+                  <select 
+                    value={formData.estagio} 
+                    onChange={(e) => setFormData({...formData, estagio: e.target.value as OpportunityStage})}
+                    disabled={isViewMode}
+                  >
+                    {STAGES.map(s => (
+                      <option key={s} value={s}>{STAGE_LABELS[s]}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group col-6">
+                  <label>Previsão de Fechamento</label>
+                  <input 
+                    type="date" 
+                    value={formData.vencimento} 
+                    onChange={(e) => setFormData({...formData, vencimento: e.target.value})}
                     disabled={isViewMode}
                   />
                 </div>
-              </div>
-              <div className="form-group col-6">
-                <label>Probabilidade (%)</label>
-                <select 
-                  value={formData.probabilidade} 
-                  onChange={(e) => setFormData({...formData, probabilidade: Number(e.target.value)})}
-                  disabled={isViewMode}
-                >
-                  <option value={10}>10% - Contato Inicial</option>
-                  <option value={25}>25% - Qualificado</option>
-                  <option value={50}>50% - Proposta Enviada</option>
-                  <option value={75}>75% - Negociação</option>
-                  <option value={90}>90% - Em Contrato</option>
-                  <option value={100}>100% - Fechado</option>
-                </select>
-              </div>
-              <div className="form-group col-6">
-                <label>Estágio</label>
-                <select 
-                  value={formData.estagio} 
-                  onChange={(e) => setFormData({...formData, estagio: e.target.value as OpportunityStage})}
-                  disabled={isViewMode}
-                >
-                  {STAGES.map(s => (
-                    <option key={s} value={s}>{STAGE_LABELS[s]}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group col-6">
-                <label>Previsão de Fechamento</label>
-                <input 
-                  type="date" 
-                  value={formData.vencimento} 
-                  onChange={(e) => setFormData({...formData, vencimento: e.target.value})}
-                  disabled={isViewMode}
-                />
-              </div>
-              <div className="form-group col-12">
-                <label>Descrição / Histórico</label>
-                <textarea 
-                  rows={3}
-                  value={formData.descricao}
-                  onChange={(e) => setFormData({...formData, descricao: e.target.value})}
-                  disabled={isViewMode}
-                  placeholder="Notas internas sobre a negociação..."
-                ></textarea>
+                <div className="form-group col-12">
+                  <label>Descrição / Histórico</label>
+                  <textarea 
+                    rows={3}
+                    value={formData.descricao}
+                    onChange={(e) => setFormData({...formData, descricao: e.target.value})}
+                    disabled={isViewMode}
+                    placeholder="Notas internas sobre a negociação..."
+                  ></textarea>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="form-section activity-section">
-            <h4 className="section-title">Contato Principal</h4>
-            <div className="form-grid">
-              <div className="form-group col-12">
-                <label>Nome do Contato</label>
-                <div className="input-with-icon">
-                  <User size={16} className="icon-field" />
-                  <input 
-                    type="text" 
-                    value={formData.contato_nome} 
-                    onChange={(e) => setFormData({...formData, contato_nome: e.target.value})}
-                    disabled={isViewMode}
-                  />
-                </div>
+            <div className="form-divider" />
+
+            <div className="form-section">
+              <div className="form-section-title">
+                <User size={16} />
+                <span>Contato e Origem</span>
               </div>
-              <div className="form-group col-12">
-                <label>Telefone</label>
-                <div className="input-with-icon">
-                  <Phone size={16} className="icon-field" />
-                  <input 
-                    type="text" 
-                    value={formData.contato_tel} 
-                    onChange={(e) => setFormData({...formData, contato_tel: e.target.value})}
-                    disabled={isViewMode}
-                  />
+              <div className="form-grid">
+                <div className="form-group col-12">
+                  <label>Nome do Contato</label>
+                  <div className="input-with-icon">
+                    <User size={16} className="icon-field" />
+                    <input 
+                      type="text" 
+                      value={formData.contato_nome} 
+                      onChange={(e) => setFormData({...formData, contato_nome: e.target.value})}
+                      disabled={isViewMode}
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="form-group col-12">
-                <label>E-mail</label>
-                <div className="input-with-icon">
-                  <Mail size={16} className="icon-field" />
-                  <input 
-                    type="email" 
-                    value={formData.contato_email} 
-                    onChange={(e) => setFormData({...formData, contato_email: e.target.value})}
-                    disabled={isViewMode}
-                  />
+                <div className="form-group col-6">
+                  <label>Telefone</label>
+                  <div className="input-with-icon">
+                    <Phone size={16} className="icon-field" />
+                    <input 
+                      type="text" 
+                      value={formData.contato_tel} 
+                      onChange={(e) => setFormData({...formData, contato_tel: e.target.value})}
+                      disabled={isViewMode}
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="form-group col-12">
-                <label>Origem do Prospect</label>
-                <select 
-                  value={formData.origem} 
-                  onChange={(e) => setFormData({...formData, origem: e.target.value})}
-                  disabled={isViewMode}
-                >
-                  <option value="Indicação">Indicação</option>
-                  <option value="Site">Site / Web</option>
-                  <option value="Redes Sociais">Redes Sociais</option>
-                  <option value="Feira/Evento">Feira / Evento</option>
-                  <option value="Ativo">Ativo / Prospect</option>
-                </select>
+                <div className="form-group col-6">
+                  <label>E-mail</label>
+                  <div className="input-with-icon">
+                    <Mail size={16} className="icon-field" />
+                    <input 
+                      type="email" 
+                      value={formData.contato_email} 
+                      onChange={(e) => setFormData({...formData, contato_email: e.target.value})}
+                      disabled={isViewMode}
+                    />
+                  </div>
+                </div>
+                <div className="form-group col-12">
+                  <label>Origem do Prospect</label>
+                  <select 
+                    value={formData.origem} 
+                    onChange={(e) => setFormData({...formData, origem: e.target.value})}
+                    disabled={isViewMode}
+                  >
+                    <option value="Indicação">Indicação</option>
+                    <option value="Site">Site / Web</option>
+                    <option value="Redes Sociais">Redes Sociais</option>
+                    <option value="Feira/Evento">Feira / Evento</option>
+                    <option value="Ativo">Ativo / Prospect</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

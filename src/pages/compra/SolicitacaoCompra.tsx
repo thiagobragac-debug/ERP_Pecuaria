@@ -25,12 +25,13 @@ import {
   ArrowRight,
   Building2,
   Hash,
-  Activity
+  Activity,
+  Info
 } from 'lucide-react';
 import './SolicitacaoCompra.css';
 import { INITIAL_CATEGORIES, INITIAL_UNIDADES, INITIAL_COMPANIES } from '../../data/initialData';
 import { Subcategoria, UnidadeMedida, Company } from '../../types/definitions';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
@@ -40,6 +41,10 @@ import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useCompany } from '../../contexts/CompanyContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { SummaryCard } from '../../components/SummaryCard';
+import { SearchableSelect } from '../../components/SearchableSelect';
+import { StatusBadge } from '../../components/StatusBadge';
 
 
 export const SolicitacaoCompraPage = () => {
@@ -51,13 +56,17 @@ export const SolicitacaoCompraPage = () => {
   const [isViewMode, setIsViewMode] = useState(false);
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoType | null>(null);
 
-  // Form State (for the modal)
-  const [formItems, setFormItems] = useState<ItemSolicitacao[]>([]);
-  const [formSolicitante, setFormSolicitante] = useState('');
-  const [formPrioridade, setFormPrioridade] = useState<'Normal' | 'Alta' | 'Urgente' | 'Crítico'>('Normal');
-  const [formNumero, setFormNumero] = useState('');
-  const [formEmpresaId, setFormEmpresaId] = useState('');
-  const [formData, setFormData] = useState<SolicitacaoType | null>(null); // Used for editing/creating
+  const { currentOrg } = useAuth();
+  const [formData, setFormData] = useState<Partial<SolicitacaoType>>({
+    numero: '',
+    data: new Date().toISOString().split('T')[0],
+    solicitante: '',
+    prioridade: 'Normal',
+    status: 'Pendente',
+    empresaId: activeCompanyId !== 'Todas' ? activeCompanyId : '',
+    itens: []
+  });
+  const [items, setItems] = useState<ItemSolicitacao[]>([]);
 
   const [columnFilters, setColumnFilters] = useState({
     numero: '',
@@ -77,33 +86,21 @@ export const SolicitacaoCompraPage = () => {
   const handleOpenModal = (sol: SolicitacaoType | null = null, viewOnly = false) => {
     if (sol) {
       setSelectedSolicitacao(sol);
-      setFormData(sol);
-      setFormItems(sol.itens);
-      setFormSolicitante(sol.solicitante);
-      setFormPrioridade(sol.prioridade as any);
-      setFormNumero(sol.numero);
-      setFormEmpresaId(sol.empresaId || '');
+      setFormData({ ...sol });
+      setItems(sol.itens || []);
     } else {
       const defaultEmpresaId = activeCompanyId !== 'Todas' ? activeCompanyId : ((empresasList as any[]).filter((c: any) => c.status === 'Ativa')[0]?.id || '');
-      const newSolicitacao: SolicitacaoType = {
-        id: Math.random().toString(36).substr(2, 9),
+      setFormData({
         numero: `SC-${new Date().getFullYear()}-${String(solicitacoes.length + 1).padStart(3, '0')}`,
         data: new Date().toISOString().split('T')[0],
         solicitante: '',
         prioridade: 'Normal',
         status: 'Pendente',
-        itens: [{ id: Date.now().toString(), insumoId: '', insumoNome: '', quantidade: 0, unidade: '', preco: 0, centroCustoId: '' }],
-        valorTotal: 0,
         empresaId: defaultEmpresaId,
-        tenant_id: 'default'
-      };
-      setSelectedSolicitacao(null); // Indicate new creation
-      setFormData(newSolicitacao);
-      setFormItems(newSolicitacao.itens);
-      setFormSolicitante(newSolicitacao.solicitante);
-      setFormPrioridade(newSolicitacao.prioridade);
-      setFormNumero(newSolicitacao.numero);
-      setFormEmpresaId(newSolicitacao.empresaId);
+        itens: []
+      });
+      setItems([{ id: Date.now().toString(), insumoId: '', insumoNome: '', quantidade: 0, unidade: '', preco: 0, centroCustoId: '' }]);
+      setSelectedSolicitacao(null);
     }
     setIsViewMode(viewOnly);
     setIsModalOpen(true);
@@ -112,19 +109,14 @@ export const SolicitacaoCompraPage = () => {
   const handleSave = async () => {
     if (!formData) return;
 
-    const totalValue = formItems.reduce((acc, item) => acc + (item.quantidade * item.preco), 0);
+    const totalValue = items.reduce((acc, item) => acc + (item.quantidade * item.preco), 0);
 
     const solicitacaoToSave: SolicitacaoType = {
       ...formData,
-      solicitante: formSolicitante,
-      prioridade: formPrioridade,
-      numero: formNumero,
-      empresaId: formEmpresaId,
-      itens: formItems,
+      itens: items,
       valorTotal: totalValue,
-      data: formData.data || new Date().toISOString().split('T')[0], // Ensure data is set
-      tenant_id: 'default' // Assuming a default tenant_id
-    };
+      tenant_id: currentOrg?.id || 'default'
+    } as SolicitacaoType;
 
     await dataService.saveItem('solicitacoes_compra', solicitacaoToSave);
     setIsModalOpen(false);
@@ -137,17 +129,17 @@ export const SolicitacaoCompraPage = () => {
   };
 
   const addItemRow = () => {
-    setFormItems([...formItems, { id: Date.now().toString(), insumoId: '', insumoNome: '', quantidade: 0, unidade: '', preco: 0, centroCustoId: '' }]);
+    setItems([...items, { id: Date.now().toString(), insumoId: '', insumoNome: '', quantidade: 0, unidade: '', preco: 0, centroCustoId: '' }]);
   };
 
   const removeItemRow = (id: string) => {
-    if (formItems.length > 1) {
-      setFormItems(formItems.filter(item => item.id !== id));
+    if (items.length > 1) {
+      setItems(items.filter(item => item.id !== id));
     }
   };
 
   const updateItem = (id: string, field: keyof ItemSolicitacao, value: any) => {
-    setFormItems(formItems.map(item => {
+    setItems(items.map(item => {
       if (item.id === id) {
         if (field === 'insumoId') {
           const insumo = insumos.find(i => i.id === value);
@@ -160,7 +152,7 @@ export const SolicitacaoCompraPage = () => {
   };
 
   const calculateTotal = () => {
-    return formItems.reduce((acc, item) => acc + (item.quantidade * item.preco), 0);
+    return items.reduce((acc, item) => acc + (item.quantidade * item.preco), 0);
   };
 
   const filteredData = solicitacoes.filter(sol => {
@@ -245,93 +237,103 @@ export const SolicitacaoCompraPage = () => {
   };
 
   return (
-    <div className="page-container fade-in">
-      <nav className="subpage-breadcrumb">
-        <Link to="/compras">Compra & Cotação</Link>
-        <ChevronRight size={14} />
-        <span>Solicitações de Compra</span>
-      </nav>
-      <div className="page-header-row">
-        <div className="title-section">
-          <div className="icon-badge indigo">
-            <FileText size={24} />
-          </div>
-          <div>
-            <h1>Solicitação de Compra</h1>
-            <p className="description">Gestão de necessidades e requisições de suprimentos.</p>
-          </div>
-        </div>
-        <div className="header-actions">
-          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
-            <Plus size={18} strokeWidth={3} />
-            <span>Nova Solicitação</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="summary-grid">
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Total Pendente</span>
-            <span className="summary-value">{solicitacoes.filter(s => s.status === 'Pendente').length}</span>
-            <span className="summary-subtext">Aguardando cotação</span>
-          </div>
-          <div className="summary-icon orange">
-            <Clock size={24} />
+    <div className="p-10 max-w-[1600px] mx-auto animate-premium-fade-up">
+      {/* Floating Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 sticky top-0 z-30 py-4 bg-slate-50/80 backdrop-blur-md -mx-10 px-10 border-b border-slate-200/50 shadow-sm">
+        <div>
+          <div className="flex items-center gap-4 mb-1">
+            <div className="w-12 h-12 bg-indigo-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 ring-4 ring-indigo-50">
+              <FileText size={24} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight">Solicitações de Compra</h1>
+              <p className="text-slate-500 font-bold text-sm uppercase tracking-widest text-shadow-sm">Gestão de Necessidades & Suprimentos</p>
+            </div>
           </div>
         </div>
 
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Valor Estimado</span>
-            <span className="summary-value">R$ {solicitacoes.reduce((acc, s) => acc + s.valorTotal, 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</span>
-            <span className="summary-subtext">Total em solicitações</span>
+        <div className="flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-slate-200 shadow-sm">
+            <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">Empresa:</span>
+            <span className="text-xs font-black text-slate-700">{activeCompanyId === 'Todas' ? 'Visão Consolidada' : empresasList.find(e => e.id === activeCompanyId)?.razaoSocial || 'Unidade'}</span>
           </div>
-          <div className="summary-icon green">
-            <DollarSign size={24} />
-          </div>
-        </div>
-
-        <div className="summary-card card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Urgentes</span>
-            <span className="summary-value">{solicitacoes.filter(s => s.prioridade === 'Urgente').length}</span>
-            <span className="summary-subtext">Atenção imediata</span>
-          </div>
-          <div className="summary-icon purple">
-            <AlertCircle size={24} />
-          </div>
-        </div>
-      </div>
-
-      <div className="data-section">
-        <TableFilters
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          placeholder="Buscar por número ou solicitante..."
-          actionsLabel="Filtragem"
-        >
-          <button
-            className={`btn-premium-outline h-11 px-6 ${isFiltersOpen ? 'filter-active' : ''}`}
-            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+          <button 
+            onClick={() => handleOpenModal()}
+            className="btn-premium-solid h-14 px-8 rounded-2xl indigo shadow-xl shadow-indigo-100/50"
           >
-            <Filter size={18} strokeWidth={3} />
-            <span>{isFiltersOpen ? 'Fechar Filtros' : 'Filtros Avançados'}</span>
+            <PlusCircle size={22} strokeWidth={3} />
+            <span className="text-base">Nova Solicitação</span>
           </button>
-        </TableFilters>
+        </div>
+      </div>
 
+      {/* Modern Summary Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <SummaryCard 
+          label="Total Pendente"
+          value={solicitacoes.filter(s => s.status === 'Pendente').length.toString().padStart(2, '0')}
+          trend={{ value: 'Aguardando ação', type: 'neutral', icon: Clock }}
+          icon={Clock}
+          color="amber"
+        />
+        <SummaryCard 
+          label="Valor Estimado"
+          value={`R$ ${solicitacoes.reduce((acc, s) => acc + (s.valorTotal || 0), 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`}
+          trend={{ value: 'Total em SC', type: 'neutral', icon: DollarSign }}
+          icon={DollarSign}
+          color="emerald"
+        />
+        <SummaryCard 
+          label="Prioridade Crítica"
+          value={solicitacoes.filter(s => s.prioridade === 'Urgente' || s.prioridade === 'Alta').length.toString().padStart(2, '0')}
+          trend={{ value: 'Atenção imediata', type: 'down', icon: AlertCircle }}
+          icon={AlertCircle}
+          color="rose"
+        />
+        <SummaryCard 
+          label="Em Cotação"
+          value={solicitacoes.filter(s => s.status === 'Em Cotação').length.toString().padStart(2, '0')}
+          icon={TrendingUp}
+          color="indigo"
+          subtext="No mercado"
+        />
+      </div>
 
-        <div className="table-container">
-          <table className="data-table">
+      {/* Main List Section */}
+      <div className="glass-premium rounded-[40px] overflow-hidden shadow-soft-xl border border-white/40">
+        <div className="p-8 border-b border-slate-200/50 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 bg-white/50">
+          <div className="relative flex-1 max-w-md group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+            <input 
+              type="text"
+              placeholder="Buscar por número ou solicitante..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-slate-700 font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+              className={`flex items-center gap-2 px-6 py-3 rounded-2xl border font-bold transition-all ${isFiltersOpen ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}
+            >
+              <Filter size={18} />
+              <span>{isFiltersOpen ? 'Ocultar Filtros' : 'Filtros'}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr>
-                <th>Número</th>
-                <th>Data</th>
-                <th>Solicitante</th>
-                <th>Prioridade</th>
-                <th>Status</th>
-                <th>Total Est.</th>
-                <th className="text-right">Ações</th>
+              <tr className="bg-slate-50/50">
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Número / Origem</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Solicitante</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Prioridade</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Total Est.</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Status</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Ações</th>
               </tr>
               {isFiltersOpen && (
                 <ColumnFilters
@@ -349,73 +351,90 @@ export const SolicitacaoCompraPage = () => {
                 />
               )}
             </thead>
-            <tbody>
-              {paginatedData.map((reg) => (
-                <tr key={reg.id}>
-                  <td className="font-bold">
-                    <div className="flex items-center gap-2">
-                       <div className="w-2 h-2 rounded-full" style={{ background: 'var(--primary-indigo)' }}></div>
-                      {reg.numero}
+            <tbody className="divide-y divide-slate-100 bg-white/30 backdrop-blur-sm">
+              {paginatedData.length > 0 ? (paginatedData as SolicitacaoType[]).map((reg) => (
+                <tr key={reg.id} className="group hover:bg-slate-50/50 transition-all duration-300 transform hover:scale-[1.002]">
+                  <td className="px-8 py-6">
+                    <div className="flex flex-col">
+                      <span className="font-black text-slate-800 text-base mb-1">{reg.numero}</span>
+                      <span className="text-[10px] font-black text-slate-400 bg-slate-100 w-fit px-2 py-0.5 rounded uppercase tracking-widest">{reg.data}</span>
                     </div>
                   </td>
-                  <td>{reg.data}</td>
-                  <td>
-                    <div className="solicitante-cell flex items-center gap-3">
-                      <div className="avatar-circle font-black text-[10px] bg-slate-100 text-slate-600 w-8 h-8 rounded-full flex items-center justify-center border border-slate-200">
+                  <td className="px-8 py-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shadow-inner overflow-hidden font-black text-[10px]">
                         {reg.solicitante.split(' ').map(n => n[0]).join('')}
                       </div>
-                      <span className="font-bold text-slate-800">{reg.solicitante}</span>
+                      <span className="font-bold text-slate-700">{reg.solicitante}</span>
                     </div>
                   </td>
-                  <td>
-                    <span className={`priority-badge ${getPriorityColor(reg.prioridade)}`}>
+                  <td className="px-8 py-6 text-center">
+                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                      reg.prioridade === 'Urgente' ? 'bg-rose-100 text-rose-600 border border-rose-200' :
+                      reg.prioridade === 'Alta' ? 'bg-amber-100 text-amber-600 border border-amber-200' :
+                      'bg-slate-100 text-slate-600 border border-slate-200'
+                    }`}>
                       {reg.prioridade}
                     </span>
                   </td>
-                  <td>
-                    <div className={`status-indicator status-${reg.status.toLowerCase().replace(' ', '-')}`}>
-                      {getStatusIcon(reg.status)}
-                      <span>{reg.status}</span>
-                    </div>
+                  <td className="px-8 py-6 text-right">
+                    <span className="font-black text-slate-700 text-lg tabular-nums tracking-tighter">
+                      R$ {reg.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
                   </td>
-                  <td className="font-bold" style={{ color: 'var(--text-main)' }}>R$ {reg.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                  <td className="text-right">
-                    <div className="actions-cell">
-                      <button className="action-btn-global btn-view" title="Gerar Mapa de Cotação" onClick={() => handleGenerateMap(reg)}>
-                        <ArrowRight size={18} strokeWidth={3} />
-                      </button>
-                      <button
-                        className="action-btn-global btn-view"
-                        title="Visualizar"
-                        onClick={() => handleOpenModal(reg, true)}
+                  <td className="px-8 py-6 text-center">
+                    <StatusBadge status={reg.status} />
+                  </td>
+                  <td className="px-8 py-6">
+                    <div className="flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-0 translate-x-4">
+                      <button 
+                         onClick={() => handleGenerateMap(reg)}
+                         className="action-btn-global btn-view" title="Gerar Mapa de Cotação"
                       >
-                        <Eye size={18} strokeWidth={3} />
+                        <ArrowRight size={18} strokeWidth={2.5} />
                       </button>
+                      <button 
+                        onClick={() => handleOpenModal(reg, true)}
+                        className="action-btn-global btn-view" title="Visualizar"
+                      >
+                        <Eye size={18} strokeWidth={2.5} />
+                      </button>
+                      
                       {reg.status === 'Pendente' && (
                         <>
-                          <button
-                            className="action-btn-global btn-edit"
-                            title="Editar"
+                          <button 
                             onClick={() => handleOpenModal(reg)}
+                            className="action-btn-global btn-edit" title="Editar"
                           >
-                            <Edit size={18} strokeWidth={3} />
+                            <Edit size={18} strokeWidth={2.5} />
                           </button>
-                          <button
-                            className="action-btn-global btn-delete"
-                            title="Excluir"
+                          <button 
                             onClick={() => handleDelete(reg.id)}
+                            className="action-btn-global btn-delete" title="Excluir"
                           >
-                            <Trash2 size={18} strokeWidth={3} />
+                            <Trash2 size={18} strokeWidth={2.5} />
                           </button>
                         </>
                       )}
                     </div>
                   </td>
                 </tr>
-              ))}
+              )) : (
+                <tr>
+                  <td colSpan={6} className="px-8 py-20 text-center">
+                    <div className="flex flex-col items-center gap-4 opacity-40">
+                      <FileText size={64} strokeWidth={1} />
+                      <p className="text-lg font-bold text-slate-400">Nenhuma solicitação encontrada</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-          <TablePagination
+        </div>
+
+        <div className="p-8 border-t border-slate-100 bg-slate-50/50">
+          <TablePagination 
             currentPage={currentPage}
             totalPages={totalPages}
             itemsPerPage={itemsPerPage}
@@ -426,271 +445,230 @@ export const SolicitacaoCompraPage = () => {
             onNextPage={nextPage}
             onPrevPage={prevPage}
             onItemsPerPageChange={setItemsPerPage}
-            label="solicitações"
           />
         </div>
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title={isViewMode ? 'Detalhes da Solicitação' : (selectedSolicitacao ? 'Editar Solicitação' : 'Nova Solicitação')}
-        subtitle="Preencha os dados básicos e os itens necessários."
+        subtitle="Preencha os dados básicos e os itens necessários para cotação."
         icon={FileText}
-        size="xl"
         footer={
-          <>
-            <div className="total-box-horizontal">
-              <span className="total-label">Total da Solicitação:</span>
-              <span className="total-value">R$ {calculateTotal().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+          <div className="flex justify-between items-center w-full">
+            <div className="hidden sm:flex items-center gap-4 px-6 py-3 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden relative group">
+              <div className="absolute inset-0 bg-indigo-500/10 blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest relative z-10">Total Estimado:</span>
+              <span className="text-2xl font-black text-white tracking-tighter relative z-10 tabular-nums">
+                R$ {calculateTotal().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
             </div>
-            <div className="footer-actions flex gap-3">
-              <button type="button" className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>Cancelar</button>
+            
+            <div className="flex gap-4">
+              <button
+                type="button"
+                className="btn-premium-outline h-12 px-8"
+                onClick={() => setIsModalOpen(false)}
+              >
+                {isViewMode ? 'Fechar' : 'Cancelar'}
+              </button>
               {!isViewMode && (
-                <button type="submit" className="btn-premium-solid indigo" onClick={handleSave}>
-                  <CheckCircle2 size={18} strokeWidth={3} />
-                  <span>{selectedSolicitacao ? 'Salvar Alterações' : 'Adicionar Solicitação'}</span>
+                <button
+                  type="button"
+                  className="btn-premium-solid h-12 px-8 indigo shadow-lg shadow-indigo-100 min-w-[200px]"
+                  onClick={handleSave}
+                >
+                  <CheckCircle2 size={18} />
+                  <span>{selectedSolicitacao ? 'Salvar Alterações' : 'Confirmar Solicitação'}</span>
                 </button>
               )}
             </div>
-          </>
+          </div>
         }
       >
-        <div className="form-sections-grid">
-          <div className="form-section">
-            <div className="section-title">
-              <FileText size={16} />
-              Informações Gerais
+        <div className="space-y-12">
+          {/* Form Header Info */}
+          <div className="glass-card p-8 rounded-[32px] border border-white/60 bg-white/40">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500">
+                <Info size={20} />
+              </div>
+              <h3 className="text-sm font-black text-slate-700 uppercase tracking-[0.2em]">Informações Gerais</h3>
             </div>
-
-            <div className="form-grid mt-4">
-              <div className="form-group col-3">
-                <label>Número</label>
-                <div className="input-with-icon">
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Número</label>
+                <div className="relative group">
+                  <Hash size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    value={formNumero}
-                    onChange={(e) => setFormNumero(e.target.value)}
-                    required
+                    className="w-full bg-white/50 border border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-slate-700 font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+                    value={formData.numero || ''}
+                    onChange={(e) => setFormData({ ...formData, numero: e.target.value })}
                     disabled={isViewMode}
-                    placeholder="Ex: SC-001"
                   />
-                  <FileText size={18} className="field-icon" />
                 </div>
               </div>
 
-              <div className="form-group col-9">
-                <label>Solicitante</label>
-                <div className="input-with-icon">
+              <div className="md:col-span-2 space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Solicitante</label>
+                <div className="relative group">
+                  <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    value={formSolicitante}
-                    onChange={(e) => setFormSolicitante(e.target.value)}
-                    required
+                    className="w-full bg-white/50 border border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-slate-700 font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+                    value={formData.solicitante || ''}
+                    onChange={(e) => setFormData({ ...formData, solicitante: e.target.value })}
+                    placeholder="Nome do colaborador requisitante"
                     disabled={isViewMode}
-                    placeholder="Nome Completo"
                   />
-                  <User size={18} className="field-icon" />
                 </div>
               </div>
 
-              <div className="form-group col-6">
-                <label>Empresa / Unidade</label>
-                <div className="input-with-icon">
-                  <select
-                    value={formEmpresaId}
-                    onChange={(e) => setFormEmpresaId(e.target.value)}
-                    disabled={isViewMode}
-                  >
-                    <option value="">Selecione...</option>
-                    {(empresasList as any[]).filter((c: any) => c.status === 'Ativa').map((company: any) => (
-                      <option key={company.id} value={company.id}>
-                        {company.nomeFantasia || company.razaoSocial} {!company.isMatriz ? '(Filial)' : '(Matriz)'}
-                      </option>
-                    ))}
-                  </select>
-                  <Building2 size={18} className="field-icon" />
-                </div>
-              </div>
-
-              <div className="form-group col-3">
-                <label>Data</label>
-                <div className="input-with-icon">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Data</label>
+                <div className="relative group">
+                  <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="date"
-                    value={formData?.data || ''}
-                    onChange={(e) => setFormData(prev => prev ? { ...prev, data: e.target.value } : null)}
-                    required
+                    className="w-full bg-white/50 border border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-slate-700 font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+                    value={formData.data || ''}
+                    onChange={(e) => setFormData({ ...formData, data: e.target.value })}
                     disabled={isViewMode}
                   />
-                  <Calendar size={18} className="field-icon" />
                 </div>
               </div>
 
-              <div className="form-group col-3">
-                <label>Prioridade</label>
-                <div className="input-with-icon">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Prioridade</label>
+                <div className="relative group">
+                  <AlertCircle size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <select
-                    value={formPrioridade}
-                    onChange={(e: any) => setFormPrioridade(e.target.value)}
+                    className="w-full bg-white/50 border border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-slate-700 font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none appearance-none"
+                    value={formData.prioridade || 'Normal'}
+                    onChange={(e: any) => setFormData({ ...formData, prioridade: e.target.value })}
                     disabled={isViewMode}
-                    className={`priority-select ${getPriorityColor(formPrioridade)}`}
                   >
+                    <option value="Baixa">Baixa</option>
                     <option value="Normal">Normal</option>
                     <option value="Alta">Alta</option>
                     <option value="Urgente">Urgente</option>
-                    <option value="Crítico">Crítico</option>
                   </select>
-                  <AlertCircle size={18} className="field-icon" />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <SearchableSelect
+                  label="Unidade / Fazenda"
+                  options={empresasList.map(e => ({ id: e.id, label: e.razaoSocial, sublabel: e.cidade }))}
+                  value={formData.empresaId || ''}
+                  onChange={(val) => setFormData({ ...formData, empresaId: val })}
+                  disabled={isViewMode}
+                />
               </div>
             </div>
           </div>
 
-          <div className="form-section">
-            <div className="flex justify-between items-center mb-6">
-              <div className="section-title mb-0">
-                <List size={16} />
-                Itens da Solicitação
+          {/* Items Section */}
+          <div className="space-y-6">
+            <div className="flex justify-between items-center px-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500">
+                  <Package size={20} />
+                </div>
+                <h3 className="text-sm font-black text-slate-700 uppercase tracking-[0.2em]">Itens Requisitados</h3>
               </div>
               {!isViewMode && (
-                <button
-                  type="button"
-                  className="btn-premium-solid btn-sm"
+                <button 
+                  type="button" 
                   onClick={addItemRow}
+                  className="btn-premium-solid indigo btn-sm h-10 px-6 rounded-xl"
                 >
-                  <Plus size={18} strokeWidth={3} />
-                  <span>Adicionar Item</span>
+                  <Plus size={16} strokeWidth={3} />
+                  <span>Adicionar</span>
                 </button>
               )}
             </div>
 
-            <div className="items-cards-container">
-              {formItems.length === 0 ? (
-                <div className="empty-items-state animate-slide-up">
-                  <Package size={48} />
-                  <p>Nenhum item adicionado ainda.</p>
-                  {!isViewMode && (
-                    <button type="button" className="btn-premium-solid" onClick={addItemRow}>
-                      <span>Adicionar Primeiro Item</span>
-                    </button>
-                  )}
-                </div>
-              ) : (
-                formItems.map((item, index) => (
-                  <div key={item.id} className="item-card-row animate-slide-up" style={{ animationDelay: `${index * 0.05}s` }}>
-                    <div className="item-field-group">
-                      <label className="item-field-label">Insumo</label>
-                      <div className="input-with-icon">
-                        <select 
-                          value={item.insumoId} 
-                          onChange={(e) => updateItem(item.id, 'insumoId', e.target.value)}
-                          required
-                          disabled={isViewMode}
-                        >
-                          <option value="">Selecione um Insumo...</option>
-                          {insumos.map(i => (
-                            <option key={i.id} value={i.id}>{i.nome} ({i.unidade})</option>
-                          ))}
-                        </select>
-                        <Package size={18} className="field-icon" />
-                      </div>
+            <div className="grid gap-4">
+              {items.map((item, index) => (
+                <div key={item.id} className="glass-card p-6 rounded-[24px] border border-white/60 bg-white/20 hover:bg-white/40 transition-all group animate-premium-fade-up" style={{ animationDelay: `${index * 0.1}s` }}>
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end">
+                    <div className="md:col-span-4">
+                      <SearchableSelect
+                        label="Insumo / Item"
+                        options={insumos.map(i => ({ id: i.id, label: i.nome, sublabel: i.unidade }))}
+                        value={item.insumoId}
+                        onChange={(val) => updateItem(item.id, 'insumoId', val)}
+                        disabled={isViewMode}
+                      />
                     </div>
 
-                    <div className="item-field-group">
-                      <label className="item-field-label">Centro de Custo</label>
-                      <div className="input-with-icon">
+                    <div className="md:col-span-3">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Centro de Custo</label>
+                      <div className="relative group">
+                        <Building2 size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                         <select 
+                          className="w-full bg-white/50 border border-slate-200 rounded-[18px] py-3 pl-10 pr-4 text-slate-700 font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none appearance-none"
                           value={item.centroCustoId} 
                           onChange={(e) => updateItem(item.id, 'centroCustoId', e.target.value)}
                           disabled={isViewMode}
                         >
-                          <option value="">-</option>
+                          <option value="">Selecione...</option>
                           {centrosCusto.map(cc => (
                             <option key={cc.id} value={cc.id}>{cc.nome}</option>
                           ))}
                         </select>
-                        <List size={18} className="field-icon" />
                       </div>
                     </div>
 
-                    <div className="item-field-group">
-                      <label className="item-field-label">Quantidade</label>
-                      <div className="input-with-icon">
+                    <div className="md:col-span-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Quantidade</label>
+                      <div className="relative group">
                         <input 
                           type="number" 
+                          className="w-full bg-white/50 border border-slate-200 rounded-[18px] py-3 px-4 text-slate-700 font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
                           value={item.quantidade} 
                           onChange={(e) => updateItem(item.id, 'quantidade', parseFloat(e.target.value))}
-                          required
                           disabled={isViewMode}
-                          min="0.01"
-                          step="any"
-                          placeholder="0.00"
                         />
-                        <Hash size={18} className="field-icon" />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase">{item.unidade || 'UN'}</span>
                       </div>
                     </div>
 
-                    <div className="item-field-group">
-                      <label className="item-field-label">Unidade</label>
-                      <div className="input-with-icon">
-                        <select 
-                          value={item.unidade} 
-                          onChange={(e) => updateItem(item.id, 'unidade', e.target.value)}
-                          required
-                          disabled={true}
-                          className="item-unit-readonly"
-                        >
-                          <option value="">-</option>
-                          {INITIAL_UNIDADES.map((un: UnidadeMedida) => (
-                            <option key={un.id} value={un.sigla}>{un.sigla}</option>
-                          ))}
-                        </select>
-                        <Activity size={18} className="field-icon" />
-                      </div>
-                    </div>
-
-                    <div className="item-field-group">
-                      <label className="item-field-label">Preço</label>
-                      <div className="input-with-icon">
+                    <div className="md:col-span-2">
+                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Preço Est.</label>
+                       <div className="relative group">
+                        <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input 
                           type="number" 
+                          className="w-full bg-white/50 border border-slate-200 rounded-[18px] py-3 pl-10 pr-4 text-slate-700 font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
                           value={item.preco} 
                           onChange={(e) => updateItem(item.id, 'preco', parseFloat(e.target.value))}
-                          required
                           disabled={isViewMode}
-                          min="0"
-                          step="0.01"
-                          placeholder="0.00"
                         />
-                        <DollarSign size={18} className="field-icon" />
                       </div>
                     </div>
 
-                    <div className="item-subtotal-display">
-                      <label className="item-field-label">Subtotal</label>
-                      <div className="item-subtotal-value">
-                        R$ {(item.quantidade * item.preco).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </div>
+                    <div className="md:col-span-1 flex justify-end">
+                      {!isViewMode && (
+                        <button 
+                          onClick={() => removeItemRow(item.id)}
+                          className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"
+                        >
+                          <Trash2 size={24} />
+                        </button>
+                      )}
                     </div>
-
-                    {!isViewMode && (
-                      <button 
-                        type="button" 
-                        className="action-btn-global btn-delete" 
-                        onClick={() => removeItemRow(item.id)}
-                        title="Remover item"
-                      >
-                        <Trash2 size={18} strokeWidth={3} />
-                      </button>
-                    )}
                   </div>
-                ))
-              )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

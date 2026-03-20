@@ -189,62 +189,62 @@ export const FluxoCaixa: React.FC = () => {
         </div>
       </div>
 
-      <div className="premium-stats-grid">
-        <div className="premium-card income animate-slide-up">
-          <div className="card-content">
-            <div className="header">
-              <span className="label">Entradas Totais</span>
-              <div className="icon-wrapper emerald">
+      <div className="summary-grid">
+        <div className="card glass animate-slide-up">
+          <div className="summary-info">
+            <div className="flex justify-between items-start w-full">
+              <span className="summary-label">Entradas Totais</span>
+              <div className="summary-icon emerald">
                 <TrendingUp size={36} strokeWidth={3} />
               </div>
             </div>
-            <div className="body">
-              <span className="value">R$ {totalReceita.toLocaleString()}</span>
-              <div className="trend-row">
-                <span className="trend positive">+12.5%</span>
-                <span className="subdesc">vs mês anterior</span>
+            <div className="mt-2">
+              <span className="summary-value">R$ {totalReceita.toLocaleString()}</span>
+              <div className="summary-trend up mt-2">
+                <ArrowUpRight size={16} strokeWidth={3} />
+                <span>+12.5%</span>
+                <span className="text-slate-400 font-medium ml-1">vs mês anterior</span>
               </div>
             </div>
           </div>
-          <div className="card-background-glow emerald"></div>
         </div>
 
-        <div className="premium-card expense animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="card-content">
-            <div className="header">
-              <span className="label">Saídas Totais</span>
-              <div className="icon-wrapper rose">
+        <div className="card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <div className="summary-info">
+            <div className="flex justify-between items-start w-full">
+              <span className="summary-label">Saídas Totais</span>
+              <div className="summary-icon rose">
                 <TrendingDown size={36} strokeWidth={3} />
               </div>
             </div>
-            <div className="body">
-              <span className="value">R$ {totalDespesa.toLocaleString()}</span>
-              <div className="trend-row">
-                <span className="trend negative">+5.2%</span>
-                <span className="subdesc">Insumos em alta</span>
+            <div className="mt-2">
+              <span className="summary-value">R$ {totalDespesa.toLocaleString()}</span>
+              <div className="summary-trend down mt-2">
+                <ArrowDownRight size={16} strokeWidth={3} />
+                <span>+5.2%</span>
+                <span className="text-slate-400 font-medium ml-1">Insumos em alta</span>
               </div>
             </div>
           </div>
-          <div className="card-background-glow rose"></div>
         </div>
 
-        <div className="premium-card balance animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="card-content">
-            <div className="header">
-              <span className="label">Saldo Operacional</span>
-              <div className="icon-wrapper sky">
+        <div className="card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
+          <div className="summary-info">
+            <div className="flex justify-between items-start w-full">
+              <span className="summary-label">Saldo Operacional</span>
+              <div className="summary-icon sky">
                 <ShieldCheck size={36} strokeWidth={3} />
               </div>
             </div>
-            <div className="body">
-              <span className="value">R$ {saldoTotal.toLocaleString()}</span>
-              <div className="trend-row">
-                <span className="trend positive">SAUDÁVEL</span>
-                <span className="subdesc">Liquidez: 2.4</span>
+            <div className="mt-2">
+              <span className="summary-value">R$ {saldoTotal.toLocaleString()}</span>
+              <div className="summary-trend up mt-2">
+                <CheckCircle2 size={16} strokeWidth={3} />
+                <span>SAUDÁVEL</span>
+                <span className="text-slate-400 font-medium ml-1">Liquidez: 2.4</span>
               </div>
             </div>
           </div>
-          <div className="card-background-glow sky"></div>
         </div>
       </div>
 

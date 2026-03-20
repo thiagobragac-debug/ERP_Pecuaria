@@ -11,13 +11,15 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  FileText
+  FileText,
+  Plus,
+  X
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
 import { TaxApuracao } from '../../types';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { usePagination } from '../../hooks/usePagination';
 import { TableFilters } from '../../components/TableFilters';
@@ -121,12 +123,12 @@ export const Imposto = () => {
         </div>
         <div className="action-buttons">
           <button className="btn-premium-outline">
-            <Calendar size={18} strokeWidth={3} />
             <span>Cronograma Fiscal</span>
+            <Calendar size={18} strokeWidth={3} />
           </button>
           <button className="btn-premium-solid indigo" onClick={() => setIsModalOpen(true)}>
-            <Calculator size={18} strokeWidth={3} />
             <span>Nova Apuração</span>
+            <Calculator size={18} strokeWidth={3} />
           </button>
         </div>
       </div>
@@ -148,7 +150,7 @@ export const Imposto = () => {
             <span className="summary-value text-orange">R$ {(summary.aPagar / 1000).toFixed(1)}k</span>
             <span className="summary-subtext">Vencimento próximo</span>
           </div>
-          <div className="summary-icon orange">
+          <div className="summary-icon amber">
             <Clock size={28} />
           </div>
         </div>
@@ -158,7 +160,7 @@ export const Imposto = () => {
             <span className="summary-value text-emerald">R$ {(summary.totalPago / 1000).toFixed(1)}k</span>
             <span className="summary-subtext">Obrigações quitadas</span>
           </div>
-          <div className="summary-icon green">
+          <div className="summary-icon emerald">
             <CheckCircle2 size={28} />
           </div>
         </div>
@@ -182,13 +184,13 @@ export const Imposto = () => {
           actionsLabel="Filtragem"
         >
           <button 
-            className={`btn-premium-outline h-11 px-6 ${isFiltersOpen ? 'filter-active' : ''}`}
+            className={`btn-premium-outline ${isFiltersOpen ? 'filter-active' : ''}`}
             onClick={() => setIsFiltersOpen(!isFiltersOpen)}
           >
             <Filter size={18} strokeWidth={3} />
             <span>{isFiltersOpen ? 'Fechar Filtros' : 'Filtros Avançados'}</span>
           </button>
-          <button className="btn-premium-outline h-11 px-6">
+          <button className="btn-premium-outline">
             <Download size={18} strokeWidth={3} />
             <span>Gerar PDF Guias</span>
           </button>
@@ -267,18 +269,20 @@ export const Imposto = () => {
           </div>
         </div>
       </div>
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Nova Apuração de Imposto"
         subtitle="Calcule e gere guias de impostos incidentes sobre a operação"
         icon={Calculator}
-        size="md"
         footer={
-          <div className="flex gap-3">
-            <button className="btn-premium-outline px-8" onClick={() => setIsModalOpen(false)}>Cancelar</button>
+          <>
+            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
+            </button>
             <button 
-              className="btn-premium-solid indigo px-8" 
+              className="btn-premium-solid indigo" 
               onClick={() => {
                 dataService.saveItem('apuracoes_impostos', { 
                   ...formData, 
@@ -289,12 +293,19 @@ export const Imposto = () => {
                 setIsModalOpen(false);
               }}
             >
-              Confirmar Apuração
+              <span>Confirmar Apuração</span>
+              <Plus size={18} strokeWidth={3} />
             </button>
-          </div>
+          </>
         }
       >
-        <div className="form-grid">
+        <div className="form-sections-grid">
+          <div className="form-section">
+            <div className="form-section-title">
+              <Calculator size={20} />
+              <span>Dados da Apuração</span>
+            </div>
+            <div className="form-grid">
           <div className="form-group col-12">
             <label>Imposto / Guia</label>
             <select 
@@ -333,8 +344,10 @@ export const Imposto = () => {
               onChange={(e) => setFormData({...formData, vencimento: e.target.value})}
             />
           </div>
+            </div>
+          </div>
         </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

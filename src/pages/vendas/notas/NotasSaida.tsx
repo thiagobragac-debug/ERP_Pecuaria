@@ -14,15 +14,24 @@ import {
   Calculator,
   ArrowRight,
   Printer,
-  ChevronRight
+  ChevronRight,
+  X,
+  PlusCircle,
+  Hash,
+  Activity,
+  Calendar,
+  User,
+  MoreVertical,
+  CheckCircle,
+  XCircle,
+  AlertTriangle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { StandardModal } from '../../../components/StandardModal';
+import { ModernModal } from '../../../components/ModernModal';
 import { DanfeModal } from './components/DanfeModal';
 import { TablePagination } from '../../../components/TablePagination';
 import { TableFilters } from '../../../components/TableFilters';
 import { usePagination } from '../../../hooks/usePagination';
-import { ColumnFilters } from '../../../components/ColumnFilters';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../../services/db';
 import { dataService } from '../../../services/dataService';
@@ -32,9 +41,10 @@ import { InvoiceHeader } from './components/InvoiceHeader';
 import { InvoiceItems } from './components/InvoiceItems';
 import { InvoiceFooter } from './components/InvoiceFooter';
 import { nfeService } from '../../../services/nfeService';
-import './NotasSaida.css';
+import { SummaryCard } from '../../../components/SummaryCard';
+import { StatusBadge } from '../../../components/StatusBadge';
 
-export const NotasSaida = () => {
+export function NotasSaida() {
   const { activeCompanyId } = useCompany();
   const allNotas = useLiveQuery(() => db.pedidos_venda.toArray()) || [];
   const notas = allNotas.filter(n => activeCompanyId === 'Todas' || (n as any).empresaId === activeCompanyId);
@@ -42,7 +52,6 @@ export const NotasSaida = () => {
   const empresasList = useLiveQuery(() => db.empresas.toArray()) || [] as Company[];
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedNota, setSelectedNota] = useState<SalesInvoice | null>(null);
   const [isViewMode, setIsViewMode] = useState(false);
@@ -50,34 +59,9 @@ export const NotasSaida = () => {
   const [currentNotaForDanfe, setCurrentNotaForDanfe] = useState<SalesInvoice | null>(null);
   const [isTransmitting, setIsTransmitting] = useState(false);
   const [transmissionError, setTransmissionError] = useState<string | null>(null);
-  
-  const [columnFilters, setColumnFilters] = useState({
-    numero: '',
-    dataEmissao: '',
-    cliente: '',
-    valorTotal: '',
-    status: 'Todos'
-  });
+  const [formData, setFormData] = useState<Partial<SalesInvoice>>({});
 
-  const [formData, setFormData] = useState<Partial<SalesInvoice>>({
-    numero: '',
-    serie: '1',
-    naturezaOperacao: 'Venda de Produção',
-    dataEmissao: new Date().toISOString().split('T')[0],
-    dataSaida: new Date().toISOString().split('T')[0],
-    status: 'Pendente',
-    itens: [],
-    valorProdutos: 0,
-    valorIcms: 0,
-    valorIpi: 0,
-    valorFrete: 0,
-    valorSeguro: 0,
-    valorDesconto: 0,
-    valorOutrasDespesas: 0,
-    valorTotal: 0
-  });
-
-  const handleOpenModal = (nota: any | null = null, view = false) => {
+  const handleOpenModal = (nota: SalesInvoice | null = null, view = false) => {
     if (nota) {
       setSelectedNota(nota);
       setFormData(nota);
@@ -104,41 +88,31 @@ export const NotasSaida = () => {
       });
       setIsViewMode(false);
     }
+    setTransmissionError(null);
     setIsModalOpen(true);
   };
 
-  const filteredData = notas.filter(nota => {
+  const filteredNotas = notas.filter(nota => {
     const searchLower = searchTerm.toLowerCase();
     const cliente = clientes.find(c => c.id === nota.cliente_id);
     const clienteNome = cliente?.nome || 'N/A';
-    const numeroStr = nota.numero || '';
-    const statusStr = nota.status || '';
-
-    const matchesSearch = numeroStr.toLowerCase().includes(searchLower) || 
-                         clienteNome.toLowerCase().includes(searchLower) ||
-                         statusStr.toLowerCase().includes(searchLower);
-                         
-    const matchesColumnFilters = 
-      (columnFilters.numero === '' || numeroStr.toLowerCase().includes(columnFilters.numero.toLowerCase())) &&
-      (columnFilters.cliente === '' || clienteNome.toLowerCase().includes(columnFilters.cliente.toLowerCase())) &&
-      (columnFilters.status === 'Todos' || statusStr === columnFilters.status);
-
-    return matchesSearch && matchesColumnFilters;
-  });
+    return (nota.numero || '').toLowerCase().includes(searchLower) || 
+           clienteNome.toLowerCase().includes(searchLower);
+  }).sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
 
   const {
     currentPage,
     totalPages,
-    paginatedData,
+    paginatedData: paginatedItems,
     itemsPerPage,
+    goToPage,
+    nextPage: handleNextPage,
+    prevPage: handlePrevPage,
     setItemsPerPage,
     startIndex,
     endIndex,
-    totalItems,
-    goToPage,
-    nextPage,
-    prevPage,
-  } = usePagination({ data: filteredData, initialItemsPerPage: 10 });
+    totalItems
+  } = usePagination({ data: filteredNotas, initialItemsPerPage: 10 });
 
   const handleSave = async () => {
     if (!formData.numero || !formData.cliente_id) {
@@ -158,56 +132,22 @@ export const NotasSaida = () => {
       created_at: selectedNota?.created_at || new Date().toISOString()
     } as SalesInvoice;
 
-    // Se estiver emitindo (mudando de Pendente para Processada)
-    if (payload.status === 'Processada' && selectedNota?.status !== 'Processada') {
-      // 1. Integração Financeira (Conta a Receber)
-      await dataService.saveItem('transacoes', {
-        id: crypto.randomUUID(),
-        desc: `NF-e ${payload.numero} - ${clientes.find(c => c.id === payload.cliente_id)?.nome}`,
-        cliente_id: payload.cliente_id,
-        valor: payload.valorTotal,
-        data: new Date().toISOString().split('T')[0],
-        vencimento: payload.dataSaida,
-        status: 'Pendente',
-        tipo: 'in',
-        categoria: 'Venda Gado',
-        empresaId: payload.empresaId,
-        tenant_id: 'default'
-      });
-
-      // 2. Integração de Estoque (Baixa)
-      for (const item of (payload.itens as any[])) {
-        await dataService.saveItem('movimentacoes_estoque', {
-          id: crypto.randomUUID(),
-          insumo_id: item.id || 'NF-ITEM',
-          insumo_nome: item.produto || 'Item de NF',
-          local_origem: 'Estoque Central',
-          tipo: 'Saída',
-          quantidade: item.quantidade,
-          unidade: item.unidade || 'un',
-          motivo: `NF-e ${payload.numero}`,
-          data: new Date().toISOString().split('T')[0],
-          responsavel: 'Sistema',
-          status: 'Processado',
-          empresaId: payload.empresaId,
-          tenant_id: 'default'
-        });
-      }
+    try {
+      await dataService.saveItem('pedidos_venda', payload);
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Erro ao salvar nota:', error);
+      alert('Erro ao salvar a nota.');
     }
-
-    await dataService.saveItem('pedidos_venda', payload);
-    setIsModalOpen(false);
   };
 
   const handleTransmit = async () => {
     if (!formData.id) return;
-    
     setIsTransmitting(true);
     setTransmissionError(null);
 
     try {
       const result = await nfeService.transmitInvoice(formData);
-      
       if (result.success) {
         const updatedNota: SalesInvoice = {
           ...formData,
@@ -216,47 +156,8 @@ export const NotasSaida = () => {
           nProt: result.nProt
         } as SalesInvoice;
 
-        // Save the authorized invoice
         await dataService.saveItem('pedidos_venda', updatedNota);
         setFormData(updatedNota);
-        
-        // Trigger financial/stock integration if not done
-        if (selectedNota?.status !== 'Processada') {
-             // 1. Integração Financeira (Conta a Receber)
-            await dataService.saveItem('transacoes', {
-              id: crypto.randomUUID(),
-              desc: `NF-e ${updatedNota.numero} - ${clientes.find(c => c.id === updatedNota.cliente_id)?.nome}`,
-              cliente_id: updatedNota.cliente_id,
-              valor: updatedNota.valorTotal,
-              data: new Date().toISOString().split('T')[0],
-              vencimento: updatedNota.dataSaida,
-              status: 'Pendente',
-              tipo: 'in',
-              categoria: 'Venda Gado',
-              empresaId: updatedNota.empresaId,
-              tenant_id: 'default'
-            });
-
-            // 2. Integração de Estoque (Baixa)
-            for (const item of (updatedNota.itens as any[])) {
-              await dataService.saveItem('movimentacoes_estoque', {
-                id: crypto.randomUUID(),
-                insumo_id: item.id || 'NF-ITEM',
-                insumo_nome: item.produto || 'Item de NF',
-                local_origem: 'Estoque Central',
-                tipo: 'Saída',
-                quantidade: item.quantidade,
-                unidade: item.unidade || 'un',
-                motivo: `NF-e ${updatedNota.numero}`,
-                data: new Date().toISOString().split('T')[0],
-                responsavel: 'Sistema',
-                status: 'Processado',
-                empresaId: updatedNota.empresaId,
-                tenant_id: 'default'
-              });
-            }
-        }
-
         alert('NF-e Autorizada com Sucesso!');
         setIsModalOpen(false);
       } else {
@@ -264,249 +165,314 @@ export const NotasSaida = () => {
       }
     } catch (err) {
       setTransmissionError('Erro crítico na comunicação com a SEFAZ.');
-    } finally {
-      setIsTransmitting(false);
     }
   };
-
-  const handleOpenDanfe = (nota: SalesInvoice) => {
-    setCurrentNotaForDanfe(nota);
-    setIsDanfeOpen(true);
-  };
-
   return (
-    <div className="page-container fade-in">
-      <nav className="subpage-breadcrumb">
-        <Link to="/vendas">Vendas & Comercial</Link>
-        <ChevronRight size={14} />
-        <span>Notas de Saída</span>
-      </nav>
+    <div className="p-10 max-w-[1600px] mx-auto animate-premium-fade-up">
+      {/* Floating Header Section */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 sticky top-0 z-30 py-4 bg-slate-50/80 backdrop-blur-md -mx-10 px-10 border-b border-slate-200/50 shadow-sm">
+        <div>
+          <div className="flex items-center gap-4 mb-1">
+            <div className="w-12 h-12 bg-indigo-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 ring-4 ring-indigo-50">
+              <FileText size={24} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight">Notas de Saída</h1>
+              <p className="text-slate-500 font-bold text-sm uppercase tracking-widest text-shadow-sm">Gestão Fiscal & Faturamento</p>
+            </div>
+          </div>
+        </div>
 
-      <div className="page-header-row">
-        <div className="title-section">
-          <div className="icon-badge indigo">
-            <FileText size={32} />
+        <div className="flex items-center gap-4">
+          <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-slate-200 shadow-sm">
+            <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase">Empresa:</span>
+            <span className="text-xs font-black text-slate-700">{activeCompanyId === 'Todas' ? 'Visão Consolidada' : empresasList.find(e => e.id === activeCompanyId)?.razaoSocial || 'Unidade'}</span>
           </div>
-          <div>
-            <h1>Inteligência Fiscal</h1>
-            <p className="description">Emissão e controle avançado de notas de saída (NF-e).</p>
-          </div>
-        </div>
-        <div className="header-actions">
-          <button className="btn-premium-outline">
-            <Download size={18} strokeWidth={3} />
-            <span>Exportar XML/PDF</span>
-          </button>
-          <button className="btn-premium-solid indigo" onClick={() => handleOpenModal()}>
-            <Plus size={18} strokeWidth={3} />
-            <span>Nova Nota de Saída</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="summary-grid">
-        <div className="summary-card glass animate-slide-up">
-          <div className="summary-info">
-            <span className="summary-label">Faturamento Mensal</span>
-            <span className="summary-value">R$ 1.25M</span>
-            <span className="summary-subtext desc">Meta atingida: 82%</span>
-          </div>
-          <div className="summary-icon indigo">
-            <TrendingUp size={28} />
-          </div>
-        </div>
-        <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Notas Pendentes</span>
-            <span className="summary-value">03</span>
-            <span className="summary-subtext desc">Aguardando SEFAZ</span>
-          </div>
-          <div className="summary-icon orange">
-            <Clock size={28} />
-          </div>
-        </div>
-        <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Carga Tributária</span>
-            <span className="summary-value">R$ 45.2k</span>
-            <span className="summary-subtext desc">ICMS / Funrural</span>
-          </div>
-          <div className="summary-icon emerald">
-            <Calculator size={28} />
-          </div>
-        </div>
-        <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Volume de Saídas</span>
-            <span className="summary-value">12</span>
-            <span className="summary-subtext desc">Notas neste mês</span>
-          </div>
-          <div className="summary-icon blue">
-            <ArrowRight size={28} />
-          </div>
-        </div>
-      </div>
-
-      <div className="data-section">
-        <TableFilters
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          placeholder="Buscar por número ou cliente..."
-        >
           <button 
-            className={`btn-premium-outline h-11 px-6 ${isFiltersOpen ? 'filter-active' : ''}`}
-            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+            onClick={() => handleOpenModal()}
+            className="btn-premium-solid h-14 px-8 rounded-2xl indigo"
           >
-            <Filter size={18} strokeWidth={3} />
-            <span>{isFiltersOpen ? 'Fechar Filtros' : 'Filtros Colunares'}</span>
+            <PlusCircle size={22} strokeWidth={3} />
+            <span className="text-base">Nova Nota</span>
           </button>
-        </TableFilters>
+        </div>
+      </div>
 
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Número / Série</th>
-              <th>Emissão</th>
-              <th>Cliente</th>
-              <th>Valor Total</th>
-              <th>Status</th>
-              <th className="text-right">Ações</th>
-            </tr>
-            {isFiltersOpen && (
-              <ColumnFilters
-                columns={[
-                  { key: 'numero', type: 'text', placeholder: 'NF...' },
-                  { key: 'dataEmissao', type: 'text', placeholder: 'Data...' },
-                  { key: 'cliente', type: 'text', placeholder: 'Filtrar...' },
-                  { key: 'valorTotal', type: 'text', placeholder: 'Valor...' },
-                  { key: 'status', type: 'select', options: ['Pendente', 'Processada', 'Cancelada'] }
-                ]}
-                values={columnFilters}
-                onChange={(key, value) => setColumnFilters(prev => ({ ...prev, [key]: value }))}
-                showActionsPadding={true}
-              />
-            )}
-          </thead>
-          <tbody>
-            {paginatedData.map(nota => {
-              const cliente = clientes.find(c => c.id === nota.cliente_id);
-              return (
-                <tr key={nota.id}>
-                  <td className="font-bold">NF {nota.numero}-{nota.serie}</td>
-                  <td>{new Date(nota.dataEmissao || (nota as any).data).toLocaleDateString()}</td>
-                  <td>{cliente?.nome || 'N/A'}</td>
-                  <td className="font-bold">R$ {nota.valorTotal?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                  <td>
-                    <span className={`status-badge ${(nota.status || '').toLowerCase()}`}>
-                      {nota.status}
-                    </span>
-                  </td>
-                  <td className="text-right">
-                    <div className="actions-cell">
-                      <button className="action-btn-global btn-view" title="Visualizar" onClick={() => handleOpenModal(nota, true)}>
-                        <Eye size={18} strokeWidth={3} />
-                      </button>
-                      <button className="action-btn-global btn-view" title="Imprimir DANFE" onClick={() => handleOpenDanfe(nota)}>
-                        <Printer size={18} strokeWidth={3} />
-                      </button>
-                      <button className="action-btn-global btn-edit" title="Editar" onClick={() => handleOpenModal(nota)}>
-                        <Edit size={18} strokeWidth={3} />
-                      </button>
-                      <button className="action-btn-global btn-delete" title="Excluir">
-                        <Trash2 size={18} strokeWidth={3} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        
-        <TablePagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          itemsPerPage={itemsPerPage}
-          startIndex={startIndex}
-          endIndex={endIndex}
-          totalItems={totalItems}
-          onPageChange={goToPage}
-          onNextPage={nextPage}
-          onPrevPage={prevPage}
-          onItemsPerPageChange={setItemsPerPage}
-          label="notas"
+      {/* Modern Summary Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        <SummaryCard 
+          label="Pendentes Transmissão"
+          value={notas.filter(n => n.status === 'Pendente').length.toString().padStart(2, '0')}
+          icon={Clock}
+          color="amber"
+          subtext="Aguardando SEFAZ"
+        />
+        <SummaryCard 
+          label="Faturamento Mensal"
+          value={`R$ ${(notas.reduce((acc, n) => acc + (n.valorTotal || 0), 0) / 1000000).toFixed(2)}M`}
+          icon={TrendingUp}
+          color="indigo"
+          trend={{ value: '+24%', type: 'up', icon: TrendingUp }}
+        />
+        <SummaryCard 
+          label="Notas Autorizadas"
+          value={notas.filter(n => n.status === 'Processada').length.toString().padStart(2, '0')}
+          icon={CheckCircle2}
+          color="emerald"
+          subtext="Protocolo Ativo"
+        />
+        <SummaryCard 
+          label="ICMS Estimado"
+          value={`R$ ${(notas.reduce((acc, n) => acc + (n.valorIcms || 0), 0) / 1000).toFixed(1)}k`}
+          icon={Calculator}
+          color="rose"
+          subtext="Crédito Tributário"
         />
       </div>
 
-      <StandardModal
+      {/* Main List Section */}
+      <div className="glass-premium rounded-[40px] overflow-hidden shadow-soft-xl border border-white/40">
+        <div className="p-8 border-b border-slate-200/50 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 bg-white/50">
+          <div className="relative flex-1 max-w-md group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} />
+            <input 
+              type="text"
+              placeholder="Buscar por número ou cliente..."
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-slate-700 font-bold focus:bg-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
+          <div className="flex items-center gap-3">
+             <TableFilters 
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50/50">
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Documento / Série</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Cliente / Destinatário</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Emissão & Saída</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-right">Valor Total</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Status</th>
+                <th className="px-8 py-6 text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white/30 backdrop-blur-sm">
+              {paginatedItems.length > 0 ? (paginatedItems as SalesInvoice[]).map((nota) => {
+                const cliente = clientes.find(c => c.id === nota.cliente_id);
+                return (
+                  <tr key={nota.id} className="group hover:bg-slate-50/50 transition-all duration-300 transform hover:scale-[1.002]">
+                    <td className="px-8 py-6">
+                      <div className="flex flex-col">
+                        <span className="font-black text-slate-800 text-base mb-1">NF {nota.numero}</span>
+                        <span className="text-[10px] font-black text-slate-400 bg-slate-100 w-fit px-2 py-0.5 rounded uppercase tracking-widest">Série {nota.serie || '1'}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shadow-inner">
+                          <User size={16} />
+                        </div>
+                        <span className="font-bold text-slate-700">{cliente?.nome || 'Cliente não identificado'}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-2 text-xs text-slate-500 font-bold">
+                          <Calendar size={12} className="text-indigo-400" />
+                          <span>Emissão: {new Date(nota.dataEmissao || '').toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400 font-black mt-1.5 uppercase tracking-tighter">
+                          <ArrowRight size={10} className="text-emerald-400" />
+                          <span>Saída: {new Date(nota.dataSaida || '').toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-8 py-6 text-right">
+                      <span className="font-black text-slate-700 text-lg tabular-nums tracking-tighter">
+                        R$ {nota.valorTotal?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                    <td className="px-8 py-6 text-center">
+                      <StatusBadge status={nota.status || 'Pendente'} />
+                    </td>
+                    <td className="px-8 py-6">
+                      <div className="flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-0 translate-x-4">
+                        <button 
+                          onClick={() => handleOpenModal(nota, true)}
+                          className="action-btn-global btn-view" title="Visualizar"
+                        >
+                          <Eye size={18} strokeWidth={2.5} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setCurrentNotaForDanfe(nota);
+                            setIsDanfeOpen(true);
+                          }}
+                          className="action-btn-global btn-edit" title="Imprimir DANFE"
+                        >
+                          <Printer size={18} strokeWidth={2.5} />
+                        </button>
+                        {nota.status === 'Pendente' && (
+                          <>
+                            <button 
+                              onClick={() => handleOpenModal(nota)}
+                              className="action-btn-global btn-edit" title="Editar"
+                            >
+                              <Edit size={18} strokeWidth={2.5} />
+                            </button>
+                            <button 
+                              onClick={() => {
+                                if(confirm('Deseja excluir permanentemente esta nota?')) {
+                                  db.pedidos_venda.delete(nota.id);
+                                }
+                              }}
+                              className="action-btn-global btn-delete" title="Excluir"
+                            >
+                              <Trash2 size={18} strokeWidth={2.5} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              }) : (
+                <tr>
+                  <td colSpan={6} className="px-8 py-20 text-center">
+                    <div className="flex flex-col items-center gap-4 opacity-40">
+                      <FileText size={64} strokeWidth={1} />
+                      <p className="text-lg font-bold text-slate-400">Nenhum documento encontrado</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="p-8 border-t border-slate-100 bg-slate-50/50">
+          <TablePagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            totalItems={totalItems}
+            onPageChange={goToPage}
+            onNextPage={handleNextPage}
+            onPrevPage={handlePrevPage}
+            onItemsPerPageChange={setItemsPerPage}
+          />
+        </div>
+      </div>
+
+      <ModernModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title={isViewMode ? 'Visualizar NF-e' : (selectedNota ? 'Editar NF-e' : 'Emissão de Nota de Saída')}
-        subtitle="Preencha os dados fiscais conforme a legislação vigente."
+        onClose={() => !isTransmitting && setIsModalOpen(false)}
+        title={isViewMode ? 'Visualizar NF-e' : selectedNota ? 'Editar Nota Fiscal' : 'Emissão de Nota de Saída'}
+        subtitle="Confira minuciosamente os dados fiscais e o destinatário para evitar rejeições SEFAZ."
         icon={FileText}
         footer={
-          <div className="footer-actions flex justify-between w-full">
-            <div className="flex gap-2">
-              {transmissionError && (
-                <div className="px-3 py-2 bg-red-50 text-red-600 rounded-lg text-xs font-medium border border-red-100 flex items-center gap-2">
-                  <span>{transmissionError}</span>
-                </div>
-              )}
+          <div className="flex justify-between items-center w-full">
+             <div className="hidden sm:flex items-center gap-4 px-6 py-3 bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden relative group">
+              <div className="absolute inset-0 bg-indigo-500/10 blur-xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest relative z-10">Valor da Nota:</span>
+              <span className="text-2xl font-black text-white tracking-tighter relative z-10 tabular-nums">
+                R$ {formData.valorTotal?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
             </div>
-            <div className="flex gap-3">
-              <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)} disabled={isTransmitting}>Cancelar</button>
-              
+            
+            <div className="flex gap-4">
+              <button
+                type="button"
+                className="btn-premium-outline h-12 px-8"
+                onClick={() => setIsModalOpen(false)}
+                disabled={isTransmitting}
+              >
+                {isViewMode ? 'Fechar' : 'Cancelar'}
+              </button>
               {!isViewMode && (
                 <>
-                  {(formData.status === 'Pendente' || formData.status === 'Rejeitada') && formData.id && (
-                    <button 
-                      className="btn-premium-solid emerald" 
-                      onClick={handleTransmit}
-                      disabled={isTransmitting}
-                    >
-                      {isTransmitting ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/20 border-t-white" />
-                      ) : (
-                        <TrendingUp size={18} strokeWidth={3} />
-                      )}
-                      <span>{isTransmitting ? 'Transmitindo...' : 'Transmitir NF-e'}</span>
-                    </button>
-                  )}
-                  
-                  <button className="btn-premium-solid indigo" onClick={handleSave} disabled={isTransmitting}>
-                    <CheckCircle2 size={18} strokeWidth={3} />
-                    <span>{selectedNota ? 'Salvar Alterações' : 'Salvar como Pendente'}</span>
+                  <button
+                    type="button"
+                    className="btn-premium-solid h-12 px-8 indigo shadow-lg shadow-indigo-100 min-w-[180px]"
+                    onClick={handleTransmit}
+                    disabled={isTransmitting}
+                  >
+                    {isTransmitting ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Transmitindo...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                         <Activity size={18} />
+                         <span>Transmitir SEFAZ</span>
+                      </div>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-premium-solid h-12 px-8 emerald shadow-lg shadow-emerald-100"
+                    onClick={handleSave}
+                    disabled={isTransmitting}
+                  >
+                    <CheckCircle2 size={18} />
+                    <span>Salvar Nota</span>
                   </button>
                 </>
               )}
             </div>
           </div>
         }
-        size="xl"
       >
-        <div className="invoice-container">
+        {transmissionError && (
+          <div className="mx-8 mt-8 p-6 bg-rose-50 border border-rose-100 rounded-[32px] flex items-start gap-4 animate-premium-fade-up">
+            <div className="p-3 bg-white rounded-2xl text-rose-600 shadow-sm border border-rose-100">
+              <AlertTriangle size={24} />
+            </div>
+            <div className="flex-1">
+              <p className="font-black text-rose-900 text-sm uppercase tracking-widest mb-1">Rejeição SEFAZ</p>
+              <p className="text-rose-600 text-sm font-bold leading-relaxed">{transmissionError}</p>
+            </div>
+            <button onClick={() => setTransmissionError(null)} className="p-2 text-rose-300 hover:text-rose-600 transition-colors">
+              <X size={20} />
+            </button>
+          </div>
+        )}
+
+        <div className="space-y-12">
           <InvoiceHeader 
             data={formData} 
-            onChange={(newData) => setFormData(newData)} 
-            clientes={clientes} 
-            empresas={empresasList as Company[]}
+            onChange={setFormData as any} 
+            clientes={clientes as any} 
+            empresas={empresasList as any}
             isViewMode={isViewMode}
           />
           
           <InvoiceItems 
             data={formData} 
-            onChange={(newData) => setFormData(newData)} 
+            onChange={setFormData as any} 
             isViewMode={isViewMode}
           />
           
           <InvoiceFooter 
             data={formData} 
-            onChange={(newData) => setFormData(newData)} 
+            onChange={setFormData as any} 
             isViewMode={isViewMode}
           />
         </div>
-      </StandardModal>
+      </ModernModal>
 
+      {/* DANFE Modal */}
       {isDanfeOpen && currentNotaForDanfe && (
         <DanfeModal 
           nota={currentNotaForDanfe}
@@ -516,4 +482,4 @@ export const NotasSaida = () => {
       )}
     </div>
   );
-};
+}

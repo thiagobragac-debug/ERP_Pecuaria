@@ -15,10 +15,11 @@ import {
   User,
   History,
   TrendingUp,
-  Filter
+  Filter,
+  CheckCircle2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { StandardModal } from '../../components/StandardModal';
+import { ModernModal } from '../../components/ModernModal';
 import { TablePagination } from '../../components/TablePagination';
 import { TableFilters } from '../../components/TableFilters';
 import { usePagination } from '../../hooks/usePagination';
@@ -26,21 +27,25 @@ import { ColumnFilters } from '../../components/ColumnFilters';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../services/db';
 import { dataService } from '../../services/dataService';
-import { supabase } from '../../services/supabase';
+import { useAuth } from '../../contexts/AuthContext';
+import { SummaryCard } from '../../components/SummaryCard';
+import { SearchableSelect } from '../../components/SearchableSelect';
+import { useOfflineQuery, useOfflineMutation } from '../../hooks/useOfflineSync';
+import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 import { Asset, Abastecimento as AbastecimentoType } from '../../types';
-import { INITIAL_COMPANIES } from '../../data/initialData';
-import { useCompany } from '../../contexts/CompanyContext';
 import './Abastecimento.css';
 
 
 export const Abastecimento: React.FC = () => {
-  const { activeCompanyId } = useCompany();
-  const allRecords = useLiveQuery(() => db.abastecimentos.toArray()) || [];
-  const allAssets = useLiveQuery(() => db.ativos.toArray()) || [];
+  const { user: currentUser, currentOrg } = useAuth();
+  const isOnline = useOnlineStatus();
+  
+  const { data: records = [], isLoading: loadingRecords } = useOfflineQuery<AbastecimentoType>(['abastecimentos'], 'abastecimentos');
+  const { data: assets = [], isLoading: loadingAssets } = useOfflineQuery<Asset>(['ativos'], 'ativos');
+  
+  const saveAbastecimentoMutation = useOfflineMutation<AbastecimentoType>('abastecimentos', [['abastecimentos']]);
+  const deleteAbastecimentoMutation = useOfflineMutation<{ id: string }>('abastecimentos', [['abastecimentos']], 'delete');
 
-  // Filter by active company
-  const records = allRecords.filter(r => activeCompanyId === 'Todas' || r.empresaId === activeCompanyId);
-  const assets = allAssets.filter(a => activeCompanyId === 'Todas' || a.empresaId === activeCompanyId);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const [columnFilters, setColumnFilters] = useState({
@@ -78,20 +83,17 @@ export const Abastecimento: React.FC = () => {
     }
 
     try {
-      const { data: auth } = await supabase.auth.getUser();
-      const user = auth?.user;
-      const tenant_id = user?.user_metadata?.tenant_id || 'default';
       const asset = assets.find(a => a.id === formData.ativo_id);
 
       const newRecord: AbastecimentoType = {
         ...formData,
-        id: Math.random().toString(36).substr(2, 9),
+        id: (formData as any).id || Math.random().toString(36).substr(2, 9),
         ativo_nome: asset?.nome || 'N/A',
-        empresaId: asset?.empresaId || (activeCompanyId === 'Todas' ? undefined : activeCompanyId),
-        tenant_id
+        empresaId: asset?.empresaId || currentOrg?.id,
+        tenant_id: currentOrg?.id || 'default'
       } as AbastecimentoType;
 
-      await dataService.saveItem('abastecimentos', newRecord);
+      await saveAbastecimentoMutation.mutateAsync(newRecord);
       setIsModalOpen(false);
       setFormData({
         data: new Date().toISOString().split('T')[0],
@@ -105,7 +107,7 @@ export const Abastecimento: React.FC = () => {
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Excluir este abastecimento?')) {
-      await dataService.deleteItem('abastecimentos', id);
+      await deleteAbastecimentoMutation.mutateAsync({ id });
     }
   };
 
@@ -151,56 +153,46 @@ export const Abastecimento: React.FC = () => {
           </div>
         </div>
         <div className="header-actions">
-          <button className="btn-premium-solid indigo h-11 px-6 flex items-center gap-2" onClick={() => setIsModalOpen(true)}>
-            <Plus size={18} strokeWidth={3} /> Novo Lançamento
+          <button className="btn-premium-solid indigo" onClick={() => setIsModalOpen(true)}>
+            <span>Novo Lançamento</span>
+            <Plus size={18} strokeWidth={3} />
           </button>
         </div>
       </div>
 
       <div className="summary-grid">
-        <div className="summary-card glass animate-slide-up">
-          <div className="summary-info">
-            <span className="summary-label">Gasto Total (Mês)</span>
-            <span className="summary-value">R$ 5.420</span>
-            <span className="summary-subtext desc">Volume total: 980L</span>
-          </div>
-          <div className="summary-icon blue">
-            <DollarSign size={28} strokeWidth={3} />
-          </div>
-        </div>
-
-        <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Autonomia Rebanho</span>
-            <span className="summary-value">12 <small>dias</small></span>
-            <span className="summary-subtext desc">Tanque central: 45%</span>
-          </div>
-          <div className="summary-icon emerald">
-            <Droplet size={28} strokeWidth={3} />
-          </div>
-        </div>
-
-        <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.2s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Média L/h (Tratores)</span>
-            <span className="summary-value">8.42</span>
-            <span className="summary-subtext desc">Ideal estipulado: 8.0</span>
-          </div>
-          <div className="summary-icon indigo">
-            <Gauge size={28} strokeWidth={3} />
-          </div>
-        </div>
-
-        <div className="summary-card glass animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <div className="summary-info">
-            <span className="summary-label">Eficiência Mensal</span>
-            <span className="summary-value">+4.2%</span>
-            <span className="summary-subtext desc">Vs. mês anterior</span>
-          </div>
-          <div className="summary-icon orange">
-            <TrendingUp size={28} strokeWidth={3} />
-          </div>
-        </div>
+        <SummaryCard 
+          label="Gasto Total (Mês)"
+          value={`R$ ${totalGasto.toLocaleString()}`}
+          icon={DollarSign}
+          color="blue"
+          delay="0s"
+          subtext={`Volume total: ${records.reduce((acc, r) => acc + r.quantidade, 0).toFixed(1)}L`}
+        />
+        <SummaryCard 
+          label="Autonomia Rebanho"
+          value="12 dias"
+          icon={Droplet}
+          color="emerald"
+          delay="0.1s"
+          subtext="Tanque central: 45%"
+        />
+        <SummaryCard 
+          label="Média Frota (L/h)"
+          value="8.42"
+          icon={Gauge}
+          color="indigo"
+          delay="0.2s"
+          subtext="Base: Tratores"
+        />
+        <SummaryCard 
+          label="Eficiência Mensal"
+          value="+4.2%"
+          icon={TrendingUp}
+          color="amber"
+          delay="0.3s"
+          subtext="Vs. mês anterior"
+        />
       </div>
 
       <div className="data-section">
@@ -211,7 +203,7 @@ export const Abastecimento: React.FC = () => {
           actionsLabel="Filtragem"
         >
           <button 
-            className={`btn-premium-outline h-11 px-6 flex items-center gap-2 ${isFiltersOpen ? 'filter-active' : ''}`}
+            className={`btn-premium-outline ${isFiltersOpen ? 'filter-active' : ''}`}
             onClick={() => setIsFiltersOpen(!isFiltersOpen)}
           >
             <Filter size={18} strokeWidth={3} />
@@ -320,66 +312,89 @@ export const Abastecimento: React.FC = () => {
 
       </div>
 
-      <StandardModal
+      <ModernModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Lançar Abastecimento"
         subtitle="Informe os detalhes do consumo de combustível"
         icon={Droplet}
-        size="lg"
         footer={
-          <div className="flex gap-3 w-full justify-end">
-            <button className="btn-premium-outline px-6" onClick={() => setIsModalOpen(false)}>Cancelar</button>
-            <button className="btn-premium-solid indigo px-6" onClick={handleSave}>Salvar Lançamento</button>
-          </div>
+          <>
+            <button className="btn-premium-outline" onClick={() => setIsModalOpen(false)}>
+              <X size={18} strokeWidth={3} />
+              <span>Cancelar</span>
+            </button>
+            <button className="btn-premium-solid indigo" onClick={handleSave}>
+              <span>Salvar Lançamento</span>
+              <CheckCircle2 size={18} strokeWidth={3} />
+            </button>
+          </>
         }
       >
         <div className="form-sections-grid">
           <div className="form-section">
+            <div className="form-section-title">
+              <Fuel size={20} />
+              <span>Dados do Abastecimento</span>
+            </div>
             <div className="form-grid">
               <div className="form-group col-12">
-                <label>Ativo / Equipamento</label>
-                <select required value={formData.ativo_id} onChange={(e) => setFormData({...formData, ativo_id: e.target.value})}>
-                  <option value="">Selecione o ativo...</option>
-                  {assets.filter(a => {
-                    const company = INITIAL_COMPANIES.find(c => c.id === a.empresaId);
-                    return !company || company.status === 'Ativa';
-                  }).map(a => <option key={a.id} value={a.id}>{a.nome} ({a.placaOuSerie})</option>)}
-                </select>
+                <SearchableSelect
+                  label="Ativo / Equipamento"
+                  options={assets.map(a => ({ id: a.id, label: a.nome, sublabel: a.placaOuSerie }))}
+                  value={formData.ativo_id || ''}
+                  onChange={(val) => setFormData({ ...formData, ativo_id: val })}
+                  required
+                />
               </div>
               <div className="form-group col-6">
                 <label>Data</label>
                 <input type="date" required value={formData.data} onChange={(e) => setFormData({...formData, data: e.target.value})} />
               </div>
               <div className="form-group col-6">
-                <label>Tipo de Combustível</label>
-                <select value={formData.combustivel} onChange={(e) => setFormData({...formData, combustivel: e.target.value as any})}>
-                  <option value="Diesel S10">Diesel S10</option>
-                  <option value="Diesel S500">Diesel S500</option>
-                  <option value="Gasolina">Gasolina</option>
-                  <option value="Etanol">Etanol</option>
-                </select>
+                <SearchableSelect
+                  label="Tipo de Combustível"
+                  options={[
+                    { id: 'Diesel S10', label: 'Diesel S10' },
+                    { id: 'Diesel S500', label: 'Diesel S500' },
+                    { id: 'Gasolina', label: 'Gasolina' },
+                    { id: 'Etanol', label: 'Etanol' },
+                    { id: 'Arla', label: 'Arla' }
+                  ]}
+                  value={formData.combustivel || ''}
+                  onChange={(val) => setFormData({ ...formData, combustivel: val as any })}
+                />
               </div>
-              <div className="form-group col-4">
-                <label>Volume (Litros)</label>
-                <input type="number" required placeholder="0.00" onChange={(e) => setFormData({...formData, quantidade: parseFloat(e.target.value) || 0})} />
               </div>
-              <div className="form-group col-4">
-                <label>Valor Total (R$)</label>
-                <input type="number" required placeholder="0.00" onChange={(e) => setFormData({...formData, valorTotal: parseFloat(e.target.value) || 0})} />
+
+              <div className="form-divider" />
+
+              <div className="form-grid">
+                <div className="form-group col-4">
+                  <label>Volume (Litros)</label>
+                  <input type="number" required placeholder="0.00" onChange={(e) => setFormData({...formData, quantidade: parseFloat(e.target.value) || 0})} />
+                </div>
+                <div className="form-group col-4">
+                  <label>Valor Total (R$)</label>
+                  <input type="number" required placeholder="0.00" onChange={(e) => setFormData({...formData, valorTotal: parseFloat(e.target.value) || 0})} />
+                </div>
+                <div className="form-group col-4">
+                  <label>Horímetro / Odômetro</label>
+                  <input type="number" required placeholder="Leitura atual" onChange={(e) => setFormData({...formData, odometroHorimetro: parseInt(e.target.value) || 0})} />
+                </div>
               </div>
-              <div className="form-group col-4">
-                <label>Horímetro / Odômetro</label>
-                <input type="number" required placeholder="Leitura atual" onChange={(e) => setFormData({...formData, odometroHorimetro: parseInt(e.target.value) || 0})} />
-              </div>
-              <div className="form-group col-12">
-                <label>Operador / Motorista</label>
-                <input type="text" placeholder="Nome do responsável" onChange={(e) => setFormData({...formData, operador: e.target.value})} />
+
+              <div className="form-divider" />
+
+              <div className="form-grid">
+                <div className="form-group col-12">
+                  <label>Operador / Motorista</label>
+                  <input type="text" placeholder="Nome do responsável" onChange={(e) => setFormData({...formData, operador: e.target.value})} />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </StandardModal>
+      </ModernModal>
     </div>
   );
 };

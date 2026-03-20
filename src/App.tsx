@@ -48,7 +48,7 @@ import { SolicitacaoCompraPage } from './pages/compra/SolicitacaoCompra';
 import { MapaCotacaoPage } from './pages/compra/MapaCotacao';
 import { PedidoCompraPage } from './pages/compra/PedidoCompra';
 import { RelatoriosRebanho } from './pages/pecuaria/RelatoriosRebanho';
-import { NotasEntradaPage } from './pages/compra/NotasEntrada';
+import { NotasEntrada as NotasEntradaPage } from './pages/compra/NotasEntrada';
 import { ContasPagar } from './pages/financeiro/ContasPagar';
 import { ContasReceber } from './pages/financeiro/ContasReceber';
 import { NotasSaida } from './pages/vendas/notas/NotasSaida';
